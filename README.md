@@ -81,7 +81,7 @@ pytest
 ```text
 ai-std/
 ├── README.md
-├── 01-3-month-learning-plan.md
+├── 01-ai-agent-learning-roadmap.md
 ├── projects/
 │   ├── rag-pdf-qa/
 │   └── customer-service-agent/
@@ -94,7 +94,7 @@ ai-std/
 - `projects/`：项目代码和项目文档
 - `interview/`：面试准备材料
 - `notes/`：学习笔记
-- `01-3-month-learning-plan.md`：阶段性学习路线
+- `01-ai-agent-learning-roadmap.md`：AI Agent 学习阶段路线
 
 ---
 
@@ -143,4 +143,3 @@ __pycache__/
 这个仓库记录的是：
 
 > 从后端工程师视角，一步一步把 LLM、RAG、向量数据库、测试、文档和 Agent 工程化串起来的学习实践。
-
