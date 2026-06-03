@@ -1,0 +1,463 @@
+from typing import Any
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
+
+from app.config import get_settings
+from app.deepseek_client import DeepSeekClient, DeepSeekClientError
+from app.embedding_client import EmbeddingError, embed_text
+from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
+from app.text_splitter import TextSplitError, split_pdf_text
+from app.vector_store import (
+    SearchResult,
+    VectorStoreError,
+    ensure_collection,
+    get_qdrant_client,
+    search_chunks,
+    upsert_chunks,
+)
+
+
+class UTF8JSONResponse(JSONResponse):
+    media_type = "application/json; charset=utf-8"
+
+
+app = FastAPI(
+    title="RAG PDF QA",
+    version="0.1.0",
+    default_response_class=UTF8JSONResponse,
+)
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    model: str
+    usage: dict[str, Any] | None = None
+
+
+class ExtractedPageResponse(BaseModel):
+    page_number: int
+    char_count: int
+    preview: str
+
+
+class PdfExtractResponse(BaseModel):
+    filename: str
+    page_count: int
+    char_count: int
+    preview: str
+    scanned_like: bool
+    pages: list[ExtractedPageResponse]
+
+
+class TextChunkResponse(BaseModel):
+    chunk_id: int
+    page_number: int
+    char_count: int
+    text: str
+
+
+class PdfChunkResponse(BaseModel):
+    filename: str
+    page_count: int
+    char_count: int
+    chunk_size: int
+    overlap: int
+    chunk_count: int
+    scanned_like: bool
+    chunks: list[TextChunkResponse]
+
+
+class EmbeddingRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=8000)
+
+
+class EmbeddingResponse(BaseModel):
+    text: str
+    model: str
+    dimension: int
+    embedding_preview: list[float]
+
+
+class DocumentIndexResponse(BaseModel):
+    filename: str
+    collection: str
+    page_count: int
+    chunk_count: int
+    indexed_count: int
+    dimension: int
+    local_path: str
+
+
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    limit: int = Field(default=5, ge=1, le=20)
+
+
+class SearchResultResponse(BaseModel):
+    score: float
+    filename: str
+    page_number: int
+    chunk_id: int
+    text: str
+
+
+class SearchResponse(BaseModel):
+    query: str
+    collection: str
+    limit: int
+    results: list[SearchResultResponse]
+
+
+class RagAskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    limit: int = Field(default=5, ge=1, le=10)
+    score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class RagSourceResponse(BaseModel):
+    source_id: int
+    score: float
+    filename: str
+    page_number: int
+    chunk_id: int
+    preview: str
+
+
+class RagAskResponse(BaseModel):
+    question: str
+    reply: str
+    model: str
+    collection: str
+    score_threshold: float | None = None
+    retrieved_count: int
+    source_count: int
+    sources: list[RagSourceResponse]
+    usage: dict[str, Any] | None = None
+
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest) -> ChatResponse:
+    settings = get_settings()
+    client = DeepSeekClient(settings)
+
+    try:
+        result = await client.chat(request.message)
+    except DeepSeekClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return ChatResponse(**result)
+
+
+@app.post("/documents/extract", response_model=PdfExtractResponse)
+async def extract_document(file: UploadFile = File(...)) -> PdfExtractResponse:
+    filename = file.filename or "uploaded.pdf"
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    content = await file.read()
+    max_size = 10 * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
+
+    try:
+        extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
+    except PdfExtractionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return PdfExtractResponse(
+        filename=extracted.filename,
+        page_count=extracted.page_count,
+        char_count=extracted.char_count,
+        preview=extracted.preview,
+        scanned_like=extracted.scanned_like,
+        pages=[
+            ExtractedPageResponse(
+                page_number=page.page_number,
+                char_count=page.char_count,
+                preview=page.preview,
+            )
+            for page in extracted.pages
+        ],
+    )
+
+
+@app.post("/documents/chunk", response_model=PdfChunkResponse)
+async def chunk_document(
+    file: UploadFile = File(...),
+    chunk_size: int = Form(800),
+    overlap: int = Form(100),
+) -> PdfChunkResponse:
+    filename = file.filename or "uploaded.pdf"
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    content = await file.read()
+    max_size = 10 * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
+
+    try:
+        extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
+        chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
+    except PdfExtractionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except TextSplitError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return PdfChunkResponse(
+        filename=extracted.filename,
+        page_count=extracted.page_count,
+        char_count=extracted.char_count,
+        chunk_size=chunk_size,
+        overlap=overlap,
+        chunk_count=len(chunks),
+        scanned_like=extracted.scanned_like,
+        chunks=[
+            TextChunkResponse(
+                chunk_id=chunk.chunk_id,
+                page_number=chunk.page_number,
+                char_count=chunk.char_count,
+                text=chunk.text,
+            )
+            for chunk in chunks
+        ],
+    )
+
+
+@app.post("/embeddings/text", response_model=EmbeddingResponse)
+async def create_text_embedding(request: EmbeddingRequest) -> EmbeddingResponse:
+    settings = get_settings()
+
+    try:
+        vector = await run_in_threadpool(
+            embed_text,
+            text=request.text,
+            model_name=settings.embedding_model,
+        )
+    except EmbeddingError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return EmbeddingResponse(
+        text=request.text,
+        model=settings.embedding_model,
+        dimension=len(vector),
+        embedding_preview=vector[:10],
+    )
+
+
+@app.post("/documents/index", response_model=DocumentIndexResponse)
+async def index_document(
+    file: UploadFile = File(...),
+    chunk_size: int = Form(800),
+    overlap: int = Form(100),
+) -> DocumentIndexResponse:
+    filename = file.filename or "uploaded.pdf"
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    content = await file.read()
+    max_size = 10 * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
+
+    settings = get_settings()
+    try:
+        extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
+        chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
+        if not chunks:
+            raise VectorStoreError("No text chunks to index")
+
+        vectors = await run_in_threadpool(
+            lambda: [embed_text(chunk.text, settings.embedding_model) for chunk in chunks]
+        )
+        dimension = len(vectors[0])
+        client = get_qdrant_client(settings.qdrant_local_path)
+        ensure_collection(client, settings.qdrant_collection, dimension)
+        indexed_count = upsert_chunks(
+            client=client,
+            collection_name=settings.qdrant_collection,
+            filename=filename,
+            chunks=chunks,
+            vectors=vectors,
+        )
+    except (PdfExtractionError, TextSplitError, EmbeddingError, VectorStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return DocumentIndexResponse(
+        filename=filename,
+        collection=settings.qdrant_collection,
+        page_count=extracted.page_count,
+        chunk_count=len(chunks),
+        indexed_count=indexed_count,
+        dimension=dimension,
+        local_path=settings.qdrant_local_path,
+    )
+
+
+@app.post("/documents/search", response_model=SearchResponse)
+async def search_documents(request: SearchRequest) -> SearchResponse:
+    settings = get_settings()
+    try:
+        query_vector = await run_in_threadpool(
+            embed_text,
+            text=request.query,
+            model_name=settings.embedding_model,
+        )
+        client = get_qdrant_client(settings.qdrant_local_path)
+        retrieved_results = search_chunks(
+            client=client,
+            collection_name=settings.qdrant_collection,
+            query_vector=query_vector,
+            limit=request.limit,
+        )
+    except (EmbeddingError, VectorStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return SearchResponse(
+        query=request.query,
+        collection=settings.qdrant_collection,
+        limit=request.limit,
+        results=[
+            _to_search_result_response(result)
+            for result in retrieved_results
+        ],
+    )
+
+
+@app.post("/rag/ask", response_model=RagAskResponse)
+async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
+    settings = get_settings()
+
+    try:
+        query_vector = await run_in_threadpool(
+            embed_text,
+            text=request.question,
+            model_name=settings.embedding_model,
+        )
+        client = get_qdrant_client(settings.qdrant_local_path)
+        retrieved_results = search_chunks(
+            client=client,
+            collection_name=settings.qdrant_collection,
+            query_vector=query_vector,
+            limit=request.limit,
+        )
+    except (EmbeddingError, VectorStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    results = _filter_results_by_score(retrieved_results, request.score_threshold)
+
+    if not retrieved_results:
+        raise HTTPException(status_code=404, detail="No related document chunks found. Index a document first.")
+
+    if not results:
+        raise HTTPException(
+            status_code=404,
+            detail="No document chunks met score_threshold. Lower score_threshold or try another question.",
+        )
+
+    deepseek_client = DeepSeekClient(settings)
+    messages = _build_rag_messages(question=request.question, results=results)
+
+    try:
+        answer = await deepseek_client.chat_messages(
+            messages=messages,
+            max_tokens=1200,
+            temperature=0.1,
+        )
+    except DeepSeekClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return RagAskResponse(
+        question=request.question,
+        reply=answer["reply"],
+        model=answer["model"],
+        collection=settings.qdrant_collection,
+        score_threshold=request.score_threshold,
+        retrieved_count=len(retrieved_results),
+        source_count=len(results),
+        sources=[
+            _to_rag_source_response(index, result)
+            for index, result in enumerate(results, start=1)
+        ],
+        usage=answer.get("usage"),
+    )
+
+
+def _to_search_result_response(result: SearchResult) -> SearchResultResponse:
+    return SearchResultResponse(
+        score=result.score,
+        filename=result.filename,
+        page_number=result.page_number,
+        chunk_id=result.chunk_id,
+        text=result.text,
+    )
+
+
+def _to_rag_source_response(source_id: int, result: SearchResult, preview_chars: int = 180) -> RagSourceResponse:
+    preview = " ".join(result.text.split())[:preview_chars]
+    return RagSourceResponse(
+        source_id=source_id,
+        score=result.score,
+        filename=result.filename,
+        page_number=result.page_number,
+        chunk_id=result.chunk_id,
+        preview=preview,
+    )
+
+
+def _filter_results_by_score(
+    results: list[SearchResult],
+    score_threshold: float | None,
+) -> list[SearchResult]:
+    if score_threshold is None:
+        return results
+    return [result for result in results if result.score >= score_threshold]
+
+
+def _build_rag_messages(question: str, results: list[SearchResult]) -> list[dict[str, str]]:
+    context = "\n\n".join(
+        (
+            f"[Source {index}] file: {result.filename} | page: {result.page_number} | "
+            f"chunk_id: {result.chunk_id} | score: {result.score:.4f}\n{result.text}"
+        )
+        for index, result in enumerate(results, start=1)
+    )
+
+    system_prompt = (
+        "You are a strict local knowledge-base QA assistant. "
+        "Answer only from the retrieved context supplied by the user. "
+        "If the context is insufficient, say so directly and do not invent facts. "
+        "Prefer Chinese. Cite key claims with source ids, for example [Source 1]. "
+        "Always answer with exactly these three Markdown sections: "
+        "答案：, 依据：, 资料不足之处：."
+    )
+    user_prompt = (
+        f"User question:\n{question}\n\n"
+        f"Retrieved context:\n{context}\n\n"
+        "Answer based on the retrieved context above.\n\n"
+        "Use this output format:\n"
+        "答案：\n"
+        "- 用中文给出直接回答。关键结论后标注来源，例如 [Source 1]。\n\n"
+        "依据：\n"
+        "- [Source 1] 写出该来源支持了什么结论。\n"
+        "- 如果使用多个来源，逐条列出。\n\n"
+        "资料不足之处：\n"
+        "- 如果资料足够，写“未发现明显不足”。\n"
+        "- 如果资料不足，明确说明缺少什么，不要编造。"
+    )
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
