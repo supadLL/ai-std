@@ -1,30 +1,146 @@
-# AI Study — 后端转 AI Agent 学习实践
+# AI Study 🚀
 
-## 目录结构
+这是一个用于系统学习 AI Agent、RAG 和大模型工程化的实践仓库。
 
+仓库目标不是只看课程或做零散 demo，而是通过一个个可运行、可测试、可复盘的小项目，把后端工程能力逐步迁移到 AI 应用开发中。
+
+---
+
+## 这个仓库在做什么 🧭
+
+当前主线：
+
+```text
+后端基础
+-> FastAPI 服务
+-> LLM API 接入
+-> Embedding / 向量数据库
+-> RAG 检索问答
+-> 多文档知识库
+-> UI 交互页面
+-> 最小 AI Agent 工具路由
 ```
+
+学习重点：
+
+- 🧠 理解 AI Agent 和 RAG 的底层链路
+- 🛠️ 用真实代码实现可运行项目
+- 📚 为每一步补充 goal / summary 文档
+- 🧪 用测试和评估记录项目质量
+- 🔐 保护 API Key，不把真实密钥推送到仓库
+
+---
+
+## 当前重点项目 📌
+
+### `projects/rag-pdf-qa`
+
+本地 RAG PDF 问答项目。
+
+技术栈：
+
+```text
+FastAPI
+DeepSeek API
+fastembed
+Qdrant local
+pytest
+```
+
+当前已经实现：
+
+- ✅ DeepSeek `/chat` 最小调用
+- ✅ PDF 文本提取
+- ✅ chunk 文本切分
+- ✅ fastembed 本地向量化
+- ✅ Qdrant 本地向量索引与语义检索
+- ✅ `/rag/ask` 最小 RAG 问答
+- ✅ `score_threshold` 低分过滤
+- ✅ sources 返回结构优化
+- ✅ RAG 回答固定为“答案 / 依据 / 资料不足之处”
+- ✅ 最小 pytest 回归测试
+- ✅ `docs/goal` 和 `docs/summary` 文档工作流
+
+下一步：
+
+```text
+第 14 步：建立 RAG 评估问题集
+```
+
+入口文档：
+
+- [rag-pdf-qa README](projects/rag-pdf-qa/README.md)
+- [项目续接规范](projects/rag-pdf-qa/docs/00-project-continuation-guide.md)
+- [goal 执行文档](projects/rag-pdf-qa/docs/goal/README.md)
+- [summary 总结文档](projects/rag-pdf-qa/docs/summary/README.md)
+
+---
+
+## 目录结构 🗂️
+
+```text
 ai-std/
-├── README.md                      ← 本文件（目录索引）
-├── 01-3-month-learning-plan.md    ← 3 个月在职学习路线图
-├── projects/                      ← 项目源码（待创建）
-│   ├── rag-pdf-qa/                ← 项目1：RAG PDF 智能问答
-│   └── customer-service-agent/    ← 项目2：智能客服 Agent
-├── interview/                     ← 面试准备（待创建）
-│   ├── question-bank.md           ← 高频面试题 + 答题思路
-│   └── mistake-log.md             ← 面试错题本
-└── notes/                         ← 学习笔记（待创建）
-    └── ...
+├── README.md
+├── 01-3-month-learning-plan.md
+├── projects/
+│   ├── rag-pdf-qa/
+│   └── customer-service-agent/
+├── interview/
+└── notes/
 ```
 
-## 快速开始
+说明：
 
-1. 先读 `01-3-month-learning-plan.md`，了解整体路线
-2. 按计划第 1 周开始搭建环境
-3. 每周日更新进度
+- `projects/`：项目代码和项目文档
+- `interview/`：面试准备材料
+- `notes/`：学习笔记
+- `01-3-month-learning-plan.md`：阶段性学习路线
 
-## 学习原则
+---
 
-- 工作日晚上充电（读文档、写面试答案、review 代码）
-- 周末输出（写新功能、调参、写文档）
-- 项目 > 课程，吃透 > 吹大
-- 每次面试后 10 分钟复盘
+## 项目推进方式 🧩
+
+重要项目统一使用下面的节奏：
+
+```text
+先写 goal
+-> 再写代码
+-> 跑测试和验证
+-> 最后写 summary
+-> 更新 README / 续接文档
+```
+
+这样做是为了减少新对话、新窗口、新阶段接手项目时的上下文损耗。
+
+---
+
+## 安全约定 🔐
+
+不要提交真实 API Key。
+
+本仓库会提交：
+
+```text
+.env.example
+```
+
+不会提交：
+
+```text
+.env
+.venv/
+.qdrant/
+.pytest_cache/
+__pycache__/
+```
+
+真实配置只放在本地 `.env` 中。
+
+---
+
+## 一句话总结 ✨
+
+这个仓库记录的是：
+
+> 从后端工程师视角，一步一步把 LLM、RAG、向量数据库、测试、文档和 Agent 工程化串起来的学习实践。
+
