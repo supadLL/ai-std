@@ -64,12 +64,13 @@ pytest
 - ✅ 最小知识库文档管理：列表、详情、删除、`document_id`
 - ✅ `content_hash` 去重与 `reindex=true` 重建索引策略
 - ✅ Markdown 和 txt 文档入库
+- ✅ docx、csv、xlsx 文档入库
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
 
 ```text
-第 19 步：docx 与表格类文档解析
+第 20 步：现代风 RAG Web UI
 ```
 
 入口文档：

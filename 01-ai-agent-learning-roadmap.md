@@ -228,7 +228,7 @@ score 分布
 后续进入：
 
 ```text
-第 19 步：docx 与表格类文档解析
+第 20 步：现代风 RAG Web UI
 ```
 
 ---
@@ -498,15 +498,15 @@ chunk/top_k 参数评估
 知识库文档管理
 content_hash 去重与 reindex 重建索引
 Markdown / txt 文档入库
+docx / csv / xlsx 文档入库
 ```
 
 当前最应该继续做：
 
 ```text
-1. 支持 docx / csv / xlsx
-2. 规划扫描型 PDF OCR
-3. 建立 Web UI
-4. 实现最小 RAG Agent 工具路由
+1. 规划扫描型 PDF OCR
+2. 建立 Web UI
+3. 实现最小 RAG Agent 工具路由
 ```
 
 不要回到“从零学 RAG”的状态。

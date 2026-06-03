@@ -4,6 +4,14 @@
 
 > 在 Markdown/txt 之后，继续扩展 Word 和表格文件的知识库输入能力。
 
+状态：已完成。
+
+完成记录：
+
+```text
+docs/summary/19-docx-table-loader-summary.md
+```
+
 ---
 
 ## 1. 背景
@@ -88,7 +96,6 @@ docs/00-project-continuation-guide.md
 建议新增：
 
 ```text
-docs/summary/19-docx-table-loader-step.md
 docs/summary/19-docx-table-loader-summary.md
 ```
 
@@ -171,4 +178,3 @@ README.md
 docs/00-project-continuation-guide.md
 docs/summary/08-rag-agent-advanced-roadmap.md
 ```
-

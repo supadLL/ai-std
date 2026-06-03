@@ -11,7 +11,7 @@ from starlette.concurrency import run_in_threadpool
 from app.config import get_settings
 from app.deepseek_client import DeepSeekClient, DeepSeekClientError
 from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
-from app.document_loaders import DocumentLoadError, is_supported_text_document, load_text_document_from_bytes
+from app.document_loaders import DocumentLoadError, is_supported_document, load_document_from_bytes
 from app.embedding_client import EmbeddingError, embed_text
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
 from app.text_splitter import TextChunk, TextSplitError, split_parsed_document, split_pdf_text
@@ -210,7 +210,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 async def extract_document(file: UploadFile = File(...)) -> PdfExtractResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
-        raise HTTPException(status_code=400, detail="Only PDF, Markdown, and txt files are supported")
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
 
     content = await file.read()
     max_size = 10 * 1024 * 1024
@@ -599,7 +599,7 @@ def _calculate_content_hash(content: bytes) -> str:
 
 def _is_supported_index_file(filename: str) -> bool:
     lower_filename = filename.lower()
-    return lower_filename.endswith(".pdf") or is_supported_text_document(filename)
+    return lower_filename.endswith(".pdf") or is_supported_document(filename)
 
 
 def _parse_and_split_index_file(
@@ -613,7 +613,7 @@ def _parse_and_split_index_file(
         extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
         return "pdf", extracted.page_count, split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
 
-    parsed = load_text_document_from_bytes(filename=filename, content=content)
+    parsed = load_document_from_bytes(filename=filename, content=content)
     chunks = split_parsed_document(parsed, chunk_size=chunk_size, overlap=overlap)
     return parsed.file_type, len(parsed.sections), chunks
 

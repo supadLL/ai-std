@@ -318,3 +318,57 @@ def test_index_document_accepts_txt_file(monkeypatch):
     assert data["file_type"] == "text"
     assert data["indexed"] is True
     assert fake_store.added_kwargs["file_type"] == "text"
+
+
+def test_index_document_accepts_csv_file(monkeypatch):
+    class FakeDocumentStore:
+        def __init__(self):
+            self.added_kwargs = None
+
+        def get_document_by_content_hash(self, value):
+            return None
+
+        def add_document(self, **kwargs):
+            self.added_kwargs = kwargs
+            return DocumentRecord(
+                document_id=kwargs["document_id"],
+                filename=kwargs["filename"],
+                file_type=kwargs["file_type"],
+                content_hash=kwargs["content_hash"],
+                content_hash_prefix=kwargs["content_hash"][:12],
+                chunk_count=kwargs["chunk_count"],
+                created_at="2026-06-03T00:00:00+00:00",
+                indexed_at="2026-06-03T00:00:00+00:00",
+                source_file_size=kwargs["source_file_size"],
+                collection=kwargs["collection"],
+                chunk_size=kwargs["chunk_size"],
+                overlap=kwargs["overlap"],
+                embedding_model=kwargs["embedding_model"],
+                page_count=kwargs["page_count"],
+                indexed_count=kwargs["indexed_count"],
+            )
+
+    fake_store = FakeDocumentStore()
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="", document_metadata_path="unused.json"),
+    )
+    monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
+    monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
+    monkeypatch.setattr(main, "upsert_chunks", lambda **kwargs: len(kwargs["chunks"]))
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/documents/index",
+        files={"file": ("projects.csv", "name,owner\nCsvRocket,Dana\n".encode("utf-8"), "text/csv")},
+        data={"chunk_size": "100", "overlap": "0"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["file_type"] == "csv"
+    assert data["indexed"] is True
+    assert fake_store.added_kwargs["file_type"] == "csv"

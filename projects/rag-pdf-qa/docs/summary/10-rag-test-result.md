@@ -615,3 +615,36 @@ txt loader
 pytest 14 passed
 ```
 
+---
+
+## 14. 第 19 步补充验证结果
+
+第 19 步已经新增：
+
+```text
+docx loader
+csv loader
+xlsx loader
+```
+
+`POST /documents/index` 现在支持：
+
+```text
+.docx
+.csv
+.xlsx
+```
+
+已运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall app tests scripts
+.\.venv\Scripts\python.exe -m pytest
+```
+
+结果：
+
+```text
+pytest 18 passed
+```
+
