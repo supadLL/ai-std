@@ -7,7 +7,7 @@
 - [项目续接规范：新对话 / 新开发者先读](docs/00-project-continuation-guide.md)
 - [goal 执行文档规范：开工前先读](docs/goal/README.md)
 - [summary 总结文档规范：完成后记录](docs/summary/README.md)
-- [当前下一步 goal：第 22 步项目测试、收口和最终总结](docs/goal/22-tests-and-project-final-summary-goal.md)
+- [项目演示检查清单](docs/summary/project-demo-checklist.md)
 - [第 1 步学习笔记：跑通 FastAPI + DeepSeek `/chat`](docs/summary/01-fastapi-chat-step.md)
 - [第 2 步学习笔记：配置 API Key 并测试 `/chat`](docs/summary/02-api-key-and-chat-test.md)
 - [第 3 步学习笔记：PDF 解析与文件上传接口](docs/summary/03-pdf-extraction-step.md)
@@ -31,6 +31,7 @@
 - [第 19 步完成总结：docx 与表格类文档解析](docs/summary/19-docx-table-loader-summary.md)
 - [第 20 步完成总结：现代风 RAG Web UI 初版](docs/summary/20-modern-web-ui-summary.md)
 - [第 21 步完成总结：最小 RAG Agent 工具路由](docs/summary/21-rag-agent-tool-routing-summary.md)
+- [第 22 步完成总结：项目测试、收口和最终总结](docs/summary/22-tests-and-project-final-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -297,9 +298,13 @@ Invoke-RestMethod `
   } | ConvertTo-Json)
 ```
 
-## 下一步
+## 当前状态
 
-下一步从 [第 22 步：项目测试、收口和最终总结](docs/goal/22-tests-and-project-final-summary-goal.md) 开始。
+当前主线已经收口为：
+
+```text
+本地 RAG Agent 初版
+```
 
 执行顺序保持：
 
@@ -310,5 +315,5 @@ Invoke-RestMethod `
 同步更新 README 和 00 号文档
 ```
 
-当前仍然先不要急着做复杂多 Agent。下一步先对已有功能做项目级收口：测试、文档、启动说明、限制说明和最终总结。
+后续如果继续扩展，不要直接堆复杂多 Agent。建议从 OCR、PDF 表格/图片处理、Web UI Agent 模式切换、回答质量评估或一键启动脚本中选择一个新 goal 继续推进。
 

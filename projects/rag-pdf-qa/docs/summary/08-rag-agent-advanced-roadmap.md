@@ -743,11 +743,13 @@ README 最终要能回答：
 最后同步 README 和 00 号续接规范
 ```
 
-当前下一步 goal：
+当前主线状态：
 
 ```text
-docs/goal/22-tests-and-project-final-summary-goal.md
+已完成到第 22 步：项目测试、收口和最终总结。
 ```
+
+后续如继续扩展，应先从 backlog 中选择一个方向创建新的 goal 文档。
 
 ---
 

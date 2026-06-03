@@ -48,6 +48,8 @@ docs/summary/18-markdown-txt-loader-summary.md
 docs/summary/19-docx-table-loader-summary.md
 docs/summary/20-modern-web-ui-summary.md
 docs/summary/21-rag-agent-tool-routing-summary.md
+docs/summary/22-tests-and-project-final-summary.md
+docs/summary/project-demo-checklist.md
 ```
 
 格式：

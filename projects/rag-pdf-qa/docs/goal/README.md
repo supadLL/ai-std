@@ -119,11 +119,13 @@ docs/00-project-continuation-guide.md
 
 后续建议按下面顺序一步一步实现。
 
-当前下一步：
+当前状态：
 
 ```text
-22-tests-and-project-final-summary-goal.md
+rag-pdf-qa 主线已完成到第 22 步。
 ```
+
+后续如果继续扩展，先创建新的 goal 文档，再写代码。
 
 当前已创建的 goal 文件：
 

@@ -64,7 +64,7 @@ docx / csv / xlsx 文档入库
 本地 RAG Agent 初版
 ```
 
-还没有做最终项目级收口和完整总结。
+当前主线已经完成一次项目级收口。
 
 后续优化路线见：
 
@@ -563,7 +563,7 @@ app/vector_store.py
 PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> DeepSeek 基于 sources 回答。
 
 后续规划已经纳入：
-PDF OCR / 表格抽取 / 图片处理、网页正文等更多知识库输入，以及项目测试收口和最终总结。
+PDF OCR / 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
 PDF、Markdown、txt、docx、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI 初版和 /agent/ask 最小 Agent 路由。
@@ -584,12 +584,17 @@ PDF、Markdown、txt、docx、csv、xlsx 入库，并提供 http://127.0.0.1:800
 
 ## 13. 当前优先级
 
-后续实现从第 22 步继续，必须先读对应 goal 文档。
+当前 `rag-pdf-qa` 主线已经收口。后续如果继续扩展，必须先创建新的 goal 文档。
 
-当前下一步：
+当前可优先从这些方向选择：
 
 ```text
-docs/goal/22-tests-and-project-final-summary-goal.md
+扫描型 PDF OCR
+PDF 表格和图片信息抽取
+Web UI Agent 模式切换
+Agent route_reason 和更稳定的工具选择
+回答质量评估集
+Docker 化或一键启动脚本
 ```
 
 完整后续执行路线：
