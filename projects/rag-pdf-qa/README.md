@@ -63,10 +63,10 @@ Copy-Item .env.example .env
 DEEPSEEK_API_KEY=你的真实 DeepSeek API Key
 ```
 
-## 3. 启动服务
+## 3. 启动 / 唤醒本地 RAG 服务
 
 ```powershell
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 服务地址：
@@ -75,7 +75,67 @@ uvicorn app.main:app --reload
 http://127.0.0.1:8000
 ```
 
-## 4. 测试接口
+Swagger 测试页面：
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+健康检查：
+
+```text
+http://127.0.0.1:8000/health
+```
+
+如果只是换了一个新终端，项目依赖和 `.env` 已经配置过，只需要：
+
+```powershell
+cd ai-std/projects/rag-pdf-qa
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+如果 8000 端口被旧服务占用，先关闭旧终端，或在 PowerShell 中查看占用进程：
+
+```powershell
+Get-NetTCPConnection -LocalPort 8000
+```
+
+## 4. 其他人 clone 后如何启用
+
+别人从 GitHub 拉取项目后，不会带有你的本地运行数据：
+
+```text
+.env
+.qdrant/
+data/documents.json
+```
+
+所以首次使用必须重新做三件事：
+
+```text
+1. 创建 .venv 并安装 requirements.txt
+2. 创建 .env 并写入自己的 DEEPSEEK_API_KEY
+3. 通过 POST /documents/index 上传 PDF，重新建立本地知识库
+```
+
+本项目使用的是 Qdrant local 模式，不需要单独启动 Qdrant Docker。
+
+如果想让同一局域网的其他电脑访问，可以改成：
+
+```powershell
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+然后在其他电脑访问：
+
+```text
+http://你的电脑IP:8000/docs
+```
+
+注意：当前项目还没有登录鉴权，只建议本机或可信内网学习使用。
+
+## 5. 测试接口
 
 ```powershell
 Invoke-RestMethod `
@@ -110,7 +170,7 @@ Invoke-RestMethod `
 - DeepSeek 异常转换
 - 返回 token usage，方便后续做成本统计
 
-## 5. 测试最小 RAG 问答
+## 6. 测试最小 RAG 问答
 
 先索引 PDF：
 
@@ -121,6 +181,15 @@ Invoke-RestMethod `
   -Uri "http://127.0.0.1:8000/documents/index" `
   -Method Post `
   -Form @{ file = Get-Item $pdf; chunk_size = 800; overlap = 100 }
+```
+
+如果当前 PowerShell 不支持 `-Form` 参数，可以用 `curl.exe`：
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/documents/index" `
+  -F "file=@D:\ll-work\ai-play\dive-into-llms\documents\chapter9\GUIagent.pdf" `
+  -F "chunk_size=800" `
+  -F "overlap=100"
 ```
 
 再基于本地知识库提问：
