@@ -4,3 +4,5 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .qdrant/
+.qdrant_eval/
+data/documents.json

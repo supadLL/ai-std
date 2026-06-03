@@ -269,3 +269,41 @@ UI 页面端到端测试
 Agent 工具路由测试
 ```
 
+---
+
+## 8. 固定 RAG 评估问题集
+
+第 14 步已经新增固定评估问题集：
+
+```text
+data/eval/rag_eval_cases.json
+```
+
+baseline 检索结果：
+
+```text
+data/eval/rag_eval_result-baseline.json
+```
+
+问题集包含：
+
+```text
+15 条问题
+14 条可计分检索问题
+1 条资料不足类问题
+```
+
+后续调参时，应优先复用这份问题集。
+
+建议记录：
+
+```text
+page_hit_rate
+keyword_hit_rate
+hit_rate
+未命中 case_id
+top_k 页码列表
+```
+
+第 15 步调 `chunk_size / overlap / top_k` 时，不要临时换问题。
+

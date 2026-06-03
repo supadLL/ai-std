@@ -16,6 +16,7 @@ class Settings:
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
     qdrant_local_path: str = ".qdrant"
     qdrant_collection: str = "rag_chunks"
+    document_metadata_path: str = "data/documents.json"
 
 
 def get_settings() -> Settings:
@@ -28,6 +29,7 @@ def get_settings() -> Settings:
     embedding_model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5").strip()
     qdrant_local_path = os.getenv("QDRANT_LOCAL_PATH", ".qdrant").strip()
     qdrant_collection = os.getenv("QDRANT_COLLECTION", "rag_chunks").strip()
+    document_metadata_path = os.getenv("DOCUMENT_METADATA_PATH", "data/documents.json").strip()
 
     return Settings(
         deepseek_api_key=api_key,
@@ -37,4 +39,5 @@ def get_settings() -> Settings:
         embedding_model=embedding_model,
         qdrant_local_path=qdrant_local_path,
         qdrant_collection=qdrant_collection,
+        document_metadata_path=document_metadata_path,
     )

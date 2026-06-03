@@ -4,6 +4,16 @@
 
 > 先建立一份可复用的 RAG 测试问题集，让后续调参和改 prompt 都有对比依据。
 
+状态：已完成。
+
+完成记录：
+
+```text
+docs/summary/14-rag-evaluation-dataset-summary.md
+data/eval/rag_eval_cases.json
+data/eval/rag_eval_result-baseline.json
+```
+
 ---
 
 ## 1. 背景
@@ -80,7 +90,6 @@ notes
 建议新增：
 
 ```text
-docs/summary/14-rag-evaluation-dataset-step.md
 docs/summary/14-rag-evaluation-dataset-summary.md
 ```
 
@@ -172,4 +181,3 @@ docs/summary/10-rag-test-result.md
 README.md
 docs/00-project-continuation-guide.md
 ```
-

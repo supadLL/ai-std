@@ -390,24 +390,33 @@ char_count
 text
 ```
 
-后续可以增加：
+第 16 步已经增加：
 
 ```text
 document_id
-uploaded_at
 collection_name
 chunk_size
 overlap
 embedding_model
+```
+
+后续第 17 步继续增加：
+
+```text
 content_hash
 ```
 
-推荐新增接口：
+第 16 步已经新增接口：
 
 ```text
 GET /documents
 GET /documents/{document_id}
 DELETE /documents/{document_id}
+```
+
+后续第 17 步再考虑：
+
+```text
 POST /documents/reindex
 ```
 
@@ -737,7 +746,7 @@ README 最终要能回答：
 当前下一步 goal：
 
 ```text
-docs/goal/13-rag-output-format-goal.md
+docs/goal/17-document-dedup-content-hash-goal.md
 ```
 
 ---

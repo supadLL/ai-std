@@ -42,6 +42,7 @@ docs/summary/13-rag-output-format-summary.md
 docs/summary/13-rag-output-format-step.md
 docs/summary/14-rag-evaluation-dataset-summary.md
 docs/summary/15-chunk-topk-parameter-evaluation-summary.md
+docs/summary/16-document-management-summary.md
 ```
 
 格式：
@@ -51,6 +52,15 @@ docs/summary/15-chunk-topk-parameter-evaluation-summary.md
 ```
 
 如果一次完成多个强相关步骤，可以合并成一个 summary。
+
+从第 14 步开始，完成后只保留一个 summary 文档。
+
+```text
+goal：开工前目标
+summary：完成后记录
+```
+
+不再额外创建 `*-step.md`，避免同一步出现两份完成说明。
 
 ---
 

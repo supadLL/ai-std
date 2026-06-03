@@ -4,6 +4,16 @@
 
 > 用第 14 步的问题集，系统比较 chunk_size、overlap、top_k 对检索质量的影响。
 
+状态：已完成。
+
+完成记录：
+
+```text
+docs/summary/15-chunk-topk-parameter-evaluation-summary.md
+data/eval/chunk_topk_eval_result.json
+data/eval/chunk_topk_eval_result.md
+```
+
 ---
 
 ## 1. 背景
@@ -89,7 +99,6 @@ docs/00-project-continuation-guide.md
 建议新增：
 
 ```text
-docs/summary/15-chunk-topk-parameter-evaluation-step.md
 docs/summary/15-chunk-topk-parameter-evaluation-summary.md
 ```
 
@@ -175,4 +184,3 @@ docs/summary/10-rag-test-result.md
 README.md
 docs/00-project-continuation-guide.md
 ```
-

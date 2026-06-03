@@ -1,0 +1,153 @@
+{
+  "dataset_name": "guiagent_pdf_rag_eval",
+  "version": "0.1.0",
+  "source_file": "D:\\ll-work\\ai-play\\dive-into-llms\\documents\\chapter9\\GUIagent.pdf",
+  "source_file_type": "text_pdf",
+  "index_params": {
+    "chunk_size": 800,
+    "overlap": 100,
+    "embedding_model": "BAAI/bge-small-zh-v1.5",
+    "collection": "rag_chunks"
+  },
+  "default_search_params": {
+    "top_k": 5,
+    "score_threshold": null
+  },
+  "cases": [
+    {
+      "case_id": "Q01",
+      "question": "GUI 智能体是什么？",
+      "question_type": "concept",
+      "expected_pages": [6],
+      "expected_keywords": ["图形用户界面", "主动规划决策", "点击", "滑动", "输入"],
+      "expected_source_hint": "第 6 页定义 GUI 智能体，并说明其会模拟人类行为完成信息获取和功能执行。",
+      "notes": "用于测试系统是否能命中 GUI 智能体的核心定义页。"
+    },
+    {
+      "case_id": "Q02",
+      "question": "大模型智能体具备哪些核心能力？",
+      "question_type": "concept",
+      "expected_pages": [5],
+      "expected_keywords": ["环境交互", "规划决策", "动作落实", "反思优化", "知识库"],
+      "expected_source_hint": "第 5 页介绍大模型智能体的定义和自主、进化能力。",
+      "notes": "用于测试智能体定义和能力列表是否能被检索。"
+    },
+    {
+      "case_id": "Q03",
+      "question": "GUI 智能体和 API 智能体有什么区别？",
+      "question_type": "comparison",
+      "expected_pages": [7],
+      "expected_keywords": ["API智能体", "GUI智能体", "点击", "输入", "滑动", "快捷", "稳定", "脆弱"],
+      "expected_source_hint": "第 7 页直接对比 API 智能体和 GUI 智能体。",
+      "notes": "用于测试对比类问题是否能命中明确对比页。"
+    },
+    {
+      "case_id": "Q04",
+      "question": "GUI 智能体的发展现状是什么？",
+      "question_type": "summary",
+      "expected_pages": [9],
+      "expected_keywords": ["学术界", "工业界", "广泛关注", "井喷式发展", "网页", "手机", "电脑"],
+      "expected_source_hint": "第 9 页说明 GUI 智能体在学术界和工业界的关注度及平台覆盖。",
+      "notes": "用于测试发展现状类总结问题。"
+    },
+    {
+      "case_id": "Q05",
+      "question": "GUI Agent 有哪些主要技术分支？",
+      "question_type": "summary",
+      "expected_pages": [11],
+      "expected_keywords": ["闭源模型", "开源模型", "GPT-4o", "Qwen-VL", "Qwen2-VL", "LLaVa2"],
+      "expected_source_hint": "第 11 页介绍基于闭源模型和开源模型构建 GUI Agent 的技术分支。",
+      "notes": "用于测试技术分支概览是否能被检索。"
+    },
+    {
+      "case_id": "Q06",
+      "question": "Mobile-Agent-v2 包含哪些智能体？",
+      "question_type": "detail",
+      "expected_pages": [12],
+      "expected_keywords": ["规划智能体", "决策智能体", "反思智能体", "记忆单元", "任务进度"],
+      "expected_source_hint": "第 12 页说明 Mobile-Agent-v2 的三个智能体和各自作用。",
+      "notes": "用于测试具体系统细节。"
+    },
+    {
+      "case_id": "Q07",
+      "question": "AppAgentX 的特点是什么？",
+      "question_type": "detail",
+      "expected_pages": [13],
+      "expected_keywords": ["AppAgentX", "学习", "优化", "行为模式", "记忆捷径节点"],
+      "expected_source_hint": "第 13 页介绍 AppAgentX 能在任务执行过程中学习并优化行为模式。",
+      "notes": "用于测试命名实体和细节检索。"
+    },
+    {
+      "case_id": "Q08",
+      "question": "GUI 智能体如何和安卓设备或电脑设备交互？",
+      "question_type": "process",
+      "expected_pages": [17],
+      "expected_keywords": ["ADB", "AVD", "pyautogui", "鼠标", "键盘", "安卓设备"],
+      "expected_source_hint": "第 17 页介绍真实安卓设备、虚拟安卓设备和电脑设备的交互方式。",
+      "notes": "用于测试部署链路和工具名检索。"
+    },
+    {
+      "case_id": "Q09",
+      "question": "静态场景下 GUI Agent 为什么可以使用监督微调？",
+      "question_type": "concept",
+      "expected_pages": [19],
+      "expected_keywords": ["静态", "监督微调", "数据驱动", "输入用户指令", "当前屏幕", "输出动作指令"],
+      "expected_source_hint": "第 19 页介绍真实环境相对训练数据变化较小时的监督微调方案。",
+      "notes": "用于测试静态场景解决方案。"
+    },
+    {
+      "case_id": "Q10",
+      "question": "为什么动态场景下 GUI Agent 需要强化学习？",
+      "question_type": "concept",
+      "expected_pages": [21],
+      "expected_keywords": ["动态性", "网页布局", "软件更新", "特殊节日", "强化学习"],
+      "expected_source_hint": "第 21 页说明真实环境会变化，因此需要适应动态性的解决方案。",
+      "notes": "用于测试动态场景和强化学习的关联。"
+    },
+    {
+      "case_id": "Q11",
+      "question": "DigiRL 是如何适应环境动态变化的？",
+      "question_type": "detail",
+      "expected_pages": [22],
+      "expected_keywords": ["DigiRL", "课程学习", "简单的任务", "困难的任务", "动态"],
+      "expected_source_hint": "第 22 页说明 DigiRL 采用课程学习适应环境动态。",
+      "notes": "用于测试具体方法名和机制。"
+    },
+    {
+      "case_id": "Q12",
+      "question": "复杂任务中为什么需要 GUI 智能体调度系统？",
+      "question_type": "process",
+      "expected_pages": [26, 27, 28],
+      "expected_keywords": ["复杂任务", "调度系统", "子任务依赖", "UI-NEXUS", "进度管理", "信息传递"],
+      "expected_source_hint": "第 26-28 页介绍复杂场景、UI-NEXUS 和任务调度系统。",
+      "notes": "用于测试跨相邻页面的主题检索。"
+    },
+    {
+      "case_id": "Q13",
+      "question": "GUI 智能体面临哪些注入攻击风险？",
+      "question_type": "detail",
+      "expected_pages": [31, 32],
+      "expected_keywords": ["注入攻击", "恶意提示", "用户信息", "恶意网站", "恶意图像补丁"],
+      "expected_source_hint": "第 31-32 页介绍隐藏恶意提示和恶意图像补丁等注入攻击。",
+      "notes": "用于测试安全风险类问题。"
+    },
+    {
+      "case_id": "Q14",
+      "question": "GUI 智能体的 OOD 问题包括哪些类型？",
+      "question_type": "concept",
+      "expected_pages": [37, 38],
+      "expected_keywords": ["OOD", "Internalization-OOD", "Extrapolation-OOD", "复杂的输入语义空间", "动态真实环境"],
+      "expected_source_hint": "第 37-38 页介绍 GUI 智能体可靠性中的 OOD 问题和挑战。",
+      "notes": "用于测试可靠性问题和英文术语检索。"
+    },
+    {
+      "case_id": "Q15",
+      "question": "这份资料有没有说明 GUI 智能体在医疗诊断审批系统中的合规流程？",
+      "question_type": "insufficient_context",
+      "expected_pages": [],
+      "expected_keywords": [],
+      "expected_source_hint": "资料主要讨论 GUI 智能体通用技术链路、安全和可靠性，没有医疗诊断审批合规流程。",
+      "notes": "用于测试资料不足类问题，期望系统不要强行编造。"
+    }
+  ]
+}

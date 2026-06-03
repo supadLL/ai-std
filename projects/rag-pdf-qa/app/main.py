@@ -1,4 +1,6 @@
+from dataclasses import asdict
 from typing import Any
+from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
@@ -7,12 +9,14 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.deepseek_client import DeepSeekClient, DeepSeekClientError
+from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
 from app.embedding_client import EmbeddingError, embed_text
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
 from app.text_splitter import TextSplitError, split_pdf_text
 from app.vector_store import (
     SearchResult,
     VectorStoreError,
+    delete_document_chunks,
     ensure_collection,
     get_qdrant_client,
     search_chunks,
@@ -86,6 +90,7 @@ class EmbeddingResponse(BaseModel):
 
 
 class DocumentIndexResponse(BaseModel):
+    document_id: str
     filename: str
     collection: str
     page_count: int
@@ -102,6 +107,7 @@ class SearchRequest(BaseModel):
 
 class SearchResultResponse(BaseModel):
     score: float
+    document_id: str | None = None
     filename: str
     page_number: int
     chunk_id: int
@@ -124,6 +130,7 @@ class RagAskRequest(BaseModel):
 class RagSourceResponse(BaseModel):
     source_id: int
     score: float
+    document_id: str | None = None
     filename: str
     page_number: int
     chunk_id: int
@@ -140,6 +147,30 @@ class RagAskResponse(BaseModel):
     source_count: int
     sources: list[RagSourceResponse]
     usage: dict[str, Any] | None = None
+
+
+class DocumentRecordResponse(BaseModel):
+    document_id: str
+    filename: str
+    file_type: str
+    chunk_count: int
+    created_at: str
+    collection: str
+    chunk_size: int
+    overlap: int
+    embedding_model: str
+    page_count: int
+    indexed_count: int
+
+
+class DocumentListResponse(BaseModel):
+    documents: list[DocumentRecordResponse]
+
+
+class DeleteDocumentResponse(BaseModel):
+    document_id: str
+    deleted_chunks: int
+    deleted_metadata: bool
 
 
 @app.get("/health")
@@ -273,6 +304,7 @@ async def index_document(
         raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
 
     settings = get_settings()
+    document_id = str(uuid4())
     try:
         extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
         chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
@@ -291,11 +323,26 @@ async def index_document(
             filename=filename,
             chunks=chunks,
             vectors=vectors,
+            document_id=document_id,
         )
-    except (PdfExtractionError, TextSplitError, EmbeddingError, VectorStoreError) as exc:
+        document_store = get_document_store(settings.document_metadata_path)
+        document_store.add_document(
+            document_id=document_id,
+            filename=filename,
+            file_type="pdf",
+            chunk_count=len(chunks),
+            collection=settings.qdrant_collection,
+            chunk_size=chunk_size,
+            overlap=overlap,
+            embedding_model=settings.embedding_model,
+            page_count=extracted.page_count,
+            indexed_count=indexed_count,
+        )
+    except (PdfExtractionError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return DocumentIndexResponse(
+        document_id=document_id,
         filename=filename,
         collection=settings.qdrant_collection,
         page_count=extracted.page_count,
@@ -303,6 +350,61 @@ async def index_document(
         indexed_count=indexed_count,
         dimension=dimension,
         local_path=settings.qdrant_local_path,
+    )
+
+
+@app.get("/documents", response_model=DocumentListResponse)
+async def list_documents() -> DocumentListResponse:
+    settings = get_settings()
+    try:
+        records = get_document_store(settings.document_metadata_path).list_documents()
+    except DocumentStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return DocumentListResponse(documents=[_to_document_record_response(record) for record in records])
+
+
+@app.get("/documents/{document_id}", response_model=DocumentRecordResponse)
+async def get_document(document_id: str) -> DocumentRecordResponse:
+    settings = get_settings()
+    try:
+        record = get_document_store(settings.document_metadata_path).get_document(document_id)
+    except DocumentStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Document {document_id!r} not found")
+    return _to_document_record_response(record)
+
+
+@app.delete("/documents/{document_id}", response_model=DeleteDocumentResponse)
+async def delete_document(document_id: str) -> DeleteDocumentResponse:
+    settings = get_settings()
+    document_store = get_document_store(settings.document_metadata_path)
+
+    try:
+        record = document_store.get_document(document_id)
+    except DocumentStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Document {document_id!r} not found")
+
+    try:
+        client = get_qdrant_client(settings.qdrant_local_path)
+        deleted_chunks = delete_document_chunks(
+            client=client,
+            collection_name=record.collection,
+            document_id=document_id,
+        )
+        removed_record = document_store.remove_document(document_id)
+    except (VectorStoreError, DocumentStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return DeleteDocumentResponse(
+        document_id=document_id,
+        deleted_chunks=deleted_chunks,
+        deleted_metadata=removed_record is not None,
     )
 
 
@@ -398,6 +500,7 @@ async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
 def _to_search_result_response(result: SearchResult) -> SearchResultResponse:
     return SearchResultResponse(
         score=result.score,
+        document_id=result.document_id,
         filename=result.filename,
         page_number=result.page_number,
         chunk_id=result.chunk_id,
@@ -410,11 +513,20 @@ def _to_rag_source_response(source_id: int, result: SearchResult, preview_chars:
     return RagSourceResponse(
         source_id=source_id,
         score=result.score,
+        document_id=result.document_id,
         filename=result.filename,
         page_number=result.page_number,
         chunk_id=result.chunk_id,
         preview=preview,
     )
+
+
+def get_document_store(metadata_path: str) -> DocumentStore:
+    return DocumentStore(metadata_path)
+
+
+def _to_document_record_response(record: DocumentRecord) -> DocumentRecordResponse:
+    return DocumentRecordResponse(**asdict(record))
 
 
 def _filter_results_by_score(

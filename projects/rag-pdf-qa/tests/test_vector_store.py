@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.vector_store import VectorStoreError, ensure_collection
+from app.vector_store import VectorStoreError, _document_id_filter, ensure_collection
 
 
 class FakeClient:
@@ -28,3 +28,9 @@ def test_ensure_collection_dimension_mismatch_has_rebuild_hint():
     assert "current embedding dimension is 768" in message
     assert "Rebuild the local Qdrant index" in message
 
+
+def test_document_id_filter_targets_document_payload():
+    filter_model = _document_id_filter("doc-1")
+
+    assert filter_model.must[0].key == "document_id"
+    assert filter_model.must[0].match.value == "doc-1"

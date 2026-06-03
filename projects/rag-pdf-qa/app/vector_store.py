@@ -11,6 +11,7 @@ from app.text_splitter import TextChunk
 class SearchResult:
     point_id: str
     score: float
+    document_id: str | None
     filename: str
     page_number: int
     chunk_id: int
@@ -54,18 +55,21 @@ def upsert_chunks(
     filename: str,
     chunks: list[TextChunk],
     vectors: list[list[float]],
+    document_id: str | None = None,
 ) -> int:
     if len(chunks) != len(vectors):
         raise VectorStoreError("chunks and vectors length mismatch")
 
     points: list[models.PointStruct] = []
     for chunk, vector in zip(chunks, vectors):
-        point_id = str(uuid5(NAMESPACE_URL, f"{filename}:{chunk.page_number}:{chunk.chunk_id}:{chunk.text[:80]}"))
+        id_seed = document_id or filename
+        point_id = str(uuid5(NAMESPACE_URL, f"{id_seed}:{chunk.page_number}:{chunk.chunk_id}:{chunk.text[:80]}"))
         points.append(
             models.PointStruct(
                 id=point_id,
                 vector=vector,
                 payload={
+                    "document_id": document_id,
                     "filename": filename,
                     "page_number": chunk.page_number,
                     "chunk_id": chunk.chunk_id,
@@ -80,6 +84,39 @@ def upsert_chunks(
 
     client.upsert(collection_name=collection_name, points=points)
     return len(points)
+
+
+def delete_document_chunks(
+    client: QdrantClient,
+    collection_name: str,
+    document_id: str,
+) -> int:
+    if not client.collection_exists(collection_name):
+        return 0
+
+    point_ids = []
+    next_offset = None
+    while True:
+        points, next_offset = client.scroll(
+            collection_name=collection_name,
+            scroll_filter=_document_id_filter(document_id),
+            limit=1000,
+            offset=next_offset,
+            with_payload=False,
+            with_vectors=False,
+        )
+        point_ids.extend(point.id for point in points)
+        if next_offset is None:
+            break
+
+    if not point_ids:
+        return 0
+
+    client.delete(
+        collection_name=collection_name,
+        points_selector=models.PointIdsList(points=point_ids),
+    )
+    return len(point_ids)
 
 
 def search_chunks(
@@ -106,6 +143,7 @@ def search_chunks(
             SearchResult(
                 point_id=str(point.id),
                 score=float(point.score),
+                document_id=_optional_str(payload.get("document_id")),
                 filename=str(payload.get("filename", "")),
                 page_number=int(payload.get("page_number", 0)),
                 chunk_id=int(payload.get("chunk_id", 0)),
@@ -113,3 +151,20 @@ def search_chunks(
             )
         )
     return results
+
+
+def _document_id_filter(document_id: str) -> models.Filter:
+    return models.Filter(
+        must=[
+            models.FieldCondition(
+                key="document_id",
+                match=models.MatchValue(value=document_id),
+            )
+        ]
+    )
+
+
+def _optional_str(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)

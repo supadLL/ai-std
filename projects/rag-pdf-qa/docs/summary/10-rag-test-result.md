@@ -335,6 +335,8 @@ RAG 回答没有明显脱离 sources。
 固定 RAG 输出格式
 ```
 
+该建议已在第 13 步完成。
+
 因为第 11/12 步已经完成：
 
 ```text
@@ -442,5 +444,104 @@ HTTP 验证结果：
 答案
 依据
 资料不足之处
+```
+
+第 13 步已经完成上述固定输出格式。
+
+---
+
+## 10. 第 14 步补充验证结果
+
+第 14 步已经建立固定 RAG 评估问题集：
+
+```text
+data/eval/rag_eval_cases.json
+```
+
+并生成 baseline 检索结果：
+
+```text
+data/eval/rag_eval_result-baseline.json
+```
+
+本次只调用：
+
+```text
+POST /documents/search
+```
+
+没有调用 DeepSeek API。
+
+baseline 汇总：
+
+| 指标 | 值 |
+|---|---:|
+| case_count | 15 |
+| scored_case_count | 14 |
+| insufficient_context_case_count | 1 |
+| hit_count | 14 |
+| hit_rate | 1.0000 |
+| page_hit_count | 12 |
+| page_hit_rate | 0.8571 |
+| keyword_hit_count | 14 |
+| keyword_hit_rate | 1.0000 |
+
+页码未命中的问题：
+
+| case_id | 问题 | 预期页码 | top_k 页码 |
+|---|---|---|---|
+| Q03 | GUI 智能体和 API 智能体有什么区别？ | 7 | 38, 5, 9, 6, 37 |
+| Q07 | AppAgentX 的特点是什么？ | 13 | 7, 14, 23, 9, 5 |
+
+当前下一步：
+
+```text
+第 17 步：增加 content_hash 去重与重建索引策略
+```
+
+对应 goal：
+
+```text
+docs/goal/17-document-dedup-content-hash-goal.md
+```
+
+---
+
+## 11. 第 15/16 步补充验证结果
+
+第 15 步已经完成 chunk/top_k 参数评估：
+
+```text
+data/eval/chunk_topk_eval_result.json
+data/eval/chunk_topk_eval_result.md
+```
+
+当前推荐：
+
+```text
+chunk_size = 800
+overlap = 100
+top_k = 5
+```
+
+第 16 步已经新增知识库文档管理接口：
+
+```text
+GET /documents
+GET /documents/{document_id}
+DELETE /documents/{document_id}
+```
+
+已运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall app tests scripts
+.\.venv\Scripts\python.exe -m pytest
+```
+
+结果：
+
+```text
+pytest 8 passed
 ```
 

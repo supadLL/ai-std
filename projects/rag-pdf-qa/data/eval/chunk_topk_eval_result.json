@@ -1,0 +1,2644 @@
+{
+  "dataset_name": "guiagent_pdf_rag_eval",
+  "dataset_version": "0.1.0",
+  "source_file": "D:\\ll-work\\ai-play\\dive-into-llms\\documents\\chapter9\\GUIagent.pdf",
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "low_score_threshold": 0.45,
+  "scored_case_count": 14,
+  "recommendation": {
+    "chunk_size": 800,
+    "overlap": 100,
+    "top_k": 5,
+    "reason": "Prefer the best hit metrics first. If metrics tie, keep the current default chunk_size/overlap because it preserves more context than smaller chunks."
+  },
+  "results": [
+    {
+      "chunk_size": 500,
+      "overlap": 80,
+      "top_k": 3,
+      "chunk_count": 43,
+      "case_count": 14,
+      "hit_count": 14,
+      "hit_rate": 1.0,
+      "page_hit_count": 10,
+      "page_hit_rate": 0.7143,
+      "keyword_hit_count": 14,
+      "keyword_hit_rate": 1.0,
+      "low_score_result_count": 0,
+      "answer_stability_note": "检索依据稳定，适合作为 RAG 回答输入。",
+      "records": [
+        {
+          "case_id": "Q01",
+          "question": "GUI 智能体是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "输入"
+          ],
+          "expected_pages": [
+            6
+          ],
+          "top_pages": [
+            5,
+            9,
+            38
+          ],
+          "top_scores": [
+            0.7340140289449819,
+            0.7266214195628752,
+            0.6994263275346833
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q02",
+          "question": "大模型智能体具备哪些核心能力？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "环境交互",
+            "规划决策",
+            "动作落实",
+            "反思优化",
+            "知识库"
+          ],
+          "expected_pages": [
+            5
+          ],
+          "top_pages": [
+            5,
+            12,
+            16
+          ],
+          "top_scores": [
+            0.7250134025815955,
+            0.6686789179623316,
+            0.6544299065235927
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q03",
+          "question": "GUI 智能体和 API 智能体有什么区别？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "GUI智能体",
+            "输入"
+          ],
+          "expected_pages": [
+            7
+          ],
+          "top_pages": [
+            38,
+            5,
+            9
+          ],
+          "top_scores": [
+            0.7114781609940661,
+            0.7108068586232519,
+            0.6947369735939826
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q04",
+          "question": "GUI 智能体的发展现状是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学术界",
+            "工业界",
+            "广泛关注",
+            "井喷式发展",
+            "网页",
+            "手机",
+            "电脑"
+          ],
+          "expected_pages": [
+            9
+          ],
+          "top_pages": [
+            9,
+            5,
+            37
+          ],
+          "top_scores": [
+            0.7991270390855907,
+            0.700670680118964,
+            0.6935939176904833
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q05",
+          "question": "GUI Agent 有哪些主要技术分支？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "闭源模型",
+            "开源模型",
+            "GPT-4o",
+            "Qwen-VL",
+            "Qwen2-VL",
+            "LLaVa2"
+          ],
+          "expected_pages": [
+            11
+          ],
+          "top_pages": [
+            11,
+            13,
+            12
+          ],
+          "top_scores": [
+            0.6638482823651681,
+            0.5973756525204146,
+            0.5763970322488786
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q06",
+          "question": "Mobile-Agent-v2 包含哪些智能体？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "规划智能体",
+            "决策智能体",
+            "反思智能体",
+            "记忆单元",
+            "任务进度"
+          ],
+          "expected_pages": [
+            12
+          ],
+          "top_pages": [
+            12,
+            16,
+            11
+          ],
+          "top_scores": [
+            0.742176746952061,
+            0.7106716034056886,
+            0.6668988394959487
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q07",
+          "question": "AppAgentX 的特点是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学习",
+            "优化"
+          ],
+          "expected_pages": [
+            13
+          ],
+          "top_pages": [
+            7,
+            14,
+            23
+          ],
+          "top_scores": [
+            0.510314543934937,
+            0.5095820829174526,
+            0.5071108741444118
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q08",
+          "question": "GUI 智能体如何和安卓设备或电脑设备交互？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "ADB",
+            "AVD",
+            "pyautogui",
+            "鼠标",
+            "键盘",
+            "安卓设备"
+          ],
+          "expected_pages": [
+            17
+          ],
+          "top_pages": [
+            17,
+            16,
+            32
+          ],
+          "top_scores": [
+            0.7910127757896274,
+            0.7063557505179673,
+            0.6436002231334921
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q09",
+          "question": "静态场景下 GUI Agent 为什么可以使用监督微调？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "静态",
+            "监督微调",
+            "数据驱动",
+            "输入用户指令",
+            "当前屏幕",
+            "输出动作指令"
+          ],
+          "expected_pages": [
+            19
+          ],
+          "top_pages": [
+            19,
+            27,
+            28
+          ],
+          "top_scores": [
+            0.7176289186608682,
+            0.5224054939656264,
+            0.5138548718956164
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q10",
+          "question": "为什么动态场景下 GUI Agent 需要强化学习？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "强化学习"
+          ],
+          "expected_pages": [
+            21
+          ],
+          "top_pages": [
+            22,
+            23,
+            24
+          ],
+          "top_scores": [
+            0.7719731260350265,
+            0.741474377102567,
+            0.698641405340808
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q11",
+          "question": "DigiRL 是如何适应环境动态变化的？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "DigiRL",
+            "课程学习",
+            "简单的任务",
+            "困难的任务",
+            "动态"
+          ],
+          "expected_pages": [
+            22
+          ],
+          "top_pages": [
+            21,
+            22,
+            23
+          ],
+          "top_scores": [
+            0.699442261435157,
+            0.6747818538250523,
+            0.6141479069162676
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q12",
+          "question": "复杂任务中为什么需要 GUI 智能体调度系统？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "复杂任务",
+            "调度系统",
+            "子任务依赖",
+            "UI-NEXUS",
+            "进度管理",
+            "信息传递"
+          ],
+          "expected_pages": [
+            26,
+            27,
+            28
+          ],
+          "top_pages": [
+            27,
+            28,
+            26
+          ],
+          "top_scores": [
+            0.7358824022820314,
+            0.7136021403565583,
+            0.6915038221920415
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q13",
+          "question": "GUI 智能体面临哪些注入攻击风险？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "注入攻击",
+            "恶意提示",
+            "用户信息",
+            "恶意网站",
+            "恶意图像补丁"
+          ],
+          "expected_pages": [
+            31,
+            32
+          ],
+          "top_pages": [
+            31,
+            32,
+            33
+          ],
+          "top_scores": [
+            0.757943035931702,
+            0.7360815429622616,
+            0.6987248117230265
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q14",
+          "question": "GUI 智能体的 OOD 问题包括哪些类型？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "OOD",
+            "Internalization-OOD",
+            "Extrapolation-OOD",
+            "复杂的输入语义空间",
+            "动态真实环境"
+          ],
+          "expected_pages": [
+            37,
+            38
+          ],
+          "top_pages": [
+            37,
+            38,
+            30
+          ],
+          "top_scores": [
+            0.74561873713733,
+            0.7171139537043045,
+            0.7007548463072206
+          ],
+          "low_score_count": 0
+        }
+      ]
+    },
+    {
+      "chunk_size": 500,
+      "overlap": 80,
+      "top_k": 5,
+      "chunk_count": 43,
+      "case_count": 14,
+      "hit_count": 14,
+      "hit_rate": 1.0,
+      "page_hit_count": 12,
+      "page_hit_rate": 0.8571,
+      "keyword_hit_count": 14,
+      "keyword_hit_rate": 1.0,
+      "low_score_result_count": 0,
+      "answer_stability_note": "检索依据稳定，适合作为 RAG 回答输入。",
+      "records": [
+        {
+          "case_id": "Q01",
+          "question": "GUI 智能体是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "图形用户界面",
+            "主动规划决策",
+            "点击",
+            "滑动",
+            "输入"
+          ],
+          "expected_pages": [
+            6
+          ],
+          "top_pages": [
+            5,
+            9,
+            38,
+            6,
+            37
+          ],
+          "top_scores": [
+            0.7340140289449819,
+            0.7266214195628752,
+            0.6994263089438273,
+            0.6922504060003618,
+            0.6865882945625938
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q02",
+          "question": "大模型智能体具备哪些核心能力？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "环境交互",
+            "规划决策",
+            "动作落实",
+            "反思优化",
+            "知识库"
+          ],
+          "expected_pages": [
+            5
+          ],
+          "top_pages": [
+            5,
+            12,
+            16,
+            11,
+            37
+          ],
+          "top_scores": [
+            0.7250134025815955,
+            0.6686789179623316,
+            0.6544299065235927,
+            0.614018871683997,
+            0.6029475290017032
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q03",
+          "question": "GUI 智能体和 API 智能体有什么区别？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "GUI智能体",
+            "点击",
+            "输入",
+            "滑动"
+          ],
+          "expected_pages": [
+            7
+          ],
+          "top_pages": [
+            38,
+            5,
+            9,
+            6,
+            37
+          ],
+          "top_scores": [
+            0.7114781609940661,
+            0.7108068586232519,
+            0.6947369735939826,
+            0.694266133950385,
+            0.6782441981101042
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q04",
+          "question": "GUI 智能体的发展现状是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学术界",
+            "工业界",
+            "广泛关注",
+            "井喷式发展",
+            "网页",
+            "手机",
+            "电脑"
+          ],
+          "expected_pages": [
+            9
+          ],
+          "top_pages": [
+            9,
+            5,
+            37,
+            6,
+            4
+          ],
+          "top_scores": [
+            0.7991270390855907,
+            0.700670680118964,
+            0.6935939176904833,
+            0.6895110149263173,
+            0.6820966216305301
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q05",
+          "question": "GUI Agent 有哪些主要技术分支？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "闭源模型",
+            "开源模型",
+            "GPT-4o",
+            "Qwen-VL",
+            "Qwen2-VL",
+            "LLaVa2"
+          ],
+          "expected_pages": [
+            11
+          ],
+          "top_pages": [
+            11,
+            13,
+            12,
+            16,
+            14
+          ],
+          "top_scores": [
+            0.6638482823651681,
+            0.5973756525204146,
+            0.5763970322488786,
+            0.5589227253410693,
+            0.5555709172673766
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q06",
+          "question": "Mobile-Agent-v2 包含哪些智能体？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "规划智能体",
+            "决策智能体",
+            "反思智能体",
+            "记忆单元",
+            "任务进度"
+          ],
+          "expected_pages": [
+            12
+          ],
+          "top_pages": [
+            12,
+            16,
+            11,
+            38,
+            5
+          ],
+          "top_scores": [
+            0.742176746952061,
+            0.7106716034056886,
+            0.6668988394959487,
+            0.649537720361811,
+            0.6441922739694186
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q07",
+          "question": "AppAgentX 的特点是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学习",
+            "优化"
+          ],
+          "expected_pages": [
+            13
+          ],
+          "top_pages": [
+            7,
+            14,
+            23,
+            9,
+            5
+          ],
+          "top_scores": [
+            0.510314543934937,
+            0.5095820829174526,
+            0.5071108741444118,
+            0.49529766683804877,
+            0.49325679918659243
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q08",
+          "question": "GUI 智能体如何和安卓设备或电脑设备交互？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "ADB",
+            "AVD",
+            "pyautogui",
+            "鼠标",
+            "键盘",
+            "安卓设备"
+          ],
+          "expected_pages": [
+            17
+          ],
+          "top_pages": [
+            17,
+            16,
+            32,
+            7,
+            9
+          ],
+          "top_scores": [
+            0.7910127757896274,
+            0.7063557505179673,
+            0.6436002231334921,
+            0.632874705527376,
+            0.6326107209314573
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q09",
+          "question": "静态场景下 GUI Agent 为什么可以使用监督微调？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "静态",
+            "监督微调",
+            "数据驱动",
+            "输入用户指令",
+            "当前屏幕",
+            "输出动作指令"
+          ],
+          "expected_pages": [
+            19
+          ],
+          "top_pages": [
+            19,
+            27,
+            28,
+            23,
+            22
+          ],
+          "top_scores": [
+            0.7176289186608682,
+            0.5224054939656264,
+            0.5138548718956164,
+            0.48980101411440696,
+            0.48606112534528273
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q10",
+          "question": "为什么动态场景下 GUI Agent 需要强化学习？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "动态性",
+            "网页布局",
+            "软件更新",
+            "特殊节日",
+            "强化学习"
+          ],
+          "expected_pages": [
+            21
+          ],
+          "top_pages": [
+            22,
+            23,
+            24,
+            21,
+            13
+          ],
+          "top_scores": [
+            0.7719731260350265,
+            0.741474377102567,
+            0.698641405340808,
+            0.6883969229872494,
+            0.5602851448905075
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q11",
+          "question": "DigiRL 是如何适应环境动态变化的？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "DigiRL",
+            "课程学习",
+            "简单的任务",
+            "困难的任务",
+            "动态"
+          ],
+          "expected_pages": [
+            22
+          ],
+          "top_pages": [
+            21,
+            22,
+            23,
+            24,
+            19
+          ],
+          "top_scores": [
+            0.699442261435157,
+            0.6747818538250523,
+            0.6141479069162676,
+            0.6053412260829336,
+            0.5679935797946478
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q12",
+          "question": "复杂任务中为什么需要 GUI 智能体调度系统？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "复杂任务",
+            "调度系统",
+            "子任务依赖",
+            "UI-NEXUS",
+            "进度管理",
+            "信息传递"
+          ],
+          "expected_pages": [
+            26,
+            27,
+            28
+          ],
+          "top_pages": [
+            27,
+            28,
+            26,
+            37,
+            39
+          ],
+          "top_scores": [
+            0.7358824022820314,
+            0.7136021403565583,
+            0.6915038221920415,
+            0.6302344577927121,
+            0.6120555240753319
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q13",
+          "question": "GUI 智能体面临哪些注入攻击风险？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "注入攻击",
+            "恶意提示",
+            "用户信息",
+            "恶意网站",
+            "恶意图像补丁"
+          ],
+          "expected_pages": [
+            31,
+            32
+          ],
+          "top_pages": [
+            31,
+            32,
+            33,
+            30,
+            40
+          ],
+          "top_scores": [
+            0.757943035931702,
+            0.7360815429622616,
+            0.6987248117230265,
+            0.6982375472951518,
+            0.6286028172973646
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q14",
+          "question": "GUI 智能体的 OOD 问题包括哪些类型？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "OOD",
+            "Internalization-OOD",
+            "Extrapolation-OOD",
+            "复杂的输入语义空间",
+            "动态真实环境"
+          ],
+          "expected_pages": [
+            37,
+            38
+          ],
+          "top_pages": [
+            37,
+            38,
+            30,
+            41,
+            33
+          ],
+          "top_scores": [
+            0.74561873713733,
+            0.7171139537043045,
+            0.7007548463072206,
+            0.6824965949014112,
+            0.6790691872787822
+          ],
+          "low_score_count": 0
+        }
+      ]
+    },
+    {
+      "chunk_size": 800,
+      "overlap": 100,
+      "top_k": 3,
+      "chunk_count": 43,
+      "case_count": 14,
+      "hit_count": 14,
+      "hit_rate": 1.0,
+      "page_hit_count": 10,
+      "page_hit_rate": 0.7143,
+      "keyword_hit_count": 14,
+      "keyword_hit_rate": 1.0,
+      "low_score_result_count": 0,
+      "answer_stability_note": "检索依据稳定，适合作为 RAG 回答输入。",
+      "records": [
+        {
+          "case_id": "Q01",
+          "question": "GUI 智能体是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "输入"
+          ],
+          "expected_pages": [
+            6
+          ],
+          "top_pages": [
+            5,
+            9,
+            38
+          ],
+          "top_scores": [
+            0.7340140289449819,
+            0.7266214195628752,
+            0.6994263275346833
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q02",
+          "question": "大模型智能体具备哪些核心能力？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "环境交互",
+            "规划决策",
+            "动作落实",
+            "反思优化",
+            "知识库"
+          ],
+          "expected_pages": [
+            5
+          ],
+          "top_pages": [
+            5,
+            12,
+            16
+          ],
+          "top_scores": [
+            0.7250134025815955,
+            0.6686789179623316,
+            0.6544299065235927
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q03",
+          "question": "GUI 智能体和 API 智能体有什么区别？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "GUI智能体",
+            "输入"
+          ],
+          "expected_pages": [
+            7
+          ],
+          "top_pages": [
+            38,
+            5,
+            9
+          ],
+          "top_scores": [
+            0.7114781609940661,
+            0.7108068586232519,
+            0.6947369735939826
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q04",
+          "question": "GUI 智能体的发展现状是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学术界",
+            "工业界",
+            "广泛关注",
+            "井喷式发展",
+            "网页",
+            "手机",
+            "电脑"
+          ],
+          "expected_pages": [
+            9
+          ],
+          "top_pages": [
+            9,
+            5,
+            37
+          ],
+          "top_scores": [
+            0.7991270390855907,
+            0.700670680118964,
+            0.6935939176904833
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q05",
+          "question": "GUI Agent 有哪些主要技术分支？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "闭源模型",
+            "开源模型",
+            "GPT-4o",
+            "Qwen-VL",
+            "Qwen2-VL",
+            "LLaVa2"
+          ],
+          "expected_pages": [
+            11
+          ],
+          "top_pages": [
+            11,
+            13,
+            12
+          ],
+          "top_scores": [
+            0.6638482823651681,
+            0.5973756525204146,
+            0.5763970322488786
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q06",
+          "question": "Mobile-Agent-v2 包含哪些智能体？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "规划智能体",
+            "决策智能体",
+            "反思智能体",
+            "记忆单元",
+            "任务进度"
+          ],
+          "expected_pages": [
+            12
+          ],
+          "top_pages": [
+            12,
+            16,
+            11
+          ],
+          "top_scores": [
+            0.742176746952061,
+            0.7106716034056886,
+            0.6668988394959487
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q07",
+          "question": "AppAgentX 的特点是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学习",
+            "优化"
+          ],
+          "expected_pages": [
+            13
+          ],
+          "top_pages": [
+            7,
+            14,
+            23
+          ],
+          "top_scores": [
+            0.510314543934937,
+            0.5095820829174526,
+            0.5071108741444118
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q08",
+          "question": "GUI 智能体如何和安卓设备或电脑设备交互？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "ADB",
+            "AVD",
+            "pyautogui",
+            "鼠标",
+            "键盘",
+            "安卓设备"
+          ],
+          "expected_pages": [
+            17
+          ],
+          "top_pages": [
+            17,
+            16,
+            32
+          ],
+          "top_scores": [
+            0.7910127757896274,
+            0.7063557505179673,
+            0.6436002231334921
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q09",
+          "question": "静态场景下 GUI Agent 为什么可以使用监督微调？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "静态",
+            "监督微调",
+            "数据驱动",
+            "输入用户指令",
+            "当前屏幕",
+            "输出动作指令"
+          ],
+          "expected_pages": [
+            19
+          ],
+          "top_pages": [
+            19,
+            27,
+            28
+          ],
+          "top_scores": [
+            0.7176289186608682,
+            0.5224054939656264,
+            0.5138548718956164
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q10",
+          "question": "为什么动态场景下 GUI Agent 需要强化学习？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "强化学习"
+          ],
+          "expected_pages": [
+            21
+          ],
+          "top_pages": [
+            22,
+            23,
+            24
+          ],
+          "top_scores": [
+            0.7719731260350265,
+            0.741474377102567,
+            0.698641405340808
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q11",
+          "question": "DigiRL 是如何适应环境动态变化的？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "DigiRL",
+            "课程学习",
+            "简单的任务",
+            "困难的任务",
+            "动态"
+          ],
+          "expected_pages": [
+            22
+          ],
+          "top_pages": [
+            21,
+            22,
+            23
+          ],
+          "top_scores": [
+            0.699442261435157,
+            0.6747818538250523,
+            0.6141479069162676
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q12",
+          "question": "复杂任务中为什么需要 GUI 智能体调度系统？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "复杂任务",
+            "调度系统",
+            "子任务依赖",
+            "UI-NEXUS",
+            "进度管理",
+            "信息传递"
+          ],
+          "expected_pages": [
+            26,
+            27,
+            28
+          ],
+          "top_pages": [
+            27,
+            28,
+            26
+          ],
+          "top_scores": [
+            0.7358824022820314,
+            0.7136021403565583,
+            0.6915038221920415
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q13",
+          "question": "GUI 智能体面临哪些注入攻击风险？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "注入攻击",
+            "恶意提示",
+            "用户信息",
+            "恶意网站",
+            "恶意图像补丁"
+          ],
+          "expected_pages": [
+            31,
+            32
+          ],
+          "top_pages": [
+            31,
+            32,
+            33
+          ],
+          "top_scores": [
+            0.757943035931702,
+            0.7360815429622616,
+            0.6987248117230265
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q14",
+          "question": "GUI 智能体的 OOD 问题包括哪些类型？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "OOD",
+            "Internalization-OOD",
+            "Extrapolation-OOD",
+            "复杂的输入语义空间",
+            "动态真实环境"
+          ],
+          "expected_pages": [
+            37,
+            38
+          ],
+          "top_pages": [
+            37,
+            38,
+            30
+          ],
+          "top_scores": [
+            0.74561873713733,
+            0.7171139537043045,
+            0.7007548463072206
+          ],
+          "low_score_count": 0
+        }
+      ]
+    },
+    {
+      "chunk_size": 800,
+      "overlap": 100,
+      "top_k": 5,
+      "chunk_count": 43,
+      "case_count": 14,
+      "hit_count": 14,
+      "hit_rate": 1.0,
+      "page_hit_count": 12,
+      "page_hit_rate": 0.8571,
+      "keyword_hit_count": 14,
+      "keyword_hit_rate": 1.0,
+      "low_score_result_count": 0,
+      "answer_stability_note": "检索依据稳定，适合作为 RAG 回答输入。",
+      "records": [
+        {
+          "case_id": "Q01",
+          "question": "GUI 智能体是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "图形用户界面",
+            "主动规划决策",
+            "点击",
+            "滑动",
+            "输入"
+          ],
+          "expected_pages": [
+            6
+          ],
+          "top_pages": [
+            5,
+            9,
+            38,
+            6,
+            37
+          ],
+          "top_scores": [
+            0.7340140289449819,
+            0.7266214195628752,
+            0.6994263089438273,
+            0.6922504060003618,
+            0.6865882945625938
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q02",
+          "question": "大模型智能体具备哪些核心能力？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "环境交互",
+            "规划决策",
+            "动作落实",
+            "反思优化",
+            "知识库"
+          ],
+          "expected_pages": [
+            5
+          ],
+          "top_pages": [
+            5,
+            12,
+            16,
+            11,
+            37
+          ],
+          "top_scores": [
+            0.7250134025815955,
+            0.6686789179623316,
+            0.6544299065235927,
+            0.614018871683997,
+            0.6029475290017032
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q03",
+          "question": "GUI 智能体和 API 智能体有什么区别？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "GUI智能体",
+            "点击",
+            "输入",
+            "滑动"
+          ],
+          "expected_pages": [
+            7
+          ],
+          "top_pages": [
+            38,
+            5,
+            9,
+            6,
+            37
+          ],
+          "top_scores": [
+            0.7114781609940661,
+            0.7108068586232519,
+            0.6947369735939826,
+            0.694266133950385,
+            0.6782441981101042
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q04",
+          "question": "GUI 智能体的发展现状是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学术界",
+            "工业界",
+            "广泛关注",
+            "井喷式发展",
+            "网页",
+            "手机",
+            "电脑"
+          ],
+          "expected_pages": [
+            9
+          ],
+          "top_pages": [
+            9,
+            5,
+            37,
+            6,
+            4
+          ],
+          "top_scores": [
+            0.7991270390855907,
+            0.700670680118964,
+            0.6935939176904833,
+            0.6895110149263173,
+            0.6820966216305301
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q05",
+          "question": "GUI Agent 有哪些主要技术分支？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "闭源模型",
+            "开源模型",
+            "GPT-4o",
+            "Qwen-VL",
+            "Qwen2-VL",
+            "LLaVa2"
+          ],
+          "expected_pages": [
+            11
+          ],
+          "top_pages": [
+            11,
+            13,
+            12,
+            16,
+            14
+          ],
+          "top_scores": [
+            0.6638482823651681,
+            0.5973756525204146,
+            0.5763970322488786,
+            0.5589227253410693,
+            0.5555709172673766
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q06",
+          "question": "Mobile-Agent-v2 包含哪些智能体？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "规划智能体",
+            "决策智能体",
+            "反思智能体",
+            "记忆单元",
+            "任务进度"
+          ],
+          "expected_pages": [
+            12
+          ],
+          "top_pages": [
+            12,
+            16,
+            11,
+            38,
+            5
+          ],
+          "top_scores": [
+            0.742176746952061,
+            0.7106716034056886,
+            0.6668988394959487,
+            0.649537720361811,
+            0.6441922739694186
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q07",
+          "question": "AppAgentX 的特点是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学习",
+            "优化"
+          ],
+          "expected_pages": [
+            13
+          ],
+          "top_pages": [
+            7,
+            14,
+            23,
+            9,
+            5
+          ],
+          "top_scores": [
+            0.510314543934937,
+            0.5095820829174526,
+            0.5071108741444118,
+            0.49529766683804877,
+            0.49325679918659243
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q08",
+          "question": "GUI 智能体如何和安卓设备或电脑设备交互？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "ADB",
+            "AVD",
+            "pyautogui",
+            "鼠标",
+            "键盘",
+            "安卓设备"
+          ],
+          "expected_pages": [
+            17
+          ],
+          "top_pages": [
+            17,
+            16,
+            32,
+            7,
+            9
+          ],
+          "top_scores": [
+            0.7910127757896274,
+            0.7063557505179673,
+            0.6436002231334921,
+            0.632874705527376,
+            0.6326107209314573
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q09",
+          "question": "静态场景下 GUI Agent 为什么可以使用监督微调？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "静态",
+            "监督微调",
+            "数据驱动",
+            "输入用户指令",
+            "当前屏幕",
+            "输出动作指令"
+          ],
+          "expected_pages": [
+            19
+          ],
+          "top_pages": [
+            19,
+            27,
+            28,
+            23,
+            22
+          ],
+          "top_scores": [
+            0.7176289186608682,
+            0.5224054939656264,
+            0.5138548718956164,
+            0.48980101411440696,
+            0.48606112534528273
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q10",
+          "question": "为什么动态场景下 GUI Agent 需要强化学习？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "动态性",
+            "网页布局",
+            "软件更新",
+            "特殊节日",
+            "强化学习"
+          ],
+          "expected_pages": [
+            21
+          ],
+          "top_pages": [
+            22,
+            23,
+            24,
+            21,
+            13
+          ],
+          "top_scores": [
+            0.7719731260350265,
+            0.741474377102567,
+            0.698641405340808,
+            0.6883969229872494,
+            0.5602851448905075
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q11",
+          "question": "DigiRL 是如何适应环境动态变化的？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "DigiRL",
+            "课程学习",
+            "简单的任务",
+            "困难的任务",
+            "动态"
+          ],
+          "expected_pages": [
+            22
+          ],
+          "top_pages": [
+            21,
+            22,
+            23,
+            24,
+            19
+          ],
+          "top_scores": [
+            0.699442261435157,
+            0.6747818538250523,
+            0.6141479069162676,
+            0.6053412260829336,
+            0.5679935797946478
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q12",
+          "question": "复杂任务中为什么需要 GUI 智能体调度系统？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "复杂任务",
+            "调度系统",
+            "子任务依赖",
+            "UI-NEXUS",
+            "进度管理",
+            "信息传递"
+          ],
+          "expected_pages": [
+            26,
+            27,
+            28
+          ],
+          "top_pages": [
+            27,
+            28,
+            26,
+            37,
+            39
+          ],
+          "top_scores": [
+            0.7358824022820314,
+            0.7136021403565583,
+            0.6915038221920415,
+            0.6302344577927121,
+            0.6120555240753319
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q13",
+          "question": "GUI 智能体面临哪些注入攻击风险？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "注入攻击",
+            "恶意提示",
+            "用户信息",
+            "恶意网站",
+            "恶意图像补丁"
+          ],
+          "expected_pages": [
+            31,
+            32
+          ],
+          "top_pages": [
+            31,
+            32,
+            33,
+            30,
+            40
+          ],
+          "top_scores": [
+            0.757943035931702,
+            0.7360815429622616,
+            0.6987248117230265,
+            0.6982375472951518,
+            0.6286028172973646
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q14",
+          "question": "GUI 智能体的 OOD 问题包括哪些类型？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "OOD",
+            "Internalization-OOD",
+            "Extrapolation-OOD",
+            "复杂的输入语义空间",
+            "动态真实环境"
+          ],
+          "expected_pages": [
+            37,
+            38
+          ],
+          "top_pages": [
+            37,
+            38,
+            30,
+            41,
+            33
+          ],
+          "top_scores": [
+            0.74561873713733,
+            0.7171139537043045,
+            0.7007548463072206,
+            0.6824965949014112,
+            0.6790691872787822
+          ],
+          "low_score_count": 0
+        }
+      ]
+    },
+    {
+      "chunk_size": 1000,
+      "overlap": 150,
+      "top_k": 3,
+      "chunk_count": 43,
+      "case_count": 14,
+      "hit_count": 14,
+      "hit_rate": 1.0,
+      "page_hit_count": 10,
+      "page_hit_rate": 0.7143,
+      "keyword_hit_count": 14,
+      "keyword_hit_rate": 1.0,
+      "low_score_result_count": 0,
+      "answer_stability_note": "检索依据稳定，适合作为 RAG 回答输入。",
+      "records": [
+        {
+          "case_id": "Q01",
+          "question": "GUI 智能体是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "输入"
+          ],
+          "expected_pages": [
+            6
+          ],
+          "top_pages": [
+            5,
+            9,
+            38
+          ],
+          "top_scores": [
+            0.7340140289449819,
+            0.7266214195628752,
+            0.6994263275346833
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q02",
+          "question": "大模型智能体具备哪些核心能力？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "环境交互",
+            "规划决策",
+            "动作落实",
+            "反思优化",
+            "知识库"
+          ],
+          "expected_pages": [
+            5
+          ],
+          "top_pages": [
+            5,
+            12,
+            16
+          ],
+          "top_scores": [
+            0.7250134025815955,
+            0.6686789179623316,
+            0.6544299065235927
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q03",
+          "question": "GUI 智能体和 API 智能体有什么区别？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "GUI智能体",
+            "输入"
+          ],
+          "expected_pages": [
+            7
+          ],
+          "top_pages": [
+            38,
+            5,
+            9
+          ],
+          "top_scores": [
+            0.7114781609940661,
+            0.7108068586232519,
+            0.6947369735939826
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q04",
+          "question": "GUI 智能体的发展现状是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学术界",
+            "工业界",
+            "广泛关注",
+            "井喷式发展",
+            "网页",
+            "手机",
+            "电脑"
+          ],
+          "expected_pages": [
+            9
+          ],
+          "top_pages": [
+            9,
+            5,
+            37
+          ],
+          "top_scores": [
+            0.7991270390855907,
+            0.700670680118964,
+            0.6935939176904833
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q05",
+          "question": "GUI Agent 有哪些主要技术分支？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "闭源模型",
+            "开源模型",
+            "GPT-4o",
+            "Qwen-VL",
+            "Qwen2-VL",
+            "LLaVa2"
+          ],
+          "expected_pages": [
+            11
+          ],
+          "top_pages": [
+            11,
+            13,
+            12
+          ],
+          "top_scores": [
+            0.6638482823651681,
+            0.5973756525204146,
+            0.5763970322488786
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q06",
+          "question": "Mobile-Agent-v2 包含哪些智能体？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "规划智能体",
+            "决策智能体",
+            "反思智能体",
+            "记忆单元",
+            "任务进度"
+          ],
+          "expected_pages": [
+            12
+          ],
+          "top_pages": [
+            12,
+            16,
+            11
+          ],
+          "top_scores": [
+            0.742176746952061,
+            0.7106716034056886,
+            0.6668988394959487
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q07",
+          "question": "AppAgentX 的特点是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学习",
+            "优化"
+          ],
+          "expected_pages": [
+            13
+          ],
+          "top_pages": [
+            7,
+            14,
+            23
+          ],
+          "top_scores": [
+            0.510314543934937,
+            0.5095820829174526,
+            0.5071108741444118
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q08",
+          "question": "GUI 智能体如何和安卓设备或电脑设备交互？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "ADB",
+            "AVD",
+            "pyautogui",
+            "鼠标",
+            "键盘",
+            "安卓设备"
+          ],
+          "expected_pages": [
+            17
+          ],
+          "top_pages": [
+            17,
+            16,
+            32
+          ],
+          "top_scores": [
+            0.7910127757896274,
+            0.7063557505179673,
+            0.6436002231334921
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q09",
+          "question": "静态场景下 GUI Agent 为什么可以使用监督微调？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "静态",
+            "监督微调",
+            "数据驱动",
+            "输入用户指令",
+            "当前屏幕",
+            "输出动作指令"
+          ],
+          "expected_pages": [
+            19
+          ],
+          "top_pages": [
+            19,
+            27,
+            28
+          ],
+          "top_scores": [
+            0.7176289186608682,
+            0.5224054939656264,
+            0.5138548718956164
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q10",
+          "question": "为什么动态场景下 GUI Agent 需要强化学习？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "强化学习"
+          ],
+          "expected_pages": [
+            21
+          ],
+          "top_pages": [
+            22,
+            23,
+            24
+          ],
+          "top_scores": [
+            0.7719731260350265,
+            0.741474377102567,
+            0.698641405340808
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q11",
+          "question": "DigiRL 是如何适应环境动态变化的？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "DigiRL",
+            "课程学习",
+            "简单的任务",
+            "困难的任务",
+            "动态"
+          ],
+          "expected_pages": [
+            22
+          ],
+          "top_pages": [
+            21,
+            22,
+            23
+          ],
+          "top_scores": [
+            0.699442261435157,
+            0.6747818538250523,
+            0.6141479069162676
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q12",
+          "question": "复杂任务中为什么需要 GUI 智能体调度系统？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "复杂任务",
+            "调度系统",
+            "子任务依赖",
+            "UI-NEXUS",
+            "进度管理",
+            "信息传递"
+          ],
+          "expected_pages": [
+            26,
+            27,
+            28
+          ],
+          "top_pages": [
+            27,
+            28,
+            26
+          ],
+          "top_scores": [
+            0.7358824022820314,
+            0.7136021403565583,
+            0.6915038221920415
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q13",
+          "question": "GUI 智能体面临哪些注入攻击风险？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "注入攻击",
+            "恶意提示",
+            "用户信息",
+            "恶意网站",
+            "恶意图像补丁"
+          ],
+          "expected_pages": [
+            31,
+            32
+          ],
+          "top_pages": [
+            31,
+            32,
+            33
+          ],
+          "top_scores": [
+            0.757943035931702,
+            0.7360815429622616,
+            0.6987248117230265
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q14",
+          "question": "GUI 智能体的 OOD 问题包括哪些类型？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "OOD",
+            "Internalization-OOD",
+            "Extrapolation-OOD",
+            "复杂的输入语义空间",
+            "动态真实环境"
+          ],
+          "expected_pages": [
+            37,
+            38
+          ],
+          "top_pages": [
+            37,
+            38,
+            30
+          ],
+          "top_scores": [
+            0.74561873713733,
+            0.7171139537043045,
+            0.7007548463072206
+          ],
+          "low_score_count": 0
+        }
+      ]
+    },
+    {
+      "chunk_size": 1000,
+      "overlap": 150,
+      "top_k": 5,
+      "chunk_count": 43,
+      "case_count": 14,
+      "hit_count": 14,
+      "hit_rate": 1.0,
+      "page_hit_count": 12,
+      "page_hit_rate": 0.8571,
+      "keyword_hit_count": 14,
+      "keyword_hit_rate": 1.0,
+      "low_score_result_count": 0,
+      "answer_stability_note": "检索依据稳定，适合作为 RAG 回答输入。",
+      "records": [
+        {
+          "case_id": "Q01",
+          "question": "GUI 智能体是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "图形用户界面",
+            "主动规划决策",
+            "点击",
+            "滑动",
+            "输入"
+          ],
+          "expected_pages": [
+            6
+          ],
+          "top_pages": [
+            5,
+            9,
+            38,
+            6,
+            37
+          ],
+          "top_scores": [
+            0.7340140289449819,
+            0.7266214195628752,
+            0.6994263089438273,
+            0.6922504060003618,
+            0.6865882945625938
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q02",
+          "question": "大模型智能体具备哪些核心能力？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "环境交互",
+            "规划决策",
+            "动作落实",
+            "反思优化",
+            "知识库"
+          ],
+          "expected_pages": [
+            5
+          ],
+          "top_pages": [
+            5,
+            12,
+            16,
+            11,
+            37
+          ],
+          "top_scores": [
+            0.7250134025815955,
+            0.6686789179623316,
+            0.6544299065235927,
+            0.614018871683997,
+            0.6029475290017032
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q03",
+          "question": "GUI 智能体和 API 智能体有什么区别？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "GUI智能体",
+            "点击",
+            "输入",
+            "滑动"
+          ],
+          "expected_pages": [
+            7
+          ],
+          "top_pages": [
+            38,
+            5,
+            9,
+            6,
+            37
+          ],
+          "top_scores": [
+            0.7114781609940661,
+            0.7108068586232519,
+            0.6947369735939826,
+            0.694266133950385,
+            0.6782441981101042
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q04",
+          "question": "GUI 智能体的发展现状是什么？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学术界",
+            "工业界",
+            "广泛关注",
+            "井喷式发展",
+            "网页",
+            "手机",
+            "电脑"
+          ],
+          "expected_pages": [
+            9
+          ],
+          "top_pages": [
+            9,
+            5,
+            37,
+            6,
+            4
+          ],
+          "top_scores": [
+            0.7991270390855907,
+            0.700670680118964,
+            0.6935939176904833,
+            0.6895110149263173,
+            0.6820966216305301
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q05",
+          "question": "GUI Agent 有哪些主要技术分支？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "闭源模型",
+            "开源模型",
+            "GPT-4o",
+            "Qwen-VL",
+            "Qwen2-VL",
+            "LLaVa2"
+          ],
+          "expected_pages": [
+            11
+          ],
+          "top_pages": [
+            11,
+            13,
+            12,
+            16,
+            14
+          ],
+          "top_scores": [
+            0.6638482823651681,
+            0.5973756525204146,
+            0.5763970322488786,
+            0.5589227253410693,
+            0.5555709172673766
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q06",
+          "question": "Mobile-Agent-v2 包含哪些智能体？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "规划智能体",
+            "决策智能体",
+            "反思智能体",
+            "记忆单元",
+            "任务进度"
+          ],
+          "expected_pages": [
+            12
+          ],
+          "top_pages": [
+            12,
+            16,
+            11,
+            38,
+            5
+          ],
+          "top_scores": [
+            0.742176746952061,
+            0.7106716034056886,
+            0.6668988394959487,
+            0.649537720361811,
+            0.6441922739694186
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q07",
+          "question": "AppAgentX 的特点是什么？",
+          "hit": true,
+          "hit_by_page": false,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "学习",
+            "优化"
+          ],
+          "expected_pages": [
+            13
+          ],
+          "top_pages": [
+            7,
+            14,
+            23,
+            9,
+            5
+          ],
+          "top_scores": [
+            0.510314543934937,
+            0.5095820829174526,
+            0.5071108741444118,
+            0.49529766683804877,
+            0.49325679918659243
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q08",
+          "question": "GUI 智能体如何和安卓设备或电脑设备交互？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "ADB",
+            "AVD",
+            "pyautogui",
+            "鼠标",
+            "键盘",
+            "安卓设备"
+          ],
+          "expected_pages": [
+            17
+          ],
+          "top_pages": [
+            17,
+            16,
+            32,
+            7,
+            9
+          ],
+          "top_scores": [
+            0.7910127757896274,
+            0.7063557505179673,
+            0.6436002231334921,
+            0.632874705527376,
+            0.6326107209314573
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q09",
+          "question": "静态场景下 GUI Agent 为什么可以使用监督微调？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "静态",
+            "监督微调",
+            "数据驱动",
+            "输入用户指令",
+            "当前屏幕",
+            "输出动作指令"
+          ],
+          "expected_pages": [
+            19
+          ],
+          "top_pages": [
+            19,
+            27,
+            28,
+            23,
+            22
+          ],
+          "top_scores": [
+            0.7176289186608682,
+            0.5224054939656264,
+            0.5138548718956164,
+            0.48980101411440696,
+            0.48606112534528273
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q10",
+          "question": "为什么动态场景下 GUI Agent 需要强化学习？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "动态性",
+            "网页布局",
+            "软件更新",
+            "特殊节日",
+            "强化学习"
+          ],
+          "expected_pages": [
+            21
+          ],
+          "top_pages": [
+            22,
+            23,
+            24,
+            21,
+            13
+          ],
+          "top_scores": [
+            0.7719731260350265,
+            0.741474377102567,
+            0.698641405340808,
+            0.6883969229872494,
+            0.5602851448905075
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q11",
+          "question": "DigiRL 是如何适应环境动态变化的？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "DigiRL",
+            "课程学习",
+            "简单的任务",
+            "困难的任务",
+            "动态"
+          ],
+          "expected_pages": [
+            22
+          ],
+          "top_pages": [
+            21,
+            22,
+            23,
+            24,
+            19
+          ],
+          "top_scores": [
+            0.699442261435157,
+            0.6747818538250523,
+            0.6141479069162676,
+            0.6053412260829336,
+            0.5679935797946478
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q12",
+          "question": "复杂任务中为什么需要 GUI 智能体调度系统？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "复杂任务",
+            "调度系统",
+            "子任务依赖",
+            "UI-NEXUS",
+            "进度管理",
+            "信息传递"
+          ],
+          "expected_pages": [
+            26,
+            27,
+            28
+          ],
+          "top_pages": [
+            27,
+            28,
+            26,
+            37,
+            39
+          ],
+          "top_scores": [
+            0.7358824022820314,
+            0.7136021403565583,
+            0.6915038221920415,
+            0.6302344577927121,
+            0.6120555240753319
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q13",
+          "question": "GUI 智能体面临哪些注入攻击风险？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "注入攻击",
+            "恶意提示",
+            "用户信息",
+            "恶意网站",
+            "恶意图像补丁"
+          ],
+          "expected_pages": [
+            31,
+            32
+          ],
+          "top_pages": [
+            31,
+            32,
+            33,
+            30,
+            40
+          ],
+          "top_scores": [
+            0.757943035931702,
+            0.7360815429622616,
+            0.6987248117230265,
+            0.6982375472951518,
+            0.6286028172973646
+          ],
+          "low_score_count": 0
+        },
+        {
+          "case_id": "Q14",
+          "question": "GUI 智能体的 OOD 问题包括哪些类型？",
+          "hit": true,
+          "hit_by_page": true,
+          "hit_by_keyword": true,
+          "matched_keywords": [
+            "OOD",
+            "Internalization-OOD",
+            "Extrapolation-OOD",
+            "复杂的输入语义空间",
+            "动态真实环境"
+          ],
+          "expected_pages": [
+            37,
+            38
+          ],
+          "top_pages": [
+            37,
+            38,
+            30,
+            41,
+            33
+          ],
+          "top_scores": [
+            0.74561873713733,
+            0.7171139537043045,
+            0.7007548463072206,
+            0.6824965949014112,
+            0.6790691872787822
+          ],
+          "low_score_count": 0
+        }
+      ]
+    }
+  ]
+}

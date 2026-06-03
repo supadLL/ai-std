@@ -4,6 +4,15 @@
 
 > 从“上传后只能检索”升级为“能查看、删除、重建本地知识库文档”。
 
+状态：已完成。
+
+完成记录：
+
+```text
+docs/summary/16-document-management-summary.md
+app/document_store.py
+```
+
 ---
 
 ## 1. 背景
@@ -88,7 +97,6 @@ docs/00-project-continuation-guide.md
 建议新增：
 
 ```text
-docs/summary/16-document-management-step.md
 docs/summary/16-document-management-summary.md
 ```
 
@@ -166,4 +174,3 @@ README.md
 docs/00-project-continuation-guide.md
 docs/summary/08-rag-agent-advanced-roadmap.md
 ```
-

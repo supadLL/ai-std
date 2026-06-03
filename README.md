@@ -59,12 +59,15 @@ pytest
 - ✅ sources 返回结构优化
 - ✅ RAG 回答固定为“答案 / 依据 / 资料不足之处”
 - ✅ 最小 pytest 回归测试
+- ✅ 15 条 RAG 评估问题和 baseline 检索记录
+- ✅ chunk/top_k 参数评估，当前推荐 `800/100/top_k=5`
+- ✅ 最小知识库文档管理：列表、详情、删除、`document_id`
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
 
 ```text
-第 14 步：建立 RAG 评估问题集
+第 17 步：content_hash 去重与重建索引策略
 ```
 
 入口文档：

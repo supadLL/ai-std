@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前下一步：
 
 ```text
-14-rag-evaluation-dataset-goal.md
+17-document-dedup-content-hash-goal.md
 ```
 
 当前已创建的 goal 文件：

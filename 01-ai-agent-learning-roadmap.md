@@ -219,10 +219,16 @@ score 分布
 资料不足时是否拒绝编造
 ```
 
-当前下一步：
+当前已经完成：
 
 ```text
-第 14 步：建立 RAG 评估问题集
+第 16 步：知识库文档管理
+```
+
+后续进入：
+
+```text
+第 17 步：content_hash 去重与重建索引策略
 ```
 
 ---
@@ -487,19 +493,20 @@ GET /docs
 
 ```text
 纯文本 PDF 本地 RAG MVP
+RAG 评估问题集和 baseline 检索记录
+chunk/top_k 参数评估
+知识库文档管理
 ```
 
 当前最应该继续做：
 
 ```text
-1. 建立 RAG 评估问题集
-2. 评估 chunk_size / overlap / top_k
-3. 增加文档管理和 content_hash 去重
-4. 支持 Markdown / txt
-5. 支持 docx / csv / xlsx
-6. 规划扫描型 PDF OCR
-7. 建立 Web UI
-8. 实现最小 RAG Agent 工具路由
+1. 增加 content_hash 去重与重建索引策略
+2. 支持 Markdown / txt
+3. 支持 docx / csv / xlsx
+4. 规划扫描型 PDF OCR
+5. 建立 Web UI
+6. 实现最小 RAG Agent 工具路由
 ```
 
 不要回到“从零学 RAG”的状态。
@@ -509,4 +516,3 @@ GET /docs
 ```text
 把已经跑通的 RAG MVP 打磨成个人项目级 RAG Agent 工具。
 ```
-
