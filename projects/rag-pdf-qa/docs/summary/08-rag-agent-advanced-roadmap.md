@@ -27,7 +27,7 @@ PDF 上传
 当前阶段可以定义为：
 
 ```text
-最小本地 RAG MVP + Web UI 初版
+本地 RAG Agent 初版
 ```
 
 它证明了核心链路能跑通：
@@ -746,7 +746,7 @@ README 最终要能回答：
 当前下一步 goal：
 
 ```text
-docs/goal/21-rag-agent-tool-routing-goal.md
+docs/goal/22-tests-and-project-final-summary-goal.md
 ```
 
 ---

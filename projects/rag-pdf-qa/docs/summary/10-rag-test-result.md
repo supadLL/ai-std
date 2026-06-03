@@ -692,3 +692,36 @@ pytest 19 passed
 第 21 步：实现最小 RAG Agent 工具路由
 ```
 
+---
+
+## 16. 第 21 步补充验证结果
+
+第 21 步已经新增：
+
+```text
+app/agent.py
+POST /agent/ask
+route = chat
+route = rag
+route = insufficient_context
+```
+
+已运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall app tests scripts
+.\.venv\Scripts\python.exe -m pytest
+```
+
+结果：
+
+```text
+pytest 25 passed
+```
+
+当前下一步：
+
+```text
+第 22 步：项目测试、收口和最终总结
+```
+

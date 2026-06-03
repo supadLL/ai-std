@@ -7,7 +7,7 @@
 - [项目续接规范：新对话 / 新开发者先读](docs/00-project-continuation-guide.md)
 - [goal 执行文档规范：开工前先读](docs/goal/README.md)
 - [summary 总结文档规范：完成后记录](docs/summary/README.md)
-- [当前下一步 goal：第 21 步最小 RAG Agent 工具路由](docs/goal/21-rag-agent-tool-routing-goal.md)
+- [当前下一步 goal：第 22 步项目测试、收口和最终总结](docs/goal/22-tests-and-project-final-summary-goal.md)
 - [第 1 步学习笔记：跑通 FastAPI + DeepSeek `/chat`](docs/summary/01-fastapi-chat-step.md)
 - [第 2 步学习笔记：配置 API Key 并测试 `/chat`](docs/summary/02-api-key-and-chat-test.md)
 - [第 3 步学习笔记：PDF 解析与文件上传接口](docs/summary/03-pdf-extraction-step.md)
@@ -30,6 +30,7 @@
 - [第 18 步完成总结：Markdown 和 txt 文档入库](docs/summary/18-markdown-txt-loader-summary.md)
 - [第 19 步完成总结：docx 与表格类文档解析](docs/summary/19-docx-table-loader-summary.md)
 - [第 20 步完成总结：现代风 RAG Web UI 初版](docs/summary/20-modern-web-ui-summary.md)
+- [第 21 步完成总结：最小 RAG Agent 工具路由](docs/summary/21-rag-agent-tool-routing-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -242,6 +243,7 @@ Invoke-RestMethod `
 - `POST /documents/search`：用问题检索本地 Qdrant 里的相关 chunk
 - `POST /rag/ask`：检索本地 Qdrant，并把相关 chunk 交给 DeepSeek 生成 RAG 回答
 - `GET /` / `GET /app`：打开本地 RAG Web UI
+- `POST /agent/ask`：最小 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`
 - `/rag/ask` 支持 `score_threshold` 低分过滤
 - `/rag/ask` 的 `sources` 已优化为 `source_id` + `preview` 结构
 - `/rag/ask` 的 `reply` 已通过 prompt 约束为“答案 / 依据 / 资料不足之处”三段式格式
@@ -252,6 +254,7 @@ Invoke-RestMethod `
 - 已支持 Markdown 和 txt 文档入库
 - 已支持 docx、csv、xlsx 文档入库
 - 已新增本地 Web UI 入口，用于上传文档、查看知识库、提问和查看 sources
+- 已新增最小 RAG Agent 工具路由接口 `/agent/ask`
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
@@ -296,7 +299,7 @@ Invoke-RestMethod `
 
 ## 下一步
 
-下一步从 [第 21 步：实现最小 RAG Agent 工具路由](docs/goal/21-rag-agent-tool-routing-goal.md) 开始。
+下一步从 [第 22 步：项目测试、收口和最终总结](docs/goal/22-tests-and-project-final-summary-goal.md) 开始。
 
 执行顺序保持：
 
@@ -307,5 +310,5 @@ Invoke-RestMethod `
 同步更新 README 和 00 号文档
 ```
 
-当前仍然先不要急着做复杂多 Agent。先实现最小工具路由，让系统能判断普通聊天和知识库检索问答的入口。
+当前仍然先不要急着做复杂多 Agent。下一步先对已有功能做项目级收口：测试、文档、启动说明、限制说明和最终总结。
 

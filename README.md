@@ -66,12 +66,13 @@ pytest
 - ✅ Markdown 和 txt 文档入库
 - ✅ docx、csv、xlsx 文档入库
 - ✅ 本地 Web UI 初版
+- ✅ 最小 RAG Agent 工具路由
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
 
 ```text
-第 21 步：最小 RAG Agent 工具路由
+第 22 步：项目测试、收口和最终总结
 ```
 
 入口文档：

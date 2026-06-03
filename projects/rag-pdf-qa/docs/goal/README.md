@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前下一步：
 
 ```text
-21-rag-agent-tool-routing-goal.md
+22-tests-and-project-final-summary-goal.md
 ```
 
 当前已创建的 goal 文件：

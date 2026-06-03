@@ -47,6 +47,7 @@ docs/summary/17-document-dedup-content-hash-summary.md
 docs/summary/18-markdown-txt-loader-summary.md
 docs/summary/19-docx-table-loader-summary.md
 docs/summary/20-modern-web-ui-summary.md
+docs/summary/21-rag-agent-tool-routing-summary.md
 ```
 
 格式：

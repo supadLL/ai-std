@@ -54,16 +54,17 @@ content_hash 去重与 reindex 重建索引策略
 Markdown / txt 文档入库
 docx / csv / xlsx 文档入库
 现代风本地 Web UI 初版
+最小 RAG Agent 工具路由：/agent/ask
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-最小本地 RAG MVP + Web UI 初版
+本地 RAG Agent 初版
 ```
 
-还不是完整的个人项目级 RAG Agent。
+还没有做最终项目级收口和完整总结。
 
 后续优化路线见：
 
@@ -202,6 +203,7 @@ Swagger Docs 页面必须能测试接口。
 | `DELETE /documents/{document_id}` | 删除某个文档的 Qdrant chunks 和 metadata |
 | `POST /documents/search` | 只做语义检索，不调用 DeepSeek |
 | `POST /rag/ask` | 检索 Qdrant，再调用 DeepSeek 生成 RAG 回答 |
+| `POST /agent/ask` | 最小 Agent 工具路由，自动选择 chat / rag / insufficient_context |
 | `GET /` / `GET /app` | 打开本地 RAG Web UI |
 
 测试顺序建议：
@@ -501,11 +503,15 @@ docs/summary/10-rag-test-result.md
 
 ## 11. Agent 实现规范
 
-当前还没有真正实现 Agent。
+当前已经实现最小 Agent 工具路由：
 
-后续如果实现，不要直接上复杂多 Agent。
+```text
+POST /agent/ask
+```
 
-先做最小工具选择：
+当前不要直接上复杂多 Agent。
+
+当前最小工具选择：
 
 ```text
 用户问题
@@ -520,9 +526,18 @@ docs/summary/10-rag-test-result.md
 ```text
 search_documents(query, limit)
 answer_with_context(question, sources)
+direct_chat(question)
 ```
 
-实现前先补文档，再写代码。
+当前 route 可能是：
+
+```text
+chat
+rag
+insufficient_context
+```
+
+后续继续扩展 Agent 前，仍然先补文档，再写代码。
 
 ---
 
@@ -548,10 +563,10 @@ app/vector_store.py
 PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> DeepSeek 基于 sources 回答。
 
 后续规划已经纳入：
-PDF OCR / 表格抽取 / 图片处理、网页正文等更多知识库输入，以及最小 Agent 工具路由。
+PDF OCR / 表格抽取 / 图片处理、网页正文等更多知识库输入，以及项目测试收口和最终总结。
 
 当前已经支持：
-PDF、Markdown、txt、docx、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI 初版。
+PDF、Markdown、txt、docx、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI 初版和 /agent/ask 最小 Agent 路由。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。
@@ -569,12 +584,12 @@ PDF、Markdown、txt、docx、csv、xlsx 入库，并提供 http://127.0.0.1:800
 
 ## 13. 当前优先级
 
-后续实现从第 21 步继续，必须先读对应 goal 文档。
+后续实现从第 22 步继续，必须先读对应 goal 文档。
 
 当前下一步：
 
 ```text
-docs/goal/21-rag-agent-tool-routing-goal.md
+docs/goal/22-tests-and-project-final-summary-goal.md
 ```
 
 完整后续执行路线：
@@ -623,6 +638,7 @@ csv / xlsx 表格文件
 RAG score_threshold 低分过滤
 RAG sources 返回 source_id、score、filename、page_number、chunk_id、preview
 Web UI 初版
+/agent/ask 最小 Agent 工具路由
 ```
 
 当前还没有支持：

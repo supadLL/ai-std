@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from app.agent import decide_agent_route
 from app.config import get_settings
 from app.deepseek_client import DeepSeekClient, DeepSeekClientError
 from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
@@ -163,6 +164,25 @@ class RagAskResponse(BaseModel):
     retrieved_count: int
     source_count: int
     sources: list[RagSourceResponse]
+    usage: dict[str, Any] | None = None
+
+
+class AgentAskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    limit: int = Field(default=5, ge=1, le=10)
+    score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class AgentAskResponse(BaseModel):
+    question: str
+    route: str
+    reply: str
+    model: str | None = None
+    collection: str
+    score_threshold: float | None = None
+    retrieved_count: int = 0
+    source_count: int = 0
+    sources: list[RagSourceResponse] = Field(default_factory=list)
     usage: dict[str, Any] | None = None
 
 
@@ -489,16 +509,9 @@ async def delete_document(document_id: str) -> DeleteDocumentResponse:
 async def search_documents(request: SearchRequest) -> SearchResponse:
     settings = get_settings()
     try:
-        query_vector = await run_in_threadpool(
-            embed_text,
-            text=request.query,
-            model_name=settings.embedding_model,
-        )
-        client = get_qdrant_client(settings.qdrant_local_path)
-        retrieved_results = search_chunks(
-            client=client,
-            collection_name=settings.qdrant_collection,
-            query_vector=query_vector,
+        retrieved_results = await _search_local_chunks(
+            settings=settings,
+            query=request.query,
             limit=request.limit,
         )
     except (EmbeddingError, VectorStoreError) as exc:
@@ -520,16 +533,9 @@ async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
     settings = get_settings()
 
     try:
-        query_vector = await run_in_threadpool(
-            embed_text,
-            text=request.question,
-            model_name=settings.embedding_model,
-        )
-        client = get_qdrant_client(settings.qdrant_local_path)
-        retrieved_results = search_chunks(
-            client=client,
-            collection_name=settings.qdrant_collection,
-            query_vector=query_vector,
+        retrieved_results = await _search_local_chunks(
+            settings=settings,
+            query=request.question,
             limit=request.limit,
         )
     except (EmbeddingError, VectorStoreError) as exc:
@@ -571,6 +577,113 @@ async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
             for index, result in enumerate(results, start=1)
         ],
         usage=answer.get("usage"),
+    )
+
+
+@app.post("/agent/ask", response_model=AgentAskResponse)
+async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
+    settings = get_settings()
+    selected_route = decide_agent_route(request.question)
+
+    if selected_route == "chat":
+        deepseek_client = DeepSeekClient(settings)
+        try:
+            answer = await deepseek_client.chat(request.question)
+        except DeepSeekClientError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        return AgentAskResponse(
+            question=request.question,
+            route="chat",
+            reply=answer["reply"],
+            model=answer["model"],
+            collection=settings.qdrant_collection,
+            score_threshold=request.score_threshold,
+            usage=answer.get("usage"),
+        )
+
+    try:
+        retrieved_results = await _search_local_chunks(
+            settings=settings,
+            query=request.question,
+            limit=request.limit,
+        )
+    except (EmbeddingError, VectorStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    results = _filter_results_by_score(retrieved_results, request.score_threshold)
+    sources = [
+        _to_rag_source_response(index, result)
+        for index, result in enumerate(results, start=1)
+    ]
+
+    if not retrieved_results:
+        return AgentAskResponse(
+            question=request.question,
+            route="insufficient_context",
+            reply="资料不足：本地知识库中没有检索到相关内容。请先上传并索引相关文档，或换一个更具体的问题。",
+            collection=settings.qdrant_collection,
+            score_threshold=request.score_threshold,
+            retrieved_count=0,
+            source_count=0,
+            sources=[],
+        )
+
+    if not results:
+        return AgentAskResponse(
+            question=request.question,
+            route="insufficient_context",
+            reply="资料不足：检索结果没有达到当前 score_threshold。可以降低阈值，或补充更相关的资料后再问。",
+            collection=settings.qdrant_collection,
+            score_threshold=request.score_threshold,
+            retrieved_count=len(retrieved_results),
+            source_count=0,
+            sources=[],
+        )
+
+    deepseek_client = DeepSeekClient(settings)
+    messages = _build_rag_messages(question=request.question, results=results)
+
+    try:
+        answer = await deepseek_client.chat_messages(
+            messages=messages,
+            max_tokens=1200,
+            temperature=0.1,
+        )
+    except DeepSeekClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return AgentAskResponse(
+        question=request.question,
+        route="rag",
+        reply=answer["reply"],
+        model=answer["model"],
+        collection=settings.qdrant_collection,
+        score_threshold=request.score_threshold,
+        retrieved_count=len(retrieved_results),
+        source_count=len(results),
+        sources=sources,
+        usage=answer.get("usage"),
+    )
+
+
+async def _search_local_chunks(
+    *,
+    settings: Any,
+    query: str,
+    limit: int,
+) -> list[SearchResult]:
+    query_vector = await run_in_threadpool(
+        embed_text,
+        text=query,
+        model_name=settings.embedding_model,
+    )
+    client = get_qdrant_client(settings.qdrant_local_path)
+    return search_chunks(
+        client=client,
+        collection_name=settings.qdrant_collection,
+        query_vector=query_vector,
+        limit=limit,
     )
 
 
