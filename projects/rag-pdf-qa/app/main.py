@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
@@ -92,11 +93,17 @@ class EmbeddingResponse(BaseModel):
 class DocumentIndexResponse(BaseModel):
     document_id: str
     filename: str
+    content_hash: str
+    content_hash_prefix: str
+    is_duplicate: bool = False
+    indexed: bool = True
+    message: str
     collection: str
-    page_count: int
+    page_count: int | None = None
     chunk_count: int
     indexed_count: int
-    dimension: int
+    deleted_chunks: int = 0
+    dimension: int | None = None
     local_path: str
 
 
@@ -153,8 +160,12 @@ class DocumentRecordResponse(BaseModel):
     document_id: str
     filename: str
     file_type: str
+    content_hash: str
+    content_hash_prefix: str
     chunk_count: int
     created_at: str
+    indexed_at: str
+    source_file_size: int
     collection: str
     chunk_size: int
     overlap: int
@@ -293,6 +304,7 @@ async def index_document(
     file: UploadFile = File(...),
     chunk_size: int = Form(800),
     overlap: int = Form(100),
+    reindex: bool = Form(False),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
     if not filename.lower().endswith(".pdf"):
@@ -304,8 +316,31 @@ async def index_document(
         raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
 
     settings = get_settings()
-    document_id = str(uuid4())
+    content_hash = _calculate_content_hash(content)
+    document_store = get_document_store(settings.document_metadata_path)
+
     try:
+        existing_record = document_store.get_document_by_content_hash(content_hash)
+        if existing_record is not None and not reindex:
+            return DocumentIndexResponse(
+                document_id=existing_record.document_id,
+                filename=filename,
+                content_hash=content_hash,
+                content_hash_prefix=content_hash[:12],
+                is_duplicate=True,
+                indexed=False,
+                message="Duplicate document content detected. Existing index was reused.",
+                collection=existing_record.collection,
+                page_count=existing_record.page_count,
+                chunk_count=existing_record.chunk_count,
+                indexed_count=0,
+                deleted_chunks=0,
+                dimension=None,
+                local_path=settings.qdrant_local_path,
+            )
+
+        document_id = existing_record.document_id if existing_record is not None else str(uuid4())
+        deleted_chunks = 0
         extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
         chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
         if not chunks:
@@ -317,6 +352,14 @@ async def index_document(
         dimension = len(vectors[0])
         client = get_qdrant_client(settings.qdrant_local_path)
         ensure_collection(client, settings.qdrant_collection, dimension)
+        if existing_record is not None and reindex:
+            deleted_chunks = delete_document_chunks(
+                client=client,
+                collection_name=existing_record.collection,
+                document_id=existing_record.document_id,
+            )
+            document_store.remove_document(existing_record.document_id)
+
         indexed_count = upsert_chunks(
             client=client,
             collection_name=settings.qdrant_collection,
@@ -324,12 +367,13 @@ async def index_document(
             chunks=chunks,
             vectors=vectors,
             document_id=document_id,
+            content_hash=content_hash,
         )
-        document_store = get_document_store(settings.document_metadata_path)
         document_store.add_document(
             document_id=document_id,
             filename=filename,
             file_type="pdf",
+            content_hash=content_hash,
             chunk_count=len(chunks),
             collection=settings.qdrant_collection,
             chunk_size=chunk_size,
@@ -337,6 +381,7 @@ async def index_document(
             embedding_model=settings.embedding_model,
             page_count=extracted.page_count,
             indexed_count=indexed_count,
+            source_file_size=len(content),
         )
     except (PdfExtractionError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -344,10 +389,16 @@ async def index_document(
     return DocumentIndexResponse(
         document_id=document_id,
         filename=filename,
+        content_hash=content_hash,
+        content_hash_prefix=content_hash[:12],
+        is_duplicate=False,
+        indexed=True,
+        message="Document indexed successfully." if deleted_chunks == 0 else "Document reindexed successfully.",
         collection=settings.qdrant_collection,
         page_count=extracted.page_count,
         chunk_count=len(chunks),
         indexed_count=indexed_count,
+        deleted_chunks=deleted_chunks,
         dimension=dimension,
         local_path=settings.qdrant_local_path,
     )
@@ -527,6 +578,10 @@ def get_document_store(metadata_path: str) -> DocumentStore:
 
 def _to_document_record_response(record: DocumentRecord) -> DocumentRecordResponse:
     return DocumentRecordResponse(**asdict(record))
+
+
+def _calculate_content_hash(content: bytes) -> str:
+    return sha256(content).hexdigest()
 
 
 def _filter_results_by_score(

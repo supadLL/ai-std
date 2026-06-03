@@ -56,6 +56,7 @@ def upsert_chunks(
     chunks: list[TextChunk],
     vectors: list[list[float]],
     document_id: str | None = None,
+    content_hash: str | None = None,
 ) -> int:
     if len(chunks) != len(vectors):
         raise VectorStoreError("chunks and vectors length mismatch")
@@ -70,6 +71,7 @@ def upsert_chunks(
                 vector=vector,
                 payload={
                     "document_id": document_id,
+                    "content_hash": content_hash,
                     "filename": filename,
                     "page_number": chunk.page_number,
                     "chunk_id": chunk.chunk_id,

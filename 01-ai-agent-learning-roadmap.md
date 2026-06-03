@@ -228,7 +228,7 @@ score 分布
 后续进入：
 
 ```text
-第 17 步：content_hash 去重与重建索引策略
+第 18 步：Markdown 和 txt 文档入库
 ```
 
 ---
@@ -496,17 +496,17 @@ GET /docs
 RAG 评估问题集和 baseline 检索记录
 chunk/top_k 参数评估
 知识库文档管理
+content_hash 去重与 reindex 重建索引
 ```
 
 当前最应该继续做：
 
 ```text
-1. 增加 content_hash 去重与重建索引策略
-2. 支持 Markdown / txt
-3. 支持 docx / csv / xlsx
-4. 规划扫描型 PDF OCR
-5. 建立 Web UI
-6. 实现最小 RAG Agent 工具路由
+1. 支持 Markdown / txt
+2. 支持 docx / csv / xlsx
+3. 规划扫描型 PDF OCR
+4. 建立 Web UI
+5. 实现最小 RAG Agent 工具路由
 ```
 
 不要回到“从零学 RAG”的状态。

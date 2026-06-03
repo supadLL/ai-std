@@ -62,12 +62,13 @@ pytest
 - ✅ 15 条 RAG 评估问题和 baseline 检索记录
 - ✅ chunk/top_k 参数评估，当前推荐 `800/100/top_k=5`
 - ✅ 最小知识库文档管理：列表、详情、删除、`document_id`
+- ✅ `content_hash` 去重与 `reindex=true` 重建索引策略
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
 
 ```text
-第 17 步：content_hash 去重与重建索引策略
+第 18 步：Markdown 和 txt 文档入库
 ```
 
 入口文档：

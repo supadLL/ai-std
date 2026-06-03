@@ -496,13 +496,13 @@ baseline 汇总：
 当前下一步：
 
 ```text
-第 17 步：增加 content_hash 去重与重建索引策略
+第 18 步：支持 Markdown 和 txt 文档入库
 ```
 
 对应 goal：
 
 ```text
-docs/goal/17-document-dedup-content-hash-goal.md
+docs/goal/18-markdown-txt-loader-goal.md
 ```
 
 ---
@@ -543,5 +543,39 @@ DELETE /documents/{document_id}
 
 ```text
 pytest 8 passed
+```
+
+---
+
+## 12. 第 17 步补充验证结果
+
+第 17 步已经新增：
+
+```text
+content_hash
+duplicate check
+reindex=true
+```
+
+`POST /documents/index` 重复上传同一份文件时，默认返回：
+
+```text
+is_duplicate = true
+indexed = false
+```
+
+使用 `reindex=true` 时，会先删除旧 chunks，再重新索引。
+
+已运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall app tests scripts
+.\.venv\Scripts\python.exe -m pytest
+```
+
+结果：
+
+```text
+pytest 10 passed
 ```
 

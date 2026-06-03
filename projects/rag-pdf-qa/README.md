@@ -7,7 +7,7 @@
 - [项目续接规范：新对话 / 新开发者先读](docs/00-project-continuation-guide.md)
 - [goal 执行文档规范：开工前先读](docs/goal/README.md)
 - [summary 总结文档规范：完成后记录](docs/summary/README.md)
-- [下一步 goal：第 17 步 content_hash 去重与重建索引策略](docs/goal/17-document-dedup-content-hash-goal.md)
+- [下一步 goal：第 18 步 Markdown 和 txt 文档入库](docs/goal/18-markdown-txt-loader-goal.md)
 - [第 1 步学习笔记：跑通 FastAPI + DeepSeek `/chat`](docs/summary/01-fastapi-chat-step.md)
 - [第 2 步学习笔记：配置 API Key 并测试 `/chat`](docs/summary/02-api-key-and-chat-test.md)
 - [第 3 步学习笔记：PDF 解析与文件上传接口](docs/summary/03-pdf-extraction-step.md)
@@ -26,6 +26,7 @@
 - [第 14 步完成总结：建立 RAG 评估问题集](docs/summary/14-rag-evaluation-dataset-summary.md)
 - [第 15 步完成总结：chunk 参数和 top_k 评估](docs/summary/15-chunk-topk-parameter-evaluation-summary.md)
 - [第 16 步完成总结：知识库文档管理](docs/summary/16-document-management-summary.md)
+- [第 17 步完成总结：content_hash 去重与重建索引策略](docs/summary/17-document-dedup-content-hash-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -152,7 +153,7 @@ Invoke-RestMethod `
 - `POST /documents/extract`：上传 PDF 并提取文本
 - `POST /documents/chunk`：上传 PDF 并切分文本块
 - `POST /embeddings/text`：把文本转换成 embedding 向量
-- `POST /documents/index`：上传 PDF，切分并写入本地 Qdrant
+- `POST /documents/index`：上传 PDF，切分并写入本地 Qdrant，支持 `content_hash` 去重和 `reindex`
 - `GET /documents`：查看本地知识库文档列表
 - `GET /documents/{document_id}`：查看单个文档 metadata
 - `DELETE /documents/{document_id}`：删除某个文档在 Qdrant 中的 chunks 和 metadata
@@ -164,6 +165,7 @@ Invoke-RestMethod `
 - 已建立 15 条 RAG 评估问题和 baseline 检索记录
 - 已完成 chunk/top_k 参数评估，当前推荐 `chunk_size=800`、`overlap=100`、`top_k=5`
 - 已新增最小知识库文档管理能力，支持 `document_id`、列表、详情和删除
+- 已新增 `content_hash` 去重和 `reindex=true` 重建索引策略
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
@@ -208,7 +210,7 @@ Invoke-RestMethod `
 
 ## 下一步
 
-下一步从 [第 17 步：增加 content_hash 去重与重建索引策略](docs/goal/17-document-dedup-content-hash-goal.md) 开始。
+下一步从 [第 18 步：支持 Markdown 和 txt 文档入库](docs/goal/18-markdown-txt-loader-goal.md) 开始。
 
 执行顺序保持：
 
@@ -219,5 +221,5 @@ Invoke-RestMethod `
 同步更新 README 和 00 号文档
 ```
 
-当前仍然先不要急着做复杂 Agent。先把文档去重、重建索引和多格式文档入口补稳，再进入 UI 和最小 Agent。
+当前仍然先不要急着做复杂 Agent。先把 Markdown / txt、docx、表格和 OCR 等知识库入口补稳，再进入 UI 和最小 Agent。
 

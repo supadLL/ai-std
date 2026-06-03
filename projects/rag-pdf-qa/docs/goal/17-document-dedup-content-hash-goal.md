@@ -4,6 +4,14 @@
 
 > 避免同一个文件反复上传后在 Qdrant 中产生重复 chunks。
 
+状态：已完成。
+
+完成记录：
+
+```text
+docs/summary/17-document-dedup-content-hash-summary.md
+```
+
 ---
 
 ## 1. 背景
@@ -78,7 +86,6 @@ docs/00-project-continuation-guide.md
 建议新增：
 
 ```text
-docs/summary/17-document-dedup-content-hash-step.md
 docs/summary/17-document-dedup-content-hash-summary.md
 ```
 
@@ -150,4 +157,3 @@ README.md
 docs/00-project-continuation-guide.md
 docs/summary/10-rag-test-result.md
 ```
-

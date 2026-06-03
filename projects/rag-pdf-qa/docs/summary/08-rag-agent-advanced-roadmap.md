@@ -400,7 +400,7 @@ overlap
 embedding_model
 ```
 
-后续第 17 步继续增加：
+第 17 步已经增加：
 
 ```text
 content_hash
@@ -414,7 +414,7 @@ GET /documents/{document_id}
 DELETE /documents/{document_id}
 ```
 
-后续第 17 步再考虑：
+后续再考虑：
 
 ```text
 POST /documents/reindex
@@ -746,7 +746,7 @@ README 最终要能回答：
 当前下一步 goal：
 
 ```text
-docs/goal/17-document-dedup-content-hash-goal.md
+docs/goal/18-markdown-txt-loader-goal.md
 ```
 
 ---
