@@ -46,6 +46,7 @@ docs/summary/16-document-management-summary.md
 docs/summary/17-document-dedup-content-hash-summary.md
 docs/summary/18-markdown-txt-loader-summary.md
 docs/summary/19-docx-table-loader-summary.md
+docs/summary/20-modern-web-ui-summary.md
 ```
 
 格式：

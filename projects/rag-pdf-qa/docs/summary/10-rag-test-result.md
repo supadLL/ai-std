@@ -648,3 +648,47 @@ xlsx loader
 pytest 18 passed
 ```
 
+---
+
+## 15. 第 20 步补充验证结果
+
+第 20 步已经新增：
+
+```text
+本地 Web UI 初版
+GET /
+GET /app
+静态资源 /web/*
+```
+
+默认访问入口：
+
+```text
+http://127.0.0.1:8000/app
+```
+
+Swagger Docs 仍然保留：
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+已运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall app tests scripts
+.\.venv\Scripts\python.exe -m pytest
+```
+
+结果：
+
+```text
+pytest 19 passed
+```
+
+当前下一步：
+
+```text
+第 21 步：实现最小 RAG Agent 工具路由
+```
+

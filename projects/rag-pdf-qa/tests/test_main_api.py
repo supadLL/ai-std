@@ -41,6 +41,20 @@ def test_search_documents_returns_retrieved_results(monkeypatch):
     assert data["results"][0]["chunk_id"] == 7
 
 
+def test_web_ui_routes_are_available():
+    client = TestClient(main.app)
+
+    app_response = client.get("/app")
+    docs_response = client.get("/docs")
+    openapi_response = client.get("/openapi.json")
+
+    assert app_response.status_code == 200
+    assert "RAG PDF QA" in app_response.text
+    assert docs_response.status_code == 200
+    assert openapi_response.status_code == 200
+    assert "/documents/index" in openapi_response.json()["paths"]
+
+
 def test_build_rag_messages_requires_stable_output_format():
     messages = main._build_rag_messages(
         question="GUI Agent 的核心流程是什么？",

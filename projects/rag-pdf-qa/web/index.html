@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RAG PDF QA</title>
+    <link rel="stylesheet" href="/web/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="panel library-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Knowledge</p>
+            <h1>RAG PDF QA</h1>
+          </div>
+          <button class="icon-button" id="refreshDocuments" title="刷新文档列表">↻</button>
+        </div>
+
+        <form class="upload-box" id="uploadForm">
+          <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.docx,.csv,.xlsx" />
+          <div class="upload-meta">
+            <label for="chunkSize">chunk</label>
+            <input id="chunkSize" name="chunk_size" type="number" min="100" max="3000" value="800" />
+            <label for="overlap">overlap</label>
+            <input id="overlap" name="overlap" type="number" min="0" value="100" />
+          </div>
+          <label class="toggle">
+            <input id="reindex" name="reindex" type="checkbox" />
+            <span>reindex</span>
+          </label>
+          <button class="primary-button" type="submit">上传索引</button>
+        </form>
+
+        <div class="document-list" id="documentList"></div>
+      </aside>
+
+      <section class="panel answer-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Ask</p>
+            <h2>本地知识库问答</h2>
+          </div>
+          <a class="ghost-link" href="/docs" target="_blank" rel="noreferrer">/docs</a>
+        </div>
+
+        <div class="answer-output" id="answerOutput">
+          <p class="empty-state">等待问题</p>
+        </div>
+
+        <form class="ask-bar" id="askForm">
+          <textarea id="questionInput" rows="2" placeholder="输入问题"></textarea>
+          <div class="controls">
+            <label>
+              top_k
+              <input id="topK" type="number" min="1" max="10" value="5" />
+            </label>
+            <label>
+              threshold
+              <input id="scoreThreshold" type="number" min="0" max="1" step="0.05" placeholder="auto" />
+            </label>
+            <button class="primary-button ask-button" type="submit">提问</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="panel sources-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Sources</p>
+            <h2>检索来源</h2>
+          </div>
+          <span class="status-pill" id="statusPill">idle</span>
+        </div>
+        <div class="debug-grid" id="debugGrid"></div>
+        <div class="source-list" id="sourceList"></div>
+      </aside>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <script src="/web/app.js"></script>
+  </body>
+</html>

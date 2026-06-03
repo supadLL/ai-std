@@ -65,12 +65,13 @@ pytest
 - ✅ `content_hash` 去重与 `reindex=true` 重建索引策略
 - ✅ Markdown 和 txt 文档入库
 - ✅ docx、csv、xlsx 文档入库
+- ✅ 本地 Web UI 初版
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
 
 ```text
-第 20 步：现代风 RAG Web UI
+第 21 步：最小 RAG Agent 工具路由
 ```
 
 入口文档：
@@ -79,6 +80,51 @@ pytest
 - [项目续接规范](projects/rag-pdf-qa/docs/00-project-continuation-guide.md)
 - [goal 执行文档](projects/rag-pdf-qa/docs/goal/README.md)
 - [summary 总结文档](projects/rag-pdf-qa/docs/summary/README.md)
+
+---
+
+## 如何启动当前 RAG 项目 🖥️
+
+进入项目目录：
+
+```powershell
+cd projects/rag-pdf-qa
+```
+
+如果是第一次使用：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+然后在 `.env` 中写入自己的 DeepSeek API Key：
+
+```text
+DEEPSEEK_API_KEY=你的真实 DeepSeek API Key
+```
+
+如果本机已经配置过环境，只是重新唤醒本地 RAG：
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+常用入口：
+
+```text
+Web UI:        http://127.0.0.1:8000/app
+Swagger Docs: http://127.0.0.1:8000/docs
+Health Check: http://127.0.0.1:8000/health
+```
+
+完整启动、换电脑恢复、端口占用处理见：
+
+- [rag-pdf-qa 启动说明](projects/rag-pdf-qa/README.md)
 
 ---
 

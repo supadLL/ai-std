@@ -7,7 +7,7 @@
 - [项目续接规范：新对话 / 新开发者先读](docs/00-project-continuation-guide.md)
 - [goal 执行文档规范：开工前先读](docs/goal/README.md)
 - [summary 总结文档规范：完成后记录](docs/summary/README.md)
-- [下一步 goal：第 20 步现代风 RAG Web UI](docs/goal/20-modern-web-ui-goal.md)
+- [当前下一步 goal：第 21 步最小 RAG Agent 工具路由](docs/goal/21-rag-agent-tool-routing-goal.md)
 - [第 1 步学习笔记：跑通 FastAPI + DeepSeek `/chat`](docs/summary/01-fastapi-chat-step.md)
 - [第 2 步学习笔记：配置 API Key 并测试 `/chat`](docs/summary/02-api-key-and-chat-test.md)
 - [第 3 步学习笔记：PDF 解析与文件上传接口](docs/summary/03-pdf-extraction-step.md)
@@ -29,6 +29,7 @@
 - [第 17 步完成总结：content_hash 去重与重建索引策略](docs/summary/17-document-dedup-content-hash-summary.md)
 - [第 18 步完成总结：Markdown 和 txt 文档入库](docs/summary/18-markdown-txt-loader-summary.md)
 - [第 19 步完成总结：docx 与表格类文档解析](docs/summary/19-docx-table-loader-summary.md)
+- [第 20 步完成总结：现代风 RAG Web UI 初版](docs/summary/20-modern-web-ui-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -45,7 +46,45 @@
 - [第 21 步执行目标：实现最小 RAG Agent 工具路由](docs/goal/21-rag-agent-tool-routing-goal.md)
 - [第 22 步执行目标：项目测试、收口和最终总结](docs/goal/22-tests-and-project-final-summary-goal.md)
 
-## 1. 创建虚拟环境
+## 快速唤醒本地 RAG
+
+如果这台电脑已经配置过 `.venv` 和 `.env`，只是换了一个终端、重启了电脑、或者隔了一段时间要继续使用，直接执行：
+
+```powershell
+cd D:\ll-work\ai-play\ai-std\projects\rag-pdf-qa
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+启动后访问：
+
+```text
+Web UI:        http://127.0.0.1:8000/app
+Swagger Docs: http://127.0.0.1:8000/docs
+Health Check: http://127.0.0.1:8000/health
+```
+
+说明：
+
+- `Web UI` 用来做文件上传、知识库列表、RAG 提问和 sources 查看。
+- `Swagger Docs` 用来直接测试 API，后续所有接口仍然必须保证能在 `/docs` 页面测试。
+- 项目默认端口固定使用 `8000`，后续不要随意改成 `8001`、`8002`。
+
+如果改了代码，希望服务自动重载，可以用：
+
+```powershell
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+## 首次部署 / 换电脑后恢复
+
+如果是别人 clone 项目，或者你换了一台新电脑，需要从仓库根目录进入本项目：
+
+```powershell
+cd ai-std/projects/rag-pdf-qa
+```
+
+### 1. 创建虚拟环境
 
 ```powershell
 python -m venv .venv
@@ -54,7 +93,7 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 2. 配置 API Key
+### 2. 配置 API Key
 
 ```powershell
 Copy-Item .env.example .env
@@ -66,47 +105,27 @@ Copy-Item .env.example .env
 DEEPSEEK_API_KEY=你的真实 DeepSeek API Key
 ```
 
-## 3. 启动 / 唤醒本地 RAG 服务
+不要把真实 API Key 写进 README、docs、测试文件或提交到 GitHub。
+
+### 3. 启动本地 RAG 服务
 
 ```powershell
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-服务地址：
+本项目使用的是 Qdrant local 模式，不需要单独启动 Qdrant Docker。首次索引文档时会在本地生成 `.qdrant/` 数据目录。
+
+### 4. 打开使用入口
 
 ```text
-http://127.0.0.1:8000
+Web UI:        http://127.0.0.1:8000/app
+Swagger Docs: http://127.0.0.1:8000/docs
+Health Check: http://127.0.0.1:8000/health
 ```
 
-Swagger 测试页面：
+### 5. 重新建立本地知识库
 
-```text
-http://127.0.0.1:8000/docs
-```
-
-健康检查：
-
-```text
-http://127.0.0.1:8000/health
-```
-
-如果只是换了一个新终端，项目依赖和 `.env` 已经配置过，只需要：
-
-```powershell
-cd ai-std/projects/rag-pdf-qa
-.\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
-
-如果 8000 端口被旧服务占用，先关闭旧终端，或在 PowerShell 中查看占用进程：
-
-```powershell
-Get-NetTCPConnection -LocalPort 8000
-```
-
-## 4. 其他人 clone 后如何启用
-
-别人从 GitHub 拉取项目后，不会带有你的本地运行数据：
+GitHub 仓库不会提交你的本地运行数据：
 
 ```text
 .env
@@ -114,15 +133,76 @@ Get-NetTCPConnection -LocalPort 8000
 data/documents.json
 ```
 
-所以首次使用必须重新做三件事：
+所以换电脑或别人首次使用时，需要重新上传文档建立知识库。
+
+可以在 Web UI 上传，也可以在 Swagger Docs 里调用：
 
 ```text
-1. 创建 .venv 并安装 requirements.txt
-2. 创建 .env 并写入自己的 DEEPSEEK_API_KEY
-3. 通过 POST /documents/index 上传 PDF，重新建立本地知识库
+POST /documents/index
 ```
 
-本项目使用的是 Qdrant local 模式，不需要单独启动 Qdrant Docker。
+当前支持入库的文件类型：
+
+```text
+PDF / Markdown / txt / docx / csv / xlsx
+```
+
+推荐索引参数：
+
+```text
+chunk_size = 800
+overlap = 100
+top_k = 5
+```
+
+## 常见启动问题
+
+### 8000 端口被占用
+
+如果启动时提示 8000 端口被占用，先确认是不是旧的 uvicorn 服务还在运行：
+
+```powershell
+Get-NetTCPConnection -LocalPort 8000
+```
+
+也可以查看对应进程：
+
+```powershell
+Get-Process -Id <PID>
+```
+
+通常处理方式：
+
+```text
+1. 先关闭旧的 uvicorn 终端
+2. 再重新执行 uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+### `/docs` 看不到新接口
+
+这通常说明旧服务没有重启。
+
+处理方式：
+
+```text
+停止旧 uvicorn
+重新启动 8000 服务
+刷新 http://127.0.0.1:8000/docs
+```
+
+### `/rag/ask` 没有命中资料
+
+先不要直接改 prompt，建议按顺序检查：
+
+```text
+1. GET /documents 是否能看到文档
+2. POST /documents/search 是否能检索到相关 chunk
+3. top_k 是否太小
+4. score_threshold 是否太高
+5. 文档是否真的已经重新入库
+```
+
+## 局域网访问
 
 如果想让同一局域网的其他电脑访问，可以改成：
 
@@ -138,7 +218,7 @@ http://你的电脑IP:8000/docs
 
 注意：当前项目还没有登录鉴权，只建议本机或可信内网学习使用。
 
-## 5. 测试接口
+## 测试接口
 
 ```powershell
 Invoke-RestMethod `
@@ -161,6 +241,7 @@ Invoke-RestMethod `
 - `DELETE /documents/{document_id}`：删除某个文档在 Qdrant 中的 chunks 和 metadata
 - `POST /documents/search`：用问题检索本地 Qdrant 里的相关 chunk
 - `POST /rag/ask`：检索本地 Qdrant，并把相关 chunk 交给 DeepSeek 生成 RAG 回答
+- `GET /` / `GET /app`：打开本地 RAG Web UI
 - `/rag/ask` 支持 `score_threshold` 低分过滤
 - `/rag/ask` 的 `sources` 已优化为 `source_id` + `preview` 结构
 - `/rag/ask` 的 `reply` 已通过 prompt 约束为“答案 / 依据 / 资料不足之处”三段式格式
@@ -170,13 +251,14 @@ Invoke-RestMethod `
 - 已新增 `content_hash` 去重和 `reindex=true` 重建索引策略
 - 已支持 Markdown 和 txt 文档入库
 - 已支持 docx、csv、xlsx 文档入库
+- 已新增本地 Web UI 入口，用于上传文档、查看知识库、提问和查看 sources
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
 - DeepSeek 异常转换
 - 返回 token usage，方便后续做成本统计
 
-## 6. 测试最小 RAG 问答
+## 测试最小 RAG 问答
 
 先索引 PDF：
 
@@ -214,7 +296,7 @@ Invoke-RestMethod `
 
 ## 下一步
 
-下一步从 [第 20 步：实现现代风 RAG Web UI](docs/goal/20-modern-web-ui-goal.md) 开始。
+下一步从 [第 21 步：实现最小 RAG Agent 工具路由](docs/goal/21-rag-agent-tool-routing-goal.md) 开始。
 
 执行顺序保持：
 
@@ -225,5 +307,5 @@ Invoke-RestMethod `
 同步更新 README 和 00 号文档
 ```
 
-当前仍然先不要急着做复杂 Agent。先把现代 Web UI 做出来，让知识库上传、检索、问答和 sources 展示可视化。
+当前仍然先不要急着做复杂多 Agent。先实现最小工具路由，让系统能判断普通聊天和知识库检索问答的入口。
 

@@ -27,7 +27,7 @@ PDF 上传
 当前阶段可以定义为：
 
 ```text
-最小本地 RAG MVP
+最小本地 RAG MVP + Web UI 初版
 ```
 
 它证明了核心链路能跑通：
@@ -746,7 +746,7 @@ README 最终要能回答：
 当前下一步 goal：
 
 ```text
-docs/goal/20-modern-web-ui-goal.md
+docs/goal/21-rag-agent-tool-routing-goal.md
 ```
 
 ---
@@ -762,7 +762,7 @@ docs/goal/20-modern-web-ui-goal.md
 - 复杂权限系统
 - 多模态 PDF 解析
 
-UI 可以做，但第一版应该是轻量交互页面，不要先做复杂前端大系统。
+UI 已经有第一版轻量交互页面，后续不要在进入 Agent 前先做复杂前端大系统。
 
 这些不是不能做，而是现在做会分散主线。
 

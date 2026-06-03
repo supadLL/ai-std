@@ -42,6 +42,7 @@ PDF 文本提取
 -> Qdrant 本地索引
 -> Qdrant 语义检索
 -> DeepSeek 基于 sources 回答
+-> 本地 Web UI 初版
 ```
 
 当前已经不是“准备实现 RAG”，而是进入：
@@ -222,13 +223,13 @@ score 分布
 当前已经完成：
 
 ```text
-第 16 步：知识库文档管理
+第 20 步：现代风 RAG Web UI 初版
 ```
 
 后续进入：
 
 ```text
-第 20 步：现代风 RAG Web UI
+第 21 步：最小 RAG Agent 工具路由
 ```
 
 ---
@@ -482,7 +483,8 @@ GET /docs
 这个项目基于 FastAPI、DeepSeek、fastembed 和 Qdrant，
 实现了本地文档知识库的 RAG 问答链路。
 当前已支持纯文本 PDF 的解析、切分、向量化、索引、检索和基于 sources 的回答生成。
-后续扩展方向包括 RAG 评估、多格式文档解析、OCR、文档管理、Web UI 和最小 Agent 工具路由。
+当前也已支持 Markdown、txt、docx、csv、xlsx 入库和本地 Web UI 初版。
+后续扩展方向包括 OCR、检索质量继续优化和最小 Agent 工具路由。
 ```
 
 ---
@@ -499,14 +501,15 @@ chunk/top_k 参数评估
 content_hash 去重与 reindex 重建索引
 Markdown / txt 文档入库
 docx / csv / xlsx 文档入库
+本地 Web UI 初版
 ```
 
 当前最应该继续做：
 
 ```text
-1. 规划扫描型 PDF OCR
-2. 建立 Web UI
-3. 实现最小 RAG Agent 工具路由
+1. 实现最小 RAG Agent 工具路由
+2. 规划扫描型 PDF OCR
+3. 继续补充测试、文档和项目最终总结
 ```
 
 不要回到“从零学 RAG”的状态。

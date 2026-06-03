@@ -1,10 +1,12 @@
 from dataclasses import asdict
 from hashlib import sha256
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -35,6 +37,10 @@ app = FastAPI(
     version="0.1.0",
     default_response_class=UTF8JSONResponse,
 )
+
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+if WEB_DIR.exists():
+    app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
 
 
 class ChatRequest(BaseModel):
@@ -191,6 +197,15 @@ class DeleteDocumentResponse(BaseModel):
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+@app.get("/app", include_in_schema=False)
+async def web_app() -> FileResponse:
+    index_path = WEB_DIR / "index.html"
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail="Web UI is not available")
+    return FileResponse(index_path)
 
 
 @app.post("/chat", response_model=ChatResponse)
