@@ -12,6 +12,7 @@ class SearchResult:
     point_id: str
     score: float
     document_id: str | None
+    file_type: str
     filename: str
     page_number: int
     chunk_id: int
@@ -57,6 +58,7 @@ def upsert_chunks(
     vectors: list[list[float]],
     document_id: str | None = None,
     content_hash: str | None = None,
+    file_type: str = "pdf",
 ) -> int:
     if len(chunks) != len(vectors):
         raise VectorStoreError("chunks and vectors length mismatch")
@@ -72,6 +74,7 @@ def upsert_chunks(
                 payload={
                     "document_id": document_id,
                     "content_hash": content_hash,
+                    "file_type": file_type,
                     "filename": filename,
                     "page_number": chunk.page_number,
                     "chunk_id": chunk.chunk_id,
@@ -146,6 +149,7 @@ def search_chunks(
                 point_id=str(point.id),
                 score=float(point.score),
                 document_id=_optional_str(payload.get("document_id")),
+                file_type=str(payload.get("file_type", "pdf")),
                 filename=str(payload.get("filename", "")),
                 page_number=int(payload.get("page_number", 0)),
                 chunk_id=int(payload.get("chunk_id", 0)),

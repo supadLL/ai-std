@@ -4,6 +4,14 @@
 
 > 从只支持 PDF，扩展到支持 Markdown 和纯文本文件作为知识库内容。
 
+状态：已完成。
+
+完成记录：
+
+```text
+docs/summary/18-markdown-txt-loader-summary.md
+```
+
 ---
 
 ## 1. 背景
@@ -88,7 +96,6 @@ docs/00-project-continuation-guide.md
 建议新增：
 
 ```text
-docs/summary/18-markdown-txt-loader-step.md
 docs/summary/18-markdown-txt-loader-summary.md
 ```
 
@@ -173,4 +180,3 @@ README.md
 docs/00-project-continuation-guide.md
 docs/summary/08-rag-agent-advanced-roadmap.md
 ```
-

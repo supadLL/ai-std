@@ -746,7 +746,7 @@ README 最终要能回答：
 当前下一步 goal：
 
 ```text
-docs/goal/18-markdown-txt-loader-goal.md
+docs/goal/19-docx-table-loader-goal.md
 ```
 
 ---

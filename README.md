@@ -63,12 +63,13 @@ pytest
 - ✅ chunk/top_k 参数评估，当前推荐 `800/100/top_k=5`
 - ✅ 最小知识库文档管理：列表、详情、删除、`document_id`
 - ✅ `content_hash` 去重与 `reindex=true` 重建索引策略
+- ✅ Markdown 和 txt 文档入库
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
 
 ```text
-第 18 步：Markdown 和 txt 文档入库
+第 19 步：docx 与表格类文档解析
 ```
 
 入口文档：

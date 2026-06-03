@@ -579,3 +579,39 @@ indexed = false
 pytest 10 passed
 ```
 
+---
+
+## 13. 第 18 步补充验证结果
+
+第 18 步已经新增：
+
+```text
+DocumentLoader
+ParsedDocument
+ParsedSection
+Markdown loader
+txt loader
+```
+
+`POST /documents/index` 现在支持：
+
+```text
+.pdf
+.md
+.markdown
+.txt
+```
+
+已运行：
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall app tests scripts
+.\.venv\Scripts\python.exe -m pytest
+```
+
+结果：
+
+```text
+pytest 14 passed
+```
+

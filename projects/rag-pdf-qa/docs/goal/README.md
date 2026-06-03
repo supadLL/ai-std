@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前下一步：
 
 ```text
-18-markdown-txt-loader-goal.md
+19-docx-table-loader-goal.md
 ```
 
 当前已创建的 goal 文件：

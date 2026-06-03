@@ -44,6 +44,7 @@ docs/summary/14-rag-evaluation-dataset-summary.md
 docs/summary/15-chunk-topk-parameter-evaluation-summary.md
 docs/summary/16-document-management-summary.md
 docs/summary/17-document-dedup-content-hash-summary.md
+docs/summary/18-markdown-txt-loader-summary.md
 ```
 
 格式：

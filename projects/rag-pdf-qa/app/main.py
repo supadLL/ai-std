@@ -11,9 +11,10 @@ from starlette.concurrency import run_in_threadpool
 from app.config import get_settings
 from app.deepseek_client import DeepSeekClient, DeepSeekClientError
 from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
+from app.document_loaders import DocumentLoadError, is_supported_text_document, load_text_document_from_bytes
 from app.embedding_client import EmbeddingError, embed_text
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
-from app.text_splitter import TextSplitError, split_pdf_text
+from app.text_splitter import TextChunk, TextSplitError, split_parsed_document, split_pdf_text
 from app.vector_store import (
     SearchResult,
     VectorStoreError,
@@ -93,6 +94,7 @@ class EmbeddingResponse(BaseModel):
 class DocumentIndexResponse(BaseModel):
     document_id: str
     filename: str
+    file_type: str
     content_hash: str
     content_hash_prefix: str
     is_duplicate: bool = False
@@ -115,6 +117,7 @@ class SearchRequest(BaseModel):
 class SearchResultResponse(BaseModel):
     score: float
     document_id: str | None = None
+    file_type: str
     filename: str
     page_number: int
     chunk_id: int
@@ -138,6 +141,7 @@ class RagSourceResponse(BaseModel):
     source_id: int
     score: float
     document_id: str | None = None
+    file_type: str
     filename: str
     page_number: int
     chunk_id: int
@@ -205,8 +209,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
 @app.post("/documents/extract", response_model=PdfExtractResponse)
 async def extract_document(file: UploadFile = File(...)) -> PdfExtractResponse:
     filename = file.filename or "uploaded.pdf"
-    if not filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    if not _is_supported_index_file(filename):
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, and txt files are supported")
 
     content = await file.read()
     max_size = 10 * 1024 * 1024
@@ -242,8 +246,8 @@ async def chunk_document(
     overlap: int = Form(100),
 ) -> PdfChunkResponse:
     filename = file.filename or "uploaded.pdf"
-    if not filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    if not _is_supported_index_file(filename):
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, and txt files are supported")
 
     content = await file.read()
     max_size = 10 * 1024 * 1024
@@ -307,8 +311,8 @@ async def index_document(
     reindex: bool = Form(False),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
-    if not filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    if not _is_supported_index_file(filename):
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, and txt files are supported")
 
     content = await file.read()
     max_size = 10 * 1024 * 1024
@@ -325,6 +329,7 @@ async def index_document(
             return DocumentIndexResponse(
                 document_id=existing_record.document_id,
                 filename=filename,
+                file_type=existing_record.file_type,
                 content_hash=content_hash,
                 content_hash_prefix=content_hash[:12],
                 is_duplicate=True,
@@ -341,8 +346,12 @@ async def index_document(
 
         document_id = existing_record.document_id if existing_record is not None else str(uuid4())
         deleted_chunks = 0
-        extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
-        chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
+        file_type, page_count, chunks = _parse_and_split_index_file(
+            filename=filename,
+            content=content,
+            chunk_size=chunk_size,
+            overlap=overlap,
+        )
         if not chunks:
             raise VectorStoreError("No text chunks to index")
 
@@ -368,34 +377,36 @@ async def index_document(
             vectors=vectors,
             document_id=document_id,
             content_hash=content_hash,
+            file_type=file_type,
         )
         document_store.add_document(
             document_id=document_id,
             filename=filename,
-            file_type="pdf",
+            file_type=file_type,
             content_hash=content_hash,
             chunk_count=len(chunks),
             collection=settings.qdrant_collection,
             chunk_size=chunk_size,
             overlap=overlap,
             embedding_model=settings.embedding_model,
-            page_count=extracted.page_count,
+            page_count=page_count,
             indexed_count=indexed_count,
             source_file_size=len(content),
         )
-    except (PdfExtractionError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
+    except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return DocumentIndexResponse(
         document_id=document_id,
         filename=filename,
+        file_type=file_type,
         content_hash=content_hash,
         content_hash_prefix=content_hash[:12],
         is_duplicate=False,
         indexed=True,
         message="Document indexed successfully." if deleted_chunks == 0 else "Document reindexed successfully.",
         collection=settings.qdrant_collection,
-        page_count=extracted.page_count,
+        page_count=page_count,
         chunk_count=len(chunks),
         indexed_count=indexed_count,
         deleted_chunks=deleted_chunks,
@@ -552,6 +563,7 @@ def _to_search_result_response(result: SearchResult) -> SearchResultResponse:
     return SearchResultResponse(
         score=result.score,
         document_id=result.document_id,
+        file_type=result.file_type,
         filename=result.filename,
         page_number=result.page_number,
         chunk_id=result.chunk_id,
@@ -565,6 +577,7 @@ def _to_rag_source_response(source_id: int, result: SearchResult, preview_chars:
         source_id=source_id,
         score=result.score,
         document_id=result.document_id,
+        file_type=result.file_type,
         filename=result.filename,
         page_number=result.page_number,
         chunk_id=result.chunk_id,
@@ -584,6 +597,27 @@ def _calculate_content_hash(content: bytes) -> str:
     return sha256(content).hexdigest()
 
 
+def _is_supported_index_file(filename: str) -> bool:
+    lower_filename = filename.lower()
+    return lower_filename.endswith(".pdf") or is_supported_text_document(filename)
+
+
+def _parse_and_split_index_file(
+    *,
+    filename: str,
+    content: bytes,
+    chunk_size: int,
+    overlap: int,
+) -> tuple[str, int, list[TextChunk]]:
+    if filename.lower().endswith(".pdf"):
+        extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
+        return "pdf", extracted.page_count, split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
+
+    parsed = load_text_document_from_bytes(filename=filename, content=content)
+    chunks = split_parsed_document(parsed, chunk_size=chunk_size, overlap=overlap)
+    return parsed.file_type, len(parsed.sections), chunks
+
+
 def _filter_results_by_score(
     results: list[SearchResult],
     score_threshold: float | None,
@@ -596,7 +630,7 @@ def _filter_results_by_score(
 def _build_rag_messages(question: str, results: list[SearchResult]) -> list[dict[str, str]]:
     context = "\n\n".join(
         (
-            f"[Source {index}] file: {result.filename} | page: {result.page_number} | "
+            f"[Source {index}] type: {result.file_type} | file: {result.filename} | page: {result.page_number} | "
             f"chunk_id: {result.chunk_id} | score: {result.score:.4f}\n{result.text}"
         )
         for index, result in enumerate(results, start=1)

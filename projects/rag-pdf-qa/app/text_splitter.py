@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from app.document_loaders import ParsedDocument
 from app.pdf_extractor import ExtractedPdf
 
 
@@ -16,6 +17,41 @@ class TextSplitError(ValueError):
 
 
 def split_pdf_text(extracted: ExtractedPdf, chunk_size: int = 800, overlap: int = 100) -> list[TextChunk]:
+    _validate_split_params(chunk_size=chunk_size, overlap=overlap)
+
+    chunks: list[TextChunk] = []
+    for page in extracted.pages:
+        chunks.extend(
+            _split_text_unit(
+                unit_number=page.page_number,
+                text=page.text,
+                current_count=len(chunks),
+                chunk_size=chunk_size,
+                overlap=overlap,
+            )
+        )
+
+    return chunks
+
+
+def split_parsed_document(document: ParsedDocument, chunk_size: int = 800, overlap: int = 100) -> list[TextChunk]:
+    _validate_split_params(chunk_size=chunk_size, overlap=overlap)
+
+    chunks: list[TextChunk] = []
+    for section in document.sections:
+        chunks.extend(
+            _split_text_unit(
+                unit_number=section.section_number,
+                text=section.text,
+                current_count=len(chunks),
+                chunk_size=chunk_size,
+                overlap=overlap,
+            )
+        )
+    return chunks
+
+
+def _validate_split_params(chunk_size: int, overlap: int) -> None:
     if chunk_size < 100:
         raise TextSplitError("chunk_size must be at least 100")
     if chunk_size > 3000:
@@ -25,18 +61,25 @@ def split_pdf_text(extracted: ExtractedPdf, chunk_size: int = 800, overlap: int 
     if overlap >= chunk_size:
         raise TextSplitError("overlap must be smaller than chunk_size")
 
-    chunks: list[TextChunk] = []
-    for page in extracted.pages:
-        for chunk_text in _split_text_by_page(page.text, chunk_size=chunk_size, overlap=overlap):
-            chunks.append(
-                TextChunk(
-                    chunk_id=len(chunks) + 1,
-                    page_number=page.page_number,
-                    char_count=len(chunk_text),
-                    text=chunk_text,
-                )
-            )
 
+def _split_text_unit(
+    *,
+    unit_number: int,
+    text: str,
+    current_count: int,
+    chunk_size: int,
+    overlap: int,
+) -> list[TextChunk]:
+    chunks: list[TextChunk] = []
+    for chunk_text in _split_text_by_page(text, chunk_size=chunk_size, overlap=overlap):
+        chunks.append(
+            TextChunk(
+                chunk_id=current_count + len(chunks) + 1,
+                page_number=unit_number,
+                char_count=len(chunk_text),
+                text=chunk_text,
+            )
+        )
     return chunks
 
 
