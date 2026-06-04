@@ -4,40 +4,40 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Local Knowledge RAG Agent</title>
-    <link rel="stylesheet" href="/web/styles.css?v=26" />
+    <link rel="stylesheet" href="/web/styles.css?v=27" />
   </head>
   <body>
     <main class="shell">
       <aside class="panel nav-panel">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">Local RAG</p>
-            <h1>Local Knowledge RAG Agent</h1>
+            <p class="eyebrow" data-i18n="app.eyebrow">Local RAG</p>
+            <h1 data-i18n="app.title">Local Knowledge RAG Agent</h1>
           </div>
         </div>
 
-        <nav class="tab-nav" aria-label="主功能" role="tablist">
+        <nav class="tab-nav" aria-label="主功能" role="tablist" data-i18n-aria-label="nav.aria">
           <button class="tab-button active" type="button" data-tab="import" role="tab" aria-selected="true">
             <span>
-              <b>文件导入</b>
-              <small>Import</small>
+              <b data-i18n="nav.import">文件导入</b>
+              <small data-i18n="nav.importSub">Import</small>
             </span>
           </button>
           <button class="tab-button" type="button" data-tab="ask" role="tab" aria-selected="false">
             <span>
-              <b>知识问答</b>
-              <small>Ask</small>
+              <b data-i18n="nav.ask">知识问答</b>
+              <small data-i18n="nav.askSub">Ask</small>
             </span>
           </button>
           <button class="tab-button" type="button" data-tab="settings" role="tab" aria-selected="false">
             <span>
-              <b>设置</b>
-              <small>Settings</small>
+              <b data-i18n="nav.settings">设置</b>
+              <small data-i18n="nav.settingsSub">Settings</small>
             </span>
           </button>
         </nav>
 
-        <a class="ghost-link docs-link" href="/docs" target="_blank" rel="noreferrer">Swagger Docs</a>
+        <a class="ghost-link docs-link" href="/docs" target="_blank" rel="noreferrer" data-i18n="nav.docs">Swagger Docs</a>
       </aside>
 
       <section class="workspace">
@@ -45,25 +45,25 @@
           <div class="panel import-panel">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Import</p>
-                <h2>文件导入</h2>
+                <p class="eyebrow" data-i18n="import.eyebrow">Import</p>
+                <h2 data-i18n="import.title">文件导入</h2>
               </div>
-              <button class="icon-button" id="refreshDocuments" title="刷新文档列表">↻</button>
+              <button class="icon-button" id="refreshDocuments" title="刷新文档列表" data-i18n-title="import.refresh">↻</button>
             </div>
 
             <form class="upload-box" id="uploadForm">
               <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.docx,.csv,.xlsx" />
               <div class="upload-meta">
-                <label for="chunkSize">chunk</label>
+                <label for="chunkSize" data-i18n="import.chunk">chunk</label>
                 <input id="chunkSize" name="chunk_size" type="number" min="100" max="3000" value="800" />
-                <label for="overlap">overlap</label>
+                <label for="overlap" data-i18n="import.overlap">overlap</label>
                 <input id="overlap" name="overlap" type="number" min="0" value="100" />
               </div>
               <label class="toggle">
                 <input id="reindex" name="reindex" type="checkbox" />
-                <span>reindex</span>
+                <span data-i18n="import.reindex">reindex</span>
               </label>
-              <button class="primary-button" type="submit">上传索引</button>
+              <button class="primary-button" type="submit" data-i18n="import.submit">上传索引</button>
             </form>
 
             <div class="document-list" id="documentList"></div>
@@ -74,28 +74,28 @@
           <section class="panel answer-panel">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Retrieve</p>
-                <h2>知识问答</h2>
+                <p class="eyebrow" data-i18n="ask.eyebrow">Retrieve</p>
+                <h2 data-i18n="ask.title">知识问答</h2>
               </div>
               <span class="status-pill" id="statusPill">idle</span>
             </div>
 
             <div class="answer-output chat-thread" id="answerOutput">
-              <p class="empty-state">等待问题</p>
+              <p class="empty-state" data-i18n="ask.empty">等待问题</p>
             </div>
 
             <form class="ask-bar" id="askForm">
-              <textarea id="questionInput" rows="2" placeholder="输入问题"></textarea>
+              <textarea id="questionInput" rows="2" placeholder="输入问题" data-i18n-placeholder="ask.placeholder"></textarea>
               <div class="controls">
                 <label>
-                  top_k
+                  <span data-i18n="ask.topK">top_k</span>
                   <input id="topK" type="number" min="1" max="10" value="5" />
                 </label>
                 <label>
-                  threshold
+                  <span data-i18n="ask.threshold">threshold</span>
                   <input id="scoreThreshold" type="number" min="0" max="1" step="0.05" placeholder="auto" />
                 </label>
-                <button class="primary-button ask-button" type="submit">提问</button>
+                <button class="primary-button ask-button" type="submit" data-i18n="ask.submit">提问</button>
               </div>
             </form>
           </section>
@@ -103,8 +103,8 @@
           <aside class="panel sources-panel">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Sources</p>
-                <h2>检索来源</h2>
+                <p class="eyebrow" data-i18n="sources.eyebrow">Sources</p>
+                <h2 data-i18n="sources.title">检索来源</h2>
               </div>
             </div>
             <div class="debug-grid" id="debugGrid"></div>
@@ -116,49 +116,74 @@
           <div class="panel settings-panel">
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Settings</p>
-                <h2>模型与提示词</h2>
+                <p class="eyebrow" data-i18n="settings.eyebrow">Settings</p>
+                <h2 data-i18n="settings.title">模型与提示词</h2>
               </div>
               <span class="status-pill" id="settingsStatus">local</span>
             </div>
 
             <form class="settings-form" id="settingsForm">
+              <section class="preference-section">
+                <div class="section-head">
+                  <h3 data-i18n="preferences.title">界面偏好</h3>
+                </div>
+                <div class="settings-grid preference-grid">
+                  <label>
+                    <span data-i18n="preferences.language">语言</span>
+                    <div class="segmented-control" id="languageControl" role="group" aria-label="语言" data-i18n-aria-label="preferences.language">
+                      <button class="segment-button active" type="button" data-language="zh">中文</button>
+                      <button class="segment-button" type="button" data-language="en">English</button>
+                    </div>
+                  </label>
+                  <label>
+                    <span data-i18n="preferences.color">系统颜色</span>
+                    <div class="color-control" role="group" aria-label="系统颜色" data-i18n-aria-label="preferences.color">
+                      <button class="color-swatch active" type="button" data-theme-color="teal" style="--swatch: #37d0b2" title="Teal"></button>
+                      <button class="color-swatch" type="button" data-theme-color="blue" style="--swatch: #5aa7ff" title="Blue"></button>
+                      <button class="color-swatch" type="button" data-theme-color="violet" style="--swatch: #9b8cff" title="Violet"></button>
+                      <button class="color-swatch" type="button" data-theme-color="rose" style="--swatch: #ff7aa2" title="Rose"></button>
+                      <input id="customColorInput" class="color-picker" type="color" value="#37d0b2" title="Custom color" data-i18n-title="preferences.customColor" data-theme-color="custom" />
+                    </div>
+                  </label>
+                </div>
+              </section>
+
               <div class="settings-grid">
                 <label>
-                  API Base URL
+                  <span data-i18n="settings.baseUrl">API Base URL</span>
                   <input id="baseUrlInput" type="url" placeholder="https://api.deepseek.com" />
                 </label>
                 <label>
-                  LLM Model
+                  <span data-i18n="settings.model">LLM Model</span>
                   <input id="modelInput" type="text" placeholder="deepseek-v4-flash" />
                 </label>
                 <label>
-                  API Key
-                  <input id="apiKeyInput" type="password" placeholder="留空则不修改已配置密钥" autocomplete="off" />
+                  <span data-i18n="settings.apiKey">API Key</span>
+                  <input id="apiKeyInput" type="password" placeholder="留空则不修改已配置密钥" data-i18n-placeholder="settings.apiKeyPlaceholder" autocomplete="off" />
                 </label>
                 <label>
-                  Timeout
+                  <span data-i18n="settings.timeout">Timeout</span>
                   <input id="timeoutInput" type="number" min="1" max="300" step="1" />
                 </label>
               </div>
 
               <label class="toggle">
                 <input id="clearApiKeyInput" type="checkbox" />
-                <span>清除本地运行时 API Key</span>
+                <span data-i18n="settings.clearApiKey">清除本地运行时 API Key</span>
               </label>
 
               <label>
-                RAG System Prompt
+                <span data-i18n="settings.systemPrompt">RAG System Prompt</span>
                 <textarea id="systemPromptInput" rows="7"></textarea>
               </label>
               <label>
-                RAG Answer Instructions
+                <span data-i18n="settings.answerPrompt">RAG Answer Instructions</span>
                 <textarea id="answerPromptInput" rows="10"></textarea>
               </label>
 
               <div class="settings-actions">
-                <button class="primary-button" type="submit">保存设置</button>
-                <button class="ghost-button" id="reloadSettings" type="button">重新读取</button>
+                <button class="primary-button" type="submit" data-i18n="settings.save">保存设置</button>
+                <button class="ghost-button" id="reloadSettings" type="button" data-i18n="settings.reload">重新读取</button>
               </div>
             </form>
           </div>
@@ -167,6 +192,6 @@
     </main>
 
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js?v=26"></script>
+    <script src="/web/app.js?v=27"></script>
   </body>
 </html>

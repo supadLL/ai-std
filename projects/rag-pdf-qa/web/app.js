@@ -1,7 +1,10 @@
+const PREFERENCES_KEY = "ragPdfQaUiPreferences";
+
 const state = {
   documents: [],
   lastAnswer: null,
   messages: [],
+  preferences: loadPreferences(),
 };
 
 const els = {
@@ -33,10 +36,200 @@ const els = {
   answerPromptInput: document.querySelector("#answerPromptInput"),
   settingsStatus: document.querySelector("#settingsStatus"),
   reloadSettings: document.querySelector("#reloadSettings"),
+  languageButtons: Array.from(document.querySelectorAll("[data-language]")),
+  colorButtons: Array.from(document.querySelectorAll(".color-swatch[data-theme-color]")),
+  customColorInput: document.querySelector("#customColorInput"),
+};
+
+const THEME_COLORS = {
+  teal: { accent: "#37d0b2", accent2: "#ffb86b" },
+  blue: { accent: "#5aa7ff", accent2: "#8ee6ff" },
+  violet: { accent: "#9b8cff", accent2: "#f0b3ff" },
+  rose: { accent: "#ff7aa2", accent2: "#ffd166" },
+};
+
+const translations = {
+  zh: {
+    "app.eyebrow": "Local RAG",
+    "app.title": "本地知识库 RAG Agent",
+    "nav.aria": "主功能",
+    "nav.import": "文件导入",
+    "nav.importSub": "Import",
+    "nav.ask": "知识问答",
+    "nav.askSub": "Ask",
+    "nav.settings": "设置",
+    "nav.settingsSub": "Settings",
+    "nav.docs": "Swagger Docs",
+    "import.eyebrow": "Import",
+    "import.title": "文件导入",
+    "import.refresh": "刷新文档列表",
+    "import.chunk": "chunk",
+    "import.overlap": "overlap",
+    "import.reindex": "reindex",
+    "import.submit": "上传索引",
+    "ask.eyebrow": "Retrieve",
+    "ask.title": "知识问答",
+    "ask.empty": "等待问题",
+    "ask.placeholder": "输入问题",
+    "ask.topK": "top_k",
+    "ask.threshold": "threshold",
+    "ask.submit": "提问",
+    "sources.eyebrow": "Sources",
+    "sources.title": "检索来源",
+    "settings.eyebrow": "Settings",
+    "settings.title": "模型与提示词",
+    "preferences.title": "界面偏好",
+    "preferences.language": "语言",
+    "preferences.color": "系统颜色",
+    "preferences.customColor": "自定义颜色",
+    "settings.baseUrl": "API Base URL",
+    "settings.model": "LLM Model",
+    "settings.apiKey": "API Key",
+    "settings.timeout": "Timeout",
+    "settings.clearApiKey": "清除本地运行时 API Key",
+    "settings.systemPrompt": "RAG System Prompt",
+    "settings.answerPrompt": "RAG Answer Instructions",
+    "settings.save": "保存设置",
+    "settings.reload": "重新读取",
+    "labels.chunk": "chunk",
+    "labels.overlap": "overlap",
+    "labels.reindex": "reindex",
+    "labels.topK": "top_k",
+    "labels.threshold": "threshold",
+    "labels.baseUrl": "API Base URL",
+    "labels.model": "LLM Model",
+    "labels.apiKey": "API Key",
+    "labels.timeout": "Timeout",
+    "labels.systemPrompt": "RAG System Prompt",
+    "labels.answerPrompt": "RAG Answer Instructions",
+    "settings.apiKeyPlaceholder": "留空则不修改已配置密钥",
+    "documents.empty": "暂无文档",
+    "documents.chunks": "chunks",
+    "documents.noHash": "no-hash",
+    "sources.empty": "无 sources",
+    "debug.retrieved": "retrieved",
+    "debug.sources": "sources",
+    "debug.model": "model",
+    "debug.tokens": "tokens",
+    "message.pendingMeta": "AI 正在解析检索结果",
+    "message.pendingText": "整理答案中",
+    "message.requestFailed": "请求失败",
+    "toast.chooseFile": "请选择文件",
+    "toast.indexDone": "索引完成",
+    "toast.enterQuestion": "请输入问题",
+    "toast.settingsSaved": "设置已保存",
+    "toast.languageChanged": "语言已切换",
+    "toast.colorChanged": "系统色已更新",
+    "status.idle": "idle",
+    "status.loading": "loading",
+    "status.indexing": "indexing",
+    "status.asking": "asking",
+    "status.done": "done",
+    "status.error": "error",
+    "settingsStatus.loading": "loading",
+    "settingsStatus.saving": "saving",
+    "settingsStatus.error": "error",
+    "settingsStatus.noKey": "no-key",
+    "settingsStatus.key": "key",
+  },
+  en: {
+    "app.eyebrow": "Local RAG",
+    "app.title": "Local Knowledge RAG Agent",
+    "nav.aria": "Main functions",
+    "nav.import": "Import Files",
+    "nav.importSub": "Import",
+    "nav.ask": "Knowledge Q&A",
+    "nav.askSub": "Ask",
+    "nav.settings": "Settings",
+    "nav.settingsSub": "Settings",
+    "nav.docs": "Swagger Docs",
+    "import.eyebrow": "Import",
+    "import.title": "Import Files",
+    "import.refresh": "Refresh documents",
+    "import.chunk": "chunk",
+    "import.overlap": "overlap",
+    "import.reindex": "reindex",
+    "import.submit": "Upload & Index",
+    "ask.eyebrow": "Retrieve",
+    "ask.title": "Knowledge Q&A",
+    "ask.empty": "Waiting for a question",
+    "ask.placeholder": "Ask a question",
+    "ask.topK": "top_k",
+    "ask.threshold": "threshold",
+    "ask.submit": "Ask",
+    "sources.eyebrow": "Sources",
+    "sources.title": "Retrieved Sources",
+    "settings.eyebrow": "Settings",
+    "settings.title": "Model & Prompts",
+    "preferences.title": "Interface Preferences",
+    "preferences.language": "Language",
+    "preferences.color": "System Color",
+    "preferences.customColor": "Custom color",
+    "settings.baseUrl": "API Base URL",
+    "settings.model": "LLM Model",
+    "settings.apiKey": "API Key",
+    "settings.timeout": "Timeout",
+    "settings.clearApiKey": "Clear local runtime API key",
+    "settings.systemPrompt": "RAG System Prompt",
+    "settings.answerPrompt": "RAG Answer Instructions",
+    "settings.save": "Save Settings",
+    "settings.reload": "Reload",
+    "labels.chunk": "chunk",
+    "labels.overlap": "overlap",
+    "labels.reindex": "reindex",
+    "labels.topK": "top_k",
+    "labels.threshold": "threshold",
+    "labels.baseUrl": "API Base URL",
+    "labels.model": "LLM Model",
+    "labels.apiKey": "API Key",
+    "labels.timeout": "Timeout",
+    "labels.systemPrompt": "RAG System Prompt",
+    "labels.answerPrompt": "RAG Answer Instructions",
+    "settings.apiKeyPlaceholder": "Leave blank to keep the configured key",
+    "documents.empty": "No documents yet",
+    "documents.chunks": "chunks",
+    "documents.noHash": "no-hash",
+    "sources.empty": "No sources",
+    "debug.retrieved": "retrieved",
+    "debug.sources": "sources",
+    "debug.model": "model",
+    "debug.tokens": "tokens",
+    "message.pendingMeta": "AI is reading retrieved sources",
+    "message.pendingText": "Composing answer",
+    "message.requestFailed": "Request failed",
+    "toast.chooseFile": "Choose a file first",
+    "toast.indexDone": "Indexing complete",
+    "toast.enterQuestion": "Enter a question",
+    "toast.settingsSaved": "Settings saved",
+    "toast.languageChanged": "Language changed",
+    "toast.colorChanged": "System color updated",
+    "status.idle": "idle",
+    "status.loading": "loading",
+    "status.indexing": "indexing",
+    "status.asking": "asking",
+    "status.done": "done",
+    "status.error": "error",
+    "settingsStatus.loading": "loading",
+    "settingsStatus.saving": "saving",
+    "settingsStatus.error": "error",
+    "settingsStatus.noKey": "no-key",
+    "settingsStatus.key": "key",
+  },
 };
 
 function setStatus(value) {
-  els.statusPill.textContent = value;
+  els.statusPill.dataset.status = value;
+  els.statusPill.textContent = t(`status.${value}`, value);
+}
+
+function setSettingsStatus(value, source = "") {
+  els.settingsStatus.dataset.status = value;
+  els.settingsStatus.dataset.source = source;
+  if (value === "key") {
+    els.settingsStatus.textContent = `${t("settingsStatus.key")}:${source}`;
+  } else {
+    els.settingsStatus.textContent = t(`settingsStatus.${value}`, value);
+  }
 }
 
 function showToast(message, isError = false) {
@@ -70,7 +263,7 @@ async function loadSettings() {
     return;
   }
 
-  els.settingsStatus.textContent = "loading";
+  setSettingsStatus("loading");
   const data = await requestJson("/settings");
   els.baseUrlInput.value = data.deepseek_base_url || "";
   els.modelInput.value = data.deepseek_model || "";
@@ -79,12 +272,12 @@ async function loadSettings() {
   els.clearApiKeyInput.checked = false;
   els.systemPromptInput.value = data.rag_system_prompt || "";
   els.answerPromptInput.value = data.rag_answer_instructions || "";
-  els.settingsStatus.textContent = data.api_key_configured ? `key:${data.api_key_source}` : "no-key";
+  setSettingsStatus(data.api_key_configured ? "key" : "noKey", data.api_key_source);
 }
 
 function renderDocuments() {
   if (!state.documents.length) {
-    els.documentList.innerHTML = `<p class="empty-state">暂无文档</p>`;
+    els.documentList.innerHTML = `<p class="empty-state">${t("documents.empty")}</p>`;
     return;
   }
 
@@ -97,7 +290,7 @@ function renderDocuments() {
             <span class="type-pill">${escapeHtml(doc.file_type)}</span>
           </div>
           <div class="meta">
-            chunks ${doc.chunk_count} · ${doc.content_hash_prefix || "no-hash"}<br />
+            ${t("documents.chunks")} ${doc.chunk_count} · ${doc.content_hash_prefix || t("documents.noHash")}<br />
             ${escapeHtml(doc.embedding_model)}
           </div>
         </article>
@@ -110,7 +303,7 @@ async function uploadDocument(event) {
   event.preventDefault();
   const file = els.fileInput.files[0];
   if (!file) {
-    showToast("请选择文件", true);
+    showToast(t("toast.chooseFile"), true);
     return;
   }
 
@@ -126,7 +319,7 @@ async function uploadDocument(event) {
       method: "POST",
       body: form,
     });
-    showToast(data.message || "索引完成");
+    showToast(data.message || t("toast.indexDone"));
     await loadDocuments();
   } catch (error) {
     showToast(error.message, true);
@@ -149,7 +342,7 @@ async function saveSettings(event) {
     payload.deepseek_api_key = apiKey;
   }
 
-  els.settingsStatus.textContent = "saving";
+  setSettingsStatus("saving");
   try {
     const data = await requestJson("/settings", {
       method: "PUT",
@@ -158,10 +351,10 @@ async function saveSettings(event) {
     });
     els.apiKeyInput.value = "";
     els.clearApiKeyInput.checked = false;
-    els.settingsStatus.textContent = data.api_key_configured ? `key:${data.api_key_source}` : "no-key";
-    showToast("设置已保存");
+    setSettingsStatus(data.api_key_configured ? "key" : "noKey", data.api_key_source);
+    showToast(t("toast.settingsSaved"));
   } catch (error) {
-    els.settingsStatus.textContent = "error";
+    setSettingsStatus("error");
     showToast(error.message, true);
   }
 }
@@ -170,7 +363,7 @@ async function askQuestion(event) {
   event.preventDefault();
   const question = els.questionInput.value.trim();
   if (!question) {
-    showToast("请输入问题", true);
+    showToast(t("toast.enterQuestion"), true);
     return;
   }
 
@@ -199,7 +392,7 @@ async function askQuestion(event) {
     replacePendingMessage(pendingId, {
       role: "assistant",
       content: data.reply || "",
-      meta: `${data.model || "model"} · sources ${data.source_count}`,
+      meta: `${data.model || t("debug.model")} · ${t("debug.sources")} ${data.source_count}`,
     });
     renderSources(data.sources || []);
     renderDebug(data);
@@ -207,7 +400,7 @@ async function askQuestion(event) {
   } catch (error) {
     replacePendingMessage(pendingId, {
       role: "assistant",
-      content: `请求失败：${error.message}`,
+      content: `${t("message.requestFailed")}：${error.message}`,
       error: true,
     });
     els.debugGrid.innerHTML = "";
@@ -217,7 +410,7 @@ async function askQuestion(event) {
 
 function renderMessages() {
   if (!state.messages.length) {
-    els.answerOutput.innerHTML = `<p class="empty-state">等待问题</p>`;
+    els.answerOutput.innerHTML = `<p class="empty-state">${t("ask.empty")}</p>`;
     return;
   }
 
@@ -235,10 +428,10 @@ function renderMessage(message) {
     return `
       <article class="${classes.join(" ")}">
         <div class="bubble">
-          <div class="bubble-meta">AI 正在解析检索结果</div>
+          <div class="bubble-meta">${t("message.pendingMeta")}</div>
           <span class="thinking">
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            整理答案中
+            ${t("message.pendingText")}
           </span>
         </div>
       </article>
@@ -285,7 +478,7 @@ function switchTab(tabName) {
 
 function renderSources(sources) {
   if (!sources.length) {
-    els.sourceList.innerHTML = `<p class="empty-state">无 sources</p>`;
+    els.sourceList.innerHTML = `<p class="empty-state">${t("sources.empty")}</p>`;
     return;
   }
   els.sourceList.innerHTML = sources
@@ -309,11 +502,118 @@ function renderSources(sources) {
 function renderDebug(data) {
   const usage = data.usage || {};
   els.debugGrid.innerHTML = `
-    <div class="debug-item"><span>retrieved</span><b>${data.retrieved_count}</b></div>
-    <div class="debug-item"><span>sources</span><b>${data.source_count}</b></div>
-    <div class="debug-item"><span>model</span><b>${escapeHtml(data.model || "-")}</b></div>
-    <div class="debug-item"><span>tokens</span><b>${usage.total_tokens ?? "-"}</b></div>
+    <div class="debug-item"><span>${t("debug.retrieved")}</span><b>${data.retrieved_count}</b></div>
+    <div class="debug-item"><span>${t("debug.sources")}</span><b>${data.source_count}</b></div>
+    <div class="debug-item"><span>${t("debug.model")}</span><b>${escapeHtml(data.model || "-")}</b></div>
+    <div class="debug-item"><span>${t("debug.tokens")}</span><b>${usage.total_tokens ?? "-"}</b></div>
   `;
+}
+
+function loadPreferences() {
+  try {
+    return {
+      language: "zh",
+      themeColor: "teal",
+      customColor: "#37d0b2",
+      ...JSON.parse(localStorage.getItem(PREFERENCES_KEY) || "{}"),
+    };
+  } catch {
+    return {
+      language: "zh",
+      themeColor: "teal",
+      customColor: "#37d0b2",
+    };
+  }
+}
+
+function savePreferences() {
+  localStorage.setItem(PREFERENCES_KEY, JSON.stringify(state.preferences));
+}
+
+function t(key, fallback = "") {
+  return translations[state.preferences.language]?.[key] || translations.zh[key] || fallback || key;
+}
+
+function applyPreferences() {
+  applyLanguage();
+  applyTheme();
+}
+
+function applyLanguage() {
+  document.documentElement.lang = state.preferences.language === "en" ? "en" : "zh-CN";
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n, element.textContent);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder, element.getAttribute("placeholder") || ""));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    element.setAttribute("title", t(element.dataset.i18nTitle, element.getAttribute("title") || ""));
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel, element.getAttribute("aria-label") || ""));
+  });
+  els.languageButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.language === state.preferences.language);
+  });
+  setStatus(els.statusPill.dataset.status || "idle");
+  setSettingsStatus(els.settingsStatus.dataset.status || "noKey", els.settingsStatus.dataset.source || "");
+  renderDocuments();
+  renderMessages();
+  if (state.lastAnswer) {
+    renderSources(state.lastAnswer.sources || []);
+    renderDebug(state.lastAnswer);
+  }
+}
+
+function applyTheme() {
+  const selected = state.preferences.themeColor;
+  const palette = selected === "custom"
+    ? {
+        accent: state.preferences.customColor || "#37d0b2",
+        accent2: "#ffb86b",
+      }
+    : THEME_COLORS[selected] || THEME_COLORS.teal;
+  const root = document.documentElement;
+  root.style.setProperty("--accent", palette.accent);
+  root.style.setProperty("--accent-2", palette.accent2);
+  root.style.setProperty("--accent-rgb", hexToRgbList(palette.accent));
+  root.style.setProperty("--accent-2-rgb", hexToRgbList(palette.accent2));
+  els.colorButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.themeColor === selected);
+  });
+  if (els.customColorInput) {
+    els.customColorInput.value = state.preferences.customColor || "#37d0b2";
+  }
+}
+
+function setLanguage(language) {
+  state.preferences.language = language;
+  savePreferences();
+  applyLanguage();
+  showToast(t("toast.languageChanged"));
+}
+
+function setThemeColor(themeColor, customColor = null) {
+  state.preferences.themeColor = themeColor;
+  if (customColor) {
+    state.preferences.customColor = customColor;
+  }
+  savePreferences();
+  applyTheme();
+  showToast(t("toast.colorChanged"));
+}
+
+function hexToRgbList(hex) {
+  const normalized = hex.replace("#", "");
+  const full = normalized.length === 3
+    ? normalized.split("").map((char) => `${char}${char}`).join("")
+    : normalized;
+  const value = Number.parseInt(full, 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `${red}, ${green}, ${blue}`;
 }
 
 function markdownLite(text) {
@@ -423,6 +723,15 @@ els.settingsForm.addEventListener("submit", saveSettings);
 els.reloadSettings.addEventListener("click", () => {
   loadSettings().catch((error) => showToast(error.message, true));
 });
+els.languageButtons.forEach((button) => {
+  button.addEventListener("click", () => setLanguage(button.dataset.language));
+});
+els.colorButtons.forEach((button) => {
+  button.addEventListener("click", () => setThemeColor(button.dataset.themeColor));
+});
+els.customColorInput.addEventListener("input", (event) => {
+  setThemeColor("custom", event.target.value);
+});
 els.tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
@@ -451,10 +760,11 @@ loadDocuments().catch((error) => {
 loadSettings().catch((error) => {
   showToast(error.message, true);
   if (els.settingsStatus) {
-    els.settingsStatus.textContent = "error";
+    setSettingsStatus("error");
   }
 });
 
+applyPreferences();
 switchTab("import");
 
 function insertTextareaNewline(textarea) {

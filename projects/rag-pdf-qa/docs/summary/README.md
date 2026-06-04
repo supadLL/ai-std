@@ -54,6 +54,7 @@ docs/summary/23-ui-answer-quality-refinement-summary.md
 docs/summary/24-ui-tabs-runtime-settings-summary.md
 docs/summary/25-ui-tab-layout-fix-summary.md
 docs/summary/26-ui-markdown-answer-rendering-summary.md
+docs/summary/27-ui-language-theme-preferences-summary.md
 ```
 
 格式：

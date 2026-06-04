@@ -69,6 +69,7 @@ pytest
 - ✅ Web UI 分页：文件导入、知识问答、设置
 - ✅ 最小 RAG Agent 工具路由
 - ✅ 运行时 LLM 设置和 RAG prompt 调整
+- ✅ Web UI 中英文切换和系统色偏好
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
