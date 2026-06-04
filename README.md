@@ -72,6 +72,7 @@ pytest
 - ✅ Web UI 中英文切换和系统色偏好
 - ✅ Web UI 背景颜色偏好
 - ✅ Web UI 科技感项目图标和浏览器 Tab 标题
+- ✅ Web UI 背景色已覆盖整体面板、表单、卡片和回答区域
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：

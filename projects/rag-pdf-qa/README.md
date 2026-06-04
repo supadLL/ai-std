@@ -39,6 +39,7 @@
 - [第 27 步完成总结：UI 语言和系统色偏好](docs/summary/27-ui-language-theme-preferences-summary.md)
 - [第 28 步完成总结：UI 背景颜色偏好](docs/summary/28-ui-background-color-preference-summary.md)
 - [第 29 步完成总结：网页标题与项目图标](docs/summary/29-web-title-favicon-summary.md)
+- [第 30 步完成总结：背景色作用到整体 UI 面板](docs/summary/30-ui-background-surface-color-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -61,6 +62,7 @@
 - [第 27 步执行目标：UI 语言和系统色偏好](docs/goal/27-ui-language-theme-preferences-goal.md)
 - [第 28 步执行目标：UI 背景颜色偏好](docs/goal/28-ui-background-color-preference-goal.md)
 - [第 29 步执行目标：网页标题与项目图标](docs/goal/29-web-title-favicon-goal.md)
+- [第 30 步执行目标：背景色作用到整体 UI 面板](docs/goal/30-ui-background-surface-color-goal.md)
 
 ## 快速唤醒本地 RAG
 
@@ -278,6 +280,7 @@ Invoke-RestMethod `
 - Web UI 已支持轻量 Markdown 回答渲染，避免直接显示 `**` 和代码围栏
 - Web UI 已支持中文 / English 切换和系统色偏好设置
 - Web UI 已支持背景颜色偏好设置
+- Web UI 背景颜色已覆盖左侧导航、主面板、表单、卡片和回答区域
 - Web UI 已新增科技感项目图标和浏览器 Tab 标题优化
 - 已支持在设置页调整 DeepSeek base_url、model、timeout、API Key 和 RAG prompt
 - 已新增运行时设置文件 `data/runtime_settings.json`，该文件不提交 GitHub

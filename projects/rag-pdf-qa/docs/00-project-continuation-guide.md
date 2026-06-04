@@ -63,6 +63,7 @@ Web UI 回答轻量 Markdown 渲染
 Web UI 中文 / English 切换和系统色偏好
 Web UI 背景颜色偏好
 Web UI 科技感项目图标和浏览器 Tab 标题优化
+Web UI 背景色覆盖整体 UI 面板
 运行时 LLM 设置：base_url、model、timeout、API Key 和 RAG prompt
 最小 pytest 回归测试骨架
 ```
@@ -632,6 +633,7 @@ Docker 化或一键启动脚本
 | 27 | `docs/goal/27-ui-language-theme-preferences-goal.md` | UI 语言和系统色偏好 |
 | 28 | `docs/goal/28-ui-background-color-preference-goal.md` | UI 背景颜色偏好 |
 | 29 | `docs/goal/29-web-title-favicon-goal.md` | 网页标题与项目图标 |
+| 30 | `docs/goal/30-ui-background-surface-color-goal.md` | 背景色作用到整体 UI 面板 |
 
 执行节奏保持：
 
@@ -671,6 +673,7 @@ Web UI 回答 Markdown 展示
 Web UI 语言和系统色偏好
 Web UI 背景颜色偏好
 Web UI 项目图标和 Tab 标题
+Web UI 背景色覆盖左侧导航、主面板、表单、卡片和回答区域
 /settings 运行时设置
 ```
 

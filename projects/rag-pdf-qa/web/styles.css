@@ -3,6 +3,10 @@
   --bg: #0f1213;
   --panel: rgba(25, 30, 31, 0.78);
   --panel-strong: rgba(35, 40, 41, 0.9);
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-strong: rgba(255, 255, 255, 0.07);
+  --field: rgba(3, 6, 7, 0.34);
+  --field-strong: rgba(3, 6, 7, 0.56);
   --line: rgba(215, 230, 225, 0.16);
   --text: #edf5f1;
   --muted: #9aa9a3;
@@ -169,7 +173,7 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 14px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface-strong);
   text-decoration: none;
   cursor: pointer;
 }
@@ -211,7 +215,7 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 14px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--surface);
   cursor: pointer;
 }
 
@@ -275,7 +279,7 @@ h2 {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--surface);
 }
 
 input,
@@ -284,7 +288,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 14px;
   color: var(--text);
-  background: rgba(3, 6, 7, 0.34);
+  background: var(--field);
   outline: none;
 }
 
@@ -360,7 +364,7 @@ label,
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--surface);
 }
 
 .section-head {
@@ -387,7 +391,7 @@ h3 {
   padding: 5px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(3, 6, 7, 0.28);
+  background: var(--field);
 }
 
 .segment-button {
@@ -415,7 +419,7 @@ h3 {
   padding: 5px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(3, 6, 7, 0.28);
+  background: var(--field);
 }
 
 .color-swatch,
@@ -451,7 +455,7 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 11px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.055);
+  background: var(--surface);
   cursor: pointer;
   padding: 0 10px;
   font-size: 12px;
@@ -468,7 +472,7 @@ h3 {
 .debug-item {
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--surface);
 }
 
 .doc-item,
@@ -499,7 +503,7 @@ h3 {
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface);
 }
 
 .answer-output strong {
@@ -547,7 +551,7 @@ h3 {
   overflow: auto;
   border: 1px solid rgba(var(--accent-rgb), 0.18);
   border-radius: 14px;
-  background: rgba(3, 6, 7, 0.56);
+  background: var(--field-strong);
 }
 
 .md-code code {
@@ -600,7 +604,7 @@ h3 {
 .chat-message.assistant .bubble {
   max-width: min(980px, 94%);
   color: var(--text);
-  background: rgba(3, 6, 7, 0.34);
+  background: var(--field);
 }
 
 .chat-message.error .bubble {

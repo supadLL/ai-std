@@ -589,7 +589,15 @@ function applyTheme() {
       }
     : THEME_COLORS[selected] || THEME_COLORS.teal;
   const root = document.documentElement;
-  root.style.setProperty("--bg", state.preferences.backgroundColor || DEFAULT_BACKGROUND_COLOR);
+  const backgroundColor = state.preferences.backgroundColor || DEFAULT_BACKGROUND_COLOR;
+  const backgroundRgb = hexToRgbList(backgroundColor);
+  root.style.setProperty("--bg", backgroundColor);
+  root.style.setProperty("--panel", `rgba(${backgroundRgb}, 0.78)`);
+  root.style.setProperty("--panel-strong", `rgba(${backgroundRgb}, 0.9)`);
+  root.style.setProperty("--surface", `rgba(${backgroundRgb}, 0.42)`);
+  root.style.setProperty("--surface-strong", `rgba(${backgroundRgb}, 0.58)`);
+  root.style.setProperty("--field", `rgba(${backgroundRgb}, 0.62)`);
+  root.style.setProperty("--field-strong", `rgba(${backgroundRgb}, 0.78)`);
   root.style.setProperty("--accent", palette.accent);
   root.style.setProperty("--accent-2", palette.accent2);
   root.style.setProperty("--accent-rgb", hexToRgbList(palette.accent));

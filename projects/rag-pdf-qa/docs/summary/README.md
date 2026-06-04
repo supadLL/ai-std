@@ -57,6 +57,7 @@ docs/summary/26-ui-markdown-answer-rendering-summary.md
 docs/summary/27-ui-language-theme-preferences-summary.md
 docs/summary/28-ui-background-color-preference-summary.md
 docs/summary/29-web-title-favicon-summary.md
+docs/summary/30-ui-background-surface-color-summary.md
 ```
 
 格式：

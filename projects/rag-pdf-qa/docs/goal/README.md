@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前状态：
 
 ```text
-rag-pdf-qa 主线已完成到第 29 步。
+rag-pdf-qa 主线已完成到第 30 步。
 ```
 
 后续如果继续扩展，先创建新的 goal 文档，再写代码。
@@ -148,6 +148,7 @@ rag-pdf-qa 主线已完成到第 29 步。
 | 27 | [27-ui-language-theme-preferences-goal.md](27-ui-language-theme-preferences-goal.md) | UI 语言和系统色偏好 |
 | 28 | [28-ui-background-color-preference-goal.md](28-ui-background-color-preference-goal.md) | UI 背景颜色偏好 |
 | 29 | [29-web-title-favicon-goal.md](29-web-title-favicon-goal.md) | 网页标题与项目图标 |
+| 30 | [30-ui-background-surface-color-goal.md](30-ui-background-surface-color-goal.md) | 背景色作用到整体 UI 面板 |
 
 执行时不要跳过当前步骤直接做后面的功能。
 
