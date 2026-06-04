@@ -317,12 +317,95 @@ function renderDebug(data) {
 }
 
 function markdownLite(text) {
-  const escaped = escapeHtml(text);
-  return escaped
-    .replace(/^答案：/gm, "<strong>答案：</strong>")
-    .replace(/^依据：/gm, "<strong>依据：</strong>")
-    .replace(/^资料不足之处：/gm, "<strong>资料不足之处：</strong>")
-    .replace(/\n/g, "<br />");
+  const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+  const html = [];
+  let codeLines = [];
+  let inCodeBlock = false;
+
+  lines.forEach((line) => {
+    const fence = line.trim().match(/^```[A-Za-z0-9_-]*\s*$/);
+    if (fence) {
+      if (inCodeBlock) {
+        html.push(renderCodeBlock(codeLines.join("\n")));
+        codeLines = [];
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+        codeLines = [];
+      }
+      return;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(line);
+      return;
+    }
+
+    html.push(renderMarkdownLine(line));
+  });
+
+  if (inCodeBlock) {
+    html.push(renderCodeBlock(codeLines.join("\n")));
+  }
+
+  return `<div class="md-answer">${html.join("")}</div>`;
+}
+
+function renderMarkdownLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return `<div class="md-spacer"></div>`;
+  }
+
+  const ordered = trimmed.match(/^(\d+)\.\s+(.+)$/);
+  if (ordered) {
+    return `
+      <div class="md-line md-list-line">
+        <span class="md-marker">${ordered[1]}.</span>
+        <span>${renderInlineMarkdown(ordered[2])}</span>
+      </div>
+    `;
+  }
+
+  const unordered = trimmed.match(/^[-*]\s+(.+)$/);
+  if (unordered) {
+    return `
+      <div class="md-line md-list-line">
+        <span class="md-marker">-</span>
+        <span>${renderInlineMarkdown(unordered[1])}</span>
+      </div>
+    `;
+  }
+
+  if (/^(答案|依据|资料不足之处)[:：]/.test(trimmed)) {
+    const [title, ...rest] = trimmed.split(/[:：]/);
+    const suffix = rest.join("：").trim();
+    return `
+      <div class="md-section-title">${escapeHtml(title)}：</div>
+      ${suffix ? `<p class="md-paragraph">${renderInlineMarkdown(suffix)}</p>` : ""}
+    `;
+  }
+
+  const heading = trimmed.match(/^#{1,6}\s+(.+)$/);
+  if (heading) {
+    return `<div class="md-section-title">${renderInlineMarkdown(heading[1])}</div>`;
+  }
+
+  return `<p class="md-paragraph">${renderInlineMarkdown(trimmed)}</p>`;
+}
+
+function renderInlineMarkdown(value) {
+  return escapeHtml(value)
+    .replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+}
+
+function renderCodeBlock(code) {
+  const content = code.trimEnd();
+  if (!content) {
+    return "";
+  }
+  return `<pre class="md-code"><code>${escapeHtml(content)}</code></pre>`;
 }
 
 function escapeHtml(value) {

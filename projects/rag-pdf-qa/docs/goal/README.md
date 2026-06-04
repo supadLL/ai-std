@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前状态：
 
 ```text
-rag-pdf-qa 主线已完成到第 25 步。
+rag-pdf-qa 主线已完成到第 26 步。
 ```
 
 后续如果继续扩展，先创建新的 goal 文档，再写代码。
@@ -144,6 +144,7 @@ rag-pdf-qa 主线已完成到第 25 步。
 | 23 | [23-ui-answer-quality-refinement-goal.md](23-ui-answer-quality-refinement-goal.md) | 名称、问答交互和回答质量优化 |
 | 24 | [24-ui-tabs-runtime-settings-goal.md](24-ui-tabs-runtime-settings-goal.md) | UI 分页与运行时模型设置 |
 | 25 | [25-ui-tab-layout-fix-goal.md](25-ui-tab-layout-fix-goal.md) | 修复 UI Tab 布局混排 |
+| 26 | [26-ui-markdown-answer-rendering-goal.md](26-ui-markdown-answer-rendering-goal.md) | 优化回答 Markdown 展示 |
 
 执行时不要跳过当前步骤直接做后面的功能。
 

@@ -35,6 +35,7 @@
 - [第 23 步完成总结：名称、问答交互和回答质量优化](docs/summary/23-ui-answer-quality-refinement-summary.md)
 - [第 24 步完成总结：UI 分页与运行时模型设置](docs/summary/24-ui-tabs-runtime-settings-summary.md)
 - [第 25 步完成总结：修复 UI Tab 布局混排](docs/summary/25-ui-tab-layout-fix-summary.md)
+- [第 26 步完成总结：优化回答 Markdown 展示](docs/summary/26-ui-markdown-answer-rendering-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -53,6 +54,7 @@
 - [第 23 步执行目标：名称、问答交互和回答质量优化](docs/goal/23-ui-answer-quality-refinement-goal.md)
 - [第 24 步执行目标：UI 分页与运行时模型设置](docs/goal/24-ui-tabs-runtime-settings-goal.md)
 - [第 25 步执行目标：修复 UI Tab 布局混排](docs/goal/25-ui-tab-layout-fix-goal.md)
+- [第 26 步执行目标：优化回答 Markdown 展示](docs/goal/26-ui-markdown-answer-rendering-goal.md)
 
 ## 快速唤醒本地 RAG
 
@@ -267,6 +269,7 @@ Invoke-RestMethod `
 - 已新增最小 RAG Agent 工具路由接口 `/agent/ask`
 - Web UI 已拆分为“文件导入 / 知识问答 / 设置”三个页签
 - Web UI 已修复 Tab 混排问题，当前左侧为明确的垂直功能导航
+- Web UI 已支持轻量 Markdown 回答渲染，避免直接显示 `**` 和代码围栏
 - 已支持在设置页调整 DeepSeek base_url、model、timeout、API Key 和 RAG prompt
 - 已新增运行时设置文件 `data/runtime_settings.json`，该文件不提交 GitHub
 - 已建立最小 pytest 回归测试骨架

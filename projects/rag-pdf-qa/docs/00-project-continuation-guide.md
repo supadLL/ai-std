@@ -59,6 +59,7 @@ docx / csv / xlsx 文档入库
 名称、问答交互和回答质量优化
 Web UI 分页：文件导入 / 知识问答 / 设置
 Web UI Tab 布局混排修复
+Web UI 回答轻量 Markdown 渲染
 运行时 LLM 设置：base_url、model、timeout、API Key 和 RAG prompt
 最小 pytest 回归测试骨架
 ```
@@ -624,6 +625,7 @@ Docker 化或一键启动脚本
 | 23 | `docs/goal/23-ui-answer-quality-refinement-goal.md` | 名称、问答交互和回答质量优化 |
 | 24 | `docs/goal/24-ui-tabs-runtime-settings-goal.md` | UI 分页与运行时模型设置 |
 | 25 | `docs/goal/25-ui-tab-layout-fix-goal.md` | 修复 UI Tab 布局混排 |
+| 26 | `docs/goal/26-ui-markdown-answer-rendering-goal.md` | 优化回答 Markdown 展示 |
 
 执行节奏保持：
 
@@ -659,6 +661,7 @@ Web UI 初版
 /agent/ask 最小 Agent 工具路由
 Web UI 分页
 Web UI Tab 页面隔离和垂直导航
+Web UI 回答 Markdown 展示
 /settings 运行时设置
 ```
 
