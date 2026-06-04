@@ -51,6 +51,7 @@ docs/summary/21-rag-agent-tool-routing-summary.md
 docs/summary/22-tests-and-project-final-summary.md
 docs/summary/project-demo-checklist.md
 docs/summary/23-ui-answer-quality-refinement-summary.md
+docs/summary/24-ui-tabs-runtime-settings-summary.md
 ```
 
 格式：

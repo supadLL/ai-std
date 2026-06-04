@@ -33,6 +33,7 @@
 - [第 21 步完成总结：最小 RAG Agent 工具路由](docs/summary/21-rag-agent-tool-routing-summary.md)
 - [第 22 步完成总结：项目测试、收口和最终总结](docs/summary/22-tests-and-project-final-summary.md)
 - [第 23 步完成总结：名称、问答交互和回答质量优化](docs/summary/23-ui-answer-quality-refinement-summary.md)
+- [第 24 步完成总结：UI 分页与运行时模型设置](docs/summary/24-ui-tabs-runtime-settings-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -49,6 +50,7 @@
 - [第 21 步执行目标：实现最小 RAG Agent 工具路由](docs/goal/21-rag-agent-tool-routing-goal.md)
 - [第 22 步执行目标：项目测试、收口和最终总结](docs/goal/22-tests-and-project-final-summary-goal.md)
 - [第 23 步执行目标：名称、问答交互和回答质量优化](docs/goal/23-ui-answer-quality-refinement-goal.md)
+- [第 24 步执行目标：UI 分页与运行时模型设置](docs/goal/24-ui-tabs-runtime-settings-goal.md)
 
 ## 快速唤醒本地 RAG
 
@@ -135,6 +137,7 @@ GitHub 仓库不会提交你的本地运行数据：
 .env
 .qdrant/
 data/documents.json
+data/runtime_settings.json
 ```
 
 所以换电脑或别人首次使用时，需要重新上传文档建立知识库。
@@ -246,6 +249,8 @@ Invoke-RestMethod `
 - `POST /documents/search`：用问题检索本地 Qdrant 里的相关 chunk
 - `POST /rag/ask`：检索本地 Qdrant，并把相关 chunk 交给 DeepSeek 生成 RAG 回答
 - `GET /` / `GET /app`：打开本地 RAG Web UI
+- `GET /settings`：读取本地运行时 LLM 设置，不返回真实 API Key
+- `PUT /settings`：保存本地运行时 LLM、API Key 和 RAG prompt 设置
 - `POST /agent/ask`：最小 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`
 - `/rag/ask` 支持 `score_threshold` 低分过滤
 - `/rag/ask` 的 `sources` 已优化为 `source_id` + `preview` 结构
@@ -258,6 +263,9 @@ Invoke-RestMethod `
 - 已支持 docx、csv、xlsx 文档入库
 - 已新增本地 Web UI 入口，用于上传文档、查看知识库、提问和查看 sources
 - 已新增最小 RAG Agent 工具路由接口 `/agent/ask`
+- Web UI 已拆分为“文件导入 / 知识问答 / 设置”三个页签
+- 已支持在设置页调整 DeepSeek base_url、model、timeout、API Key 和 RAG prompt
+- 已新增运行时设置文件 `data/runtime_settings.json`，该文件不提交 GitHub
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制

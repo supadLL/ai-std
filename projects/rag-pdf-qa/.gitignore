@@ -6,3 +6,4 @@ __pycache__/
 .qdrant/
 .qdrant_eval/
 data/documents.json
+data/runtime_settings.json

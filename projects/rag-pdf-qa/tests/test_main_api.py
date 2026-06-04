@@ -4,6 +4,7 @@ import app.main as main
 from app.config import Settings
 from app.document_store import DocumentRecord
 from app.pdf_extractor import ExtractedPage, ExtractedPdf
+from app.runtime_settings import RuntimeSettings
 from app.text_splitter import TextChunk
 from app.vector_store import SearchResult
 
@@ -81,6 +82,100 @@ def test_build_rag_messages_requires_stable_output_format():
     assert "操作步骤" in prompt_text
     assert "不要只回答一句话" in prompt_text
     assert "[Source 1]" in prompt_text
+
+
+def test_build_rag_messages_accepts_runtime_prompt_override():
+    messages = main._build_rag_messages(
+        question="如何通过后端拉起前端？",
+        results=[
+            SearchResult(
+                point_id="point-1",
+                score=0.82,
+                document_id="doc-1",
+                file_type="markdown",
+                filename="demo.md",
+                page_number=1,
+                chunk_id=1,
+                text="FastAPI can mount static files and return index.html.",
+            )
+        ],
+        runtime_settings=RuntimeSettings(
+            rag_system_prompt="CUSTOM SYSTEM PROMPT",
+            rag_answer_instructions="CUSTOM ANSWER INSTRUCTIONS",
+        ),
+    )
+
+    assert messages[0]["content"] == "CUSTOM SYSTEM PROMPT"
+    assert "CUSTOM ANSWER INSTRUCTIONS" in messages[1]["content"]
+
+
+def test_settings_endpoint_returns_runtime_values_without_api_key(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="env-secret", deepseek_model="env-model"),
+    )
+    monkeypatch.setattr(
+        main,
+        "load_runtime_settings",
+        lambda: RuntimeSettings(
+            deepseek_base_url="https://runtime.example",
+            deepseek_model="runtime-model",
+            rag_system_prompt="runtime system",
+            rag_answer_instructions="runtime answer",
+        ),
+    )
+
+    client = TestClient(main.app)
+    response = client.get("/settings")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deepseek_base_url"] == "https://runtime.example"
+    assert data["deepseek_model"] == "runtime-model"
+    assert data["api_key_configured"] is True
+    assert data["api_key_source"] == "env"
+    assert "env-secret" not in response.text
+    assert data["rag_system_prompt"] == "runtime system"
+
+
+def test_update_settings_persists_runtime_values_without_returning_api_key(monkeypatch):
+    saved = {}
+
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="", deepseek_model="env-model"),
+    )
+    monkeypatch.setattr(main, "load_runtime_settings", lambda: RuntimeSettings())
+
+    def fake_save_runtime_settings(runtime_settings):
+        saved["runtime_settings"] = runtime_settings
+        return runtime_settings
+
+    monkeypatch.setattr(main, "save_runtime_settings", fake_save_runtime_settings)
+
+    client = TestClient(main.app)
+    response = client.put(
+        "/settings",
+        json={
+            "deepseek_api_key": "runtime-secret",
+            "deepseek_base_url": "https://runtime.example",
+            "deepseek_model": "runtime-model",
+            "request_timeout_seconds": 60,
+            "rag_system_prompt": "runtime system",
+            "rag_answer_instructions": "runtime answer",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["api_key_configured"] is True
+    assert data["api_key_source"] == "runtime"
+    assert data["deepseek_model"] == "runtime-model"
+    assert "runtime-secret" not in response.text
+    assert saved["runtime_settings"].deepseek_api_key == "runtime-secret"
+    assert saved["runtime_settings"].rag_answer_instructions == "runtime answer"
 
 
 def test_document_management_endpoints(monkeypatch):

@@ -49,7 +49,7 @@ textarea {
 
 .shell {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(420px, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr);
   gap: 16px;
   height: 100vh;
   padding: 16px;
@@ -65,7 +65,7 @@ textarea {
   backdrop-filter: blur(22px);
 }
 
-.library-panel,
+.nav-panel,
 .sources-panel {
   display: flex;
   flex-direction: column;
@@ -75,6 +75,36 @@ textarea {
 .answer-panel {
   display: grid;
   grid-template-rows: auto 1fr auto;
+  padding: 18px;
+}
+
+.workspace {
+  min-width: 0;
+  min-height: 0;
+}
+
+.tab-page {
+  display: none;
+  height: 100%;
+  min-height: 0;
+}
+
+.tab-page.active {
+  display: block;
+}
+
+.ask-layout.active {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) minmax(280px, 360px);
+  gap: 16px;
+}
+
+.import-panel,
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   padding: 18px;
 }
 
@@ -140,8 +170,40 @@ h2 {
   color: var(--muted);
 }
 
+.docs-link {
+  display: inline-flex;
+  justify-content: center;
+  margin-top: auto;
+}
+
+.tab-nav {
+  display: grid;
+  gap: 10px;
+}
+
+.tab-button,
+.ghost-button {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.055);
+  cursor: pointer;
+}
+
+.tab-button {
+  text-align: left;
+  padding: 0 14px;
+}
+
+.tab-button.active {
+  color: #101513;
+  background: linear-gradient(135deg, rgba(55, 208, 178, 0.96), rgba(255, 184, 107, 0.92));
+}
+
 .upload-box,
-.ask-bar {
+.ask-bar,
+.settings-form {
   display: grid;
   gap: 12px;
   padding: 14px;
@@ -178,7 +240,8 @@ textarea {
 
 .upload-meta,
 .controls,
-.debug-grid {
+.debug-grid,
+.settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
@@ -217,6 +280,16 @@ label,
   display: grid;
   gap: 10px;
   margin-top: 14px;
+}
+
+.settings-form {
+  overflow: auto;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .doc-item,
@@ -410,8 +483,13 @@ label,
     min-height: 100vh;
   }
 
+  .ask-layout.active {
+    grid-template-columns: 1fr;
+  }
+
   .controls,
-  .upload-meta {
+  .upload-meta,
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -66,7 +66,9 @@ pytest
 - ✅ Markdown 和 txt 文档入库
 - ✅ docx、csv、xlsx 文档入库
 - ✅ 本地 Web UI 初版
+- ✅ Web UI 分页：文件导入、知识问答、设置
 - ✅ 最小 RAG Agent 工具路由
+- ✅ 运行时 LLM 设置和 RAG prompt 调整
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
@@ -183,11 +185,12 @@ ai-std/
 .env
 .venv/
 .qdrant/
+data/runtime_settings.json
 .pytest_cache/
 __pycache__/
 ```
 
-真实配置只放在本地 `.env` 中。
+真实配置只放在本地 `.env` 或被忽略的本地运行时设置文件中。
 
 ---
 

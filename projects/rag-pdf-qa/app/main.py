@@ -17,6 +17,13 @@ from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
 from app.document_loaders import DocumentLoadError, is_supported_document, load_document_from_bytes
 from app.embedding_client import EmbeddingError, embed_text
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
+from app.runtime_settings import (
+    RuntimeSettings,
+    apply_runtime_settings,
+    load_runtime_settings,
+    merge_runtime_settings,
+    save_runtime_settings,
+)
 from app.text_splitter import TextChunk, TextSplitError, split_parsed_document, split_pdf_text
 from app.vector_store import (
     SearchResult,
@@ -42,6 +49,34 @@ app = FastAPI(
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 if WEB_DIR.exists():
     app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
+
+
+DEFAULT_RAG_SYSTEM_PROMPT = (
+    "You are a strict local knowledge-base QA assistant. "
+    "Answer only from the retrieved context supplied by the user. "
+    "If the context is insufficient, say so directly and do not invent facts. "
+    "Prefer Chinese. Cite key claims with source ids, for example [Source 1]. "
+    "For how-to, implementation, setup, debugging, or process questions, provide a detailed, actionable answer. "
+    "Do not collapse rich retrieved context into a single short sentence. "
+    "Preserve important steps, commands, file paths, parameters, caveats, and ordering from the sources. "
+    "Always answer with exactly these three Markdown sections: "
+    "答案：, 依据：, 资料不足之处：."
+)
+
+DEFAULT_RAG_ANSWER_INSTRUCTIONS = (
+    "Use this output format:\n"
+    "答案：\n"
+    "- 先用 1-2 句话给出直接结论，并标注来源，例如 [Source 1]。\n"
+    "- 如果问题是操作型或实现型，继续给出“操作步骤：”，按顺序列出可执行步骤。\n"
+    "- 尽量保留 context 中的关键命令、路径、参数、注意事项和前后顺序。\n"
+    "- 如果 sources 提供了较多细节，回答也要相应详尽，不要只回答一句话。\n\n"
+    "依据：\n"
+    "- [Source 1] 写出该来源支持了什么结论。\n"
+    "- 如果使用多个来源，逐条列出。\n\n"
+    "资料不足之处：\n"
+    "- 如果资料足够，写“未发现明显不足”。\n"
+    "- 如果资料不足，明确说明缺少什么，不要编造。"
+)
 
 
 class ChatRequest(BaseModel):
@@ -214,6 +249,28 @@ class DeleteDocumentResponse(BaseModel):
     deleted_metadata: bool
 
 
+class AppSettingsResponse(BaseModel):
+    deepseek_base_url: str
+    deepseek_model: str
+    request_timeout_seconds: float
+    api_key_configured: bool
+    api_key_source: str
+    embedding_model: str
+    qdrant_collection: str
+    rag_system_prompt: str
+    rag_answer_instructions: str
+
+
+class UpdateAppSettingsRequest(BaseModel):
+    deepseek_api_key: str | None = Field(default=None, max_length=4000)
+    clear_api_key: bool = False
+    deepseek_base_url: str | None = Field(default=None, max_length=500)
+    deepseek_model: str | None = Field(default=None, max_length=200)
+    request_timeout_seconds: float | None = Field(default=None, ge=1, le=300)
+    rag_system_prompt: str | None = Field(default=None, max_length=12000)
+    rag_answer_instructions: str | None = Field(default=None, max_length=12000)
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -228,9 +285,49 @@ async def web_app() -> FileResponse:
     return FileResponse(index_path)
 
 
+@app.get("/settings", response_model=AppSettingsResponse)
+async def read_app_settings() -> AppSettingsResponse:
+    base_settings = get_settings()
+    runtime_settings = _load_runtime_settings_or_422()
+    effective_settings = apply_runtime_settings(base_settings, runtime_settings)
+    return _to_app_settings_response(
+        base_settings=base_settings,
+        runtime_settings=runtime_settings,
+        effective_settings=effective_settings,
+    )
+
+
+@app.put("/settings", response_model=AppSettingsResponse)
+async def update_app_settings(request: UpdateAppSettingsRequest) -> AppSettingsResponse:
+    base_settings = get_settings()
+    current_runtime_settings = _load_runtime_settings_or_422()
+    next_runtime_settings = merge_runtime_settings(
+        current_runtime_settings,
+        deepseek_api_key=request.deepseek_api_key,
+        clear_api_key=request.clear_api_key,
+        deepseek_base_url=request.deepseek_base_url,
+        deepseek_model=request.deepseek_model,
+        request_timeout_seconds=request.request_timeout_seconds,
+        rag_system_prompt=request.rag_system_prompt,
+        rag_answer_instructions=request.rag_answer_instructions,
+    )
+
+    try:
+        save_runtime_settings(next_runtime_settings)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    effective_settings = apply_runtime_settings(base_settings, next_runtime_settings)
+    return _to_app_settings_response(
+        base_settings=base_settings,
+        runtime_settings=next_runtime_settings,
+        effective_settings=effective_settings,
+    )
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
-    settings = get_settings()
+    settings = _get_effective_settings()
     client = DeepSeekClient(settings)
 
     try:
@@ -531,6 +628,8 @@ async def search_documents(request: SearchRequest) -> SearchResponse:
 @app.post("/rag/ask", response_model=RagAskResponse)
 async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
     settings = get_settings()
+    runtime_settings = _load_runtime_settings_or_422()
+    llm_settings = apply_runtime_settings(settings, runtime_settings)
 
     try:
         retrieved_results = await _search_local_chunks(
@@ -552,8 +651,12 @@ async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
             detail="No document chunks met score_threshold. Lower score_threshold or try another question.",
         )
 
-    deepseek_client = DeepSeekClient(settings)
-    messages = _build_rag_messages(question=request.question, results=results)
+    deepseek_client = DeepSeekClient(llm_settings)
+    messages = _build_rag_messages(
+        question=request.question,
+        results=results,
+        runtime_settings=runtime_settings,
+    )
 
     try:
         answer = await deepseek_client.chat_messages(
@@ -583,10 +686,12 @@ async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
 @app.post("/agent/ask", response_model=AgentAskResponse)
 async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
     settings = get_settings()
+    runtime_settings = _load_runtime_settings_or_422()
+    llm_settings = apply_runtime_settings(settings, runtime_settings)
     selected_route = decide_agent_route(request.question)
 
     if selected_route == "chat":
-        deepseek_client = DeepSeekClient(settings)
+        deepseek_client = DeepSeekClient(llm_settings)
         try:
             answer = await deepseek_client.chat(request.question)
         except DeepSeekClientError as exc:
@@ -641,8 +746,12 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
             sources=[],
         )
 
-    deepseek_client = DeepSeekClient(settings)
-    messages = _build_rag_messages(question=request.question, results=results)
+    deepseek_client = DeepSeekClient(llm_settings)
+    messages = _build_rag_messages(
+        question=request.question,
+        results=results,
+        runtime_settings=runtime_settings,
+    )
 
     try:
         answer = await deepseek_client.chat_messages(
@@ -684,6 +793,45 @@ async def _search_local_chunks(
         collection_name=settings.qdrant_collection,
         query_vector=query_vector,
         limit=limit,
+    )
+
+
+def _load_runtime_settings_or_422() -> RuntimeSettings:
+    try:
+        return load_runtime_settings()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _get_effective_settings() -> Any:
+    base_settings = get_settings()
+    runtime_settings = _load_runtime_settings_or_422()
+    return apply_runtime_settings(base_settings, runtime_settings)
+
+
+def _to_app_settings_response(
+    *,
+    base_settings: Any,
+    runtime_settings: RuntimeSettings,
+    effective_settings: Any,
+) -> AppSettingsResponse:
+    if runtime_settings.deepseek_api_key:
+        api_key_source = "runtime"
+    elif base_settings.deepseek_api_key:
+        api_key_source = "env"
+    else:
+        api_key_source = "none"
+
+    return AppSettingsResponse(
+        deepseek_base_url=effective_settings.deepseek_base_url,
+        deepseek_model=effective_settings.deepseek_model,
+        request_timeout_seconds=effective_settings.request_timeout_seconds,
+        api_key_configured=bool(effective_settings.deepseek_api_key),
+        api_key_source=api_key_source,
+        embedding_model=base_settings.embedding_model,
+        qdrant_collection=base_settings.qdrant_collection,
+        rag_system_prompt=runtime_settings.rag_system_prompt or DEFAULT_RAG_SYSTEM_PROMPT,
+        rag_answer_instructions=runtime_settings.rag_answer_instructions or DEFAULT_RAG_ANSWER_INSTRUCTIONS,
     )
 
 
@@ -755,7 +903,11 @@ def _filter_results_by_score(
     return [result for result in results if result.score >= score_threshold]
 
 
-def _build_rag_messages(question: str, results: list[SearchResult]) -> list[dict[str, str]]:
+def _build_rag_messages(
+    question: str,
+    results: list[SearchResult],
+    runtime_settings: RuntimeSettings | None = None,
+) -> list[dict[str, str]]:
     context = "\n\n".join(
         (
             f"[Source {index}] type: {result.file_type} | file: {result.filename} | page: {result.page_number} | "
@@ -765,32 +917,20 @@ def _build_rag_messages(question: str, results: list[SearchResult]) -> list[dict
     )
 
     system_prompt = (
-        "You are a strict local knowledge-base QA assistant. "
-        "Answer only from the retrieved context supplied by the user. "
-        "If the context is insufficient, say so directly and do not invent facts. "
-        "Prefer Chinese. Cite key claims with source ids, for example [Source 1]. "
-        "For how-to, implementation, setup, debugging, or process questions, provide a detailed, actionable answer. "
-        "Do not collapse rich retrieved context into a single short sentence. "
-        "Preserve important steps, commands, file paths, parameters, caveats, and ordering from the sources. "
-        "Always answer with exactly these three Markdown sections: "
-        "答案：, 依据：, 资料不足之处：."
+        runtime_settings.rag_system_prompt
+        if runtime_settings and runtime_settings.rag_system_prompt
+        else DEFAULT_RAG_SYSTEM_PROMPT
+    )
+    answer_instructions = (
+        runtime_settings.rag_answer_instructions
+        if runtime_settings and runtime_settings.rag_answer_instructions
+        else DEFAULT_RAG_ANSWER_INSTRUCTIONS
     )
     user_prompt = (
         f"User question:\n{question}\n\n"
         f"Retrieved context:\n{context}\n\n"
         "Answer based on the retrieved context above.\n\n"
-        "Use this output format:\n"
-        "答案：\n"
-        "- 先用 1-2 句话给出直接结论，并标注来源，例如 [Source 1]。\n"
-        "- 如果问题是操作型或实现型，继续给出“操作步骤：”，按顺序列出可执行步骤。\n"
-        "- 尽量保留 context 中的关键命令、路径、参数、注意事项和前后顺序。\n"
-        "- 如果 sources 提供了较多细节，回答也要相应详尽，不要只回答一句话。\n\n"
-        "依据：\n"
-        "- [Source 1] 写出该来源支持了什么结论。\n"
-        "- 如果使用多个来源，逐条列出。\n\n"
-        "资料不足之处：\n"
-        "- 如果资料足够，写“未发现明显不足”。\n"
-        "- 如果资料不足，明确说明缺少什么，不要编造。"
+        f"{answer_instructions}"
     )
     return [
         {"role": "system", "content": system_prompt},

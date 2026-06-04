@@ -21,6 +21,18 @@ const els = {
   debugGrid: document.querySelector("#debugGrid"),
   statusPill: document.querySelector("#statusPill"),
   toast: document.querySelector("#toast"),
+  tabButtons: Array.from(document.querySelectorAll(".tab-button")),
+  tabPages: Array.from(document.querySelectorAll(".tab-page")),
+  settingsForm: document.querySelector("#settingsForm"),
+  baseUrlInput: document.querySelector("#baseUrlInput"),
+  modelInput: document.querySelector("#modelInput"),
+  apiKeyInput: document.querySelector("#apiKeyInput"),
+  timeoutInput: document.querySelector("#timeoutInput"),
+  clearApiKeyInput: document.querySelector("#clearApiKeyInput"),
+  systemPromptInput: document.querySelector("#systemPromptInput"),
+  answerPromptInput: document.querySelector("#answerPromptInput"),
+  settingsStatus: document.querySelector("#settingsStatus"),
+  reloadSettings: document.querySelector("#reloadSettings"),
 };
 
 function setStatus(value) {
@@ -51,6 +63,23 @@ async function loadDocuments() {
   state.documents = data.documents || [];
   renderDocuments();
   setStatus("idle");
+}
+
+async function loadSettings() {
+  if (!els.settingsForm) {
+    return;
+  }
+
+  els.settingsStatus.textContent = "loading";
+  const data = await requestJson("/settings");
+  els.baseUrlInput.value = data.deepseek_base_url || "";
+  els.modelInput.value = data.deepseek_model || "";
+  els.timeoutInput.value = data.request_timeout_seconds || 30;
+  els.apiKeyInput.value = "";
+  els.clearApiKeyInput.checked = false;
+  els.systemPromptInput.value = data.rag_system_prompt || "";
+  els.answerPromptInput.value = data.rag_answer_instructions || "";
+  els.settingsStatus.textContent = data.api_key_configured ? `key:${data.api_key_source}` : "no-key";
 }
 
 function renderDocuments() {
@@ -102,6 +131,38 @@ async function uploadDocument(event) {
   } catch (error) {
     showToast(error.message, true);
     setStatus("error");
+  }
+}
+
+async function saveSettings(event) {
+  event.preventDefault();
+  const payload = {
+    deepseek_base_url: els.baseUrlInput.value.trim(),
+    deepseek_model: els.modelInput.value.trim(),
+    request_timeout_seconds: Number(els.timeoutInput.value || 30),
+    clear_api_key: els.clearApiKeyInput.checked,
+    rag_system_prompt: els.systemPromptInput.value,
+    rag_answer_instructions: els.answerPromptInput.value,
+  };
+  const apiKey = els.apiKeyInput.value.trim();
+  if (apiKey) {
+    payload.deepseek_api_key = apiKey;
+  }
+
+  els.settingsStatus.textContent = "saving";
+  try {
+    const data = await requestJson("/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    els.apiKeyInput.value = "";
+    els.clearApiKeyInput.checked = false;
+    els.settingsStatus.textContent = data.api_key_configured ? `key:${data.api_key_source}` : "no-key";
+    showToast("设置已保存");
+  } catch (error) {
+    els.settingsStatus.textContent = "error";
+    showToast(error.message, true);
   }
 }
 
@@ -209,6 +270,15 @@ function replacePendingMessage(id, nextMessage) {
   renderMessages();
 }
 
+function switchTab(tabName) {
+  els.tabButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === tabName);
+  });
+  els.tabPages.forEach((page) => {
+    page.classList.toggle("active", page.id === `tab-${tabName}`);
+  });
+}
+
 function renderSources(sources) {
   if (!sources.length) {
     els.sourceList.innerHTML = `<p class="empty-state">无 sources</p>`;
@@ -262,6 +332,13 @@ function escapeHtml(value) {
 
 els.uploadForm.addEventListener("submit", uploadDocument);
 els.askForm.addEventListener("submit", askQuestion);
+els.settingsForm.addEventListener("submit", saveSettings);
+els.reloadSettings.addEventListener("click", () => {
+  loadSettings().catch((error) => showToast(error.message, true));
+});
+els.tabButtons.forEach((button) => {
+  button.addEventListener("click", () => switchTab(button.dataset.tab));
+});
 els.questionInput.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") {
     return;
@@ -283,6 +360,12 @@ els.refreshDocuments.addEventListener("click", () => {
 loadDocuments().catch((error) => {
   showToast(error.message, true);
   setStatus("error");
+});
+loadSettings().catch((error) => {
+  showToast(error.message, true);
+  if (els.settingsStatus) {
+    els.settingsStatus.textContent = "error";
+  }
 });
 
 function insertTextareaNewline(textarea) {

@@ -31,6 +31,7 @@ QDRANT_COLLECTION=rag_chunks
 .env 不提交到 GitHub
 .qdrant/ 不提交到 GitHub
 data/documents.json 不提交到 GitHub
+data/runtime_settings.json 不提交到 GitHub
 ```
 
 ---
@@ -149,7 +150,7 @@ filename / page_number / chunk_id / text 可读
 入口：
 
 ```text
-Web UI 中间提问区
+Web UI -> 知识问答
 或 Swagger Docs -> POST /rag/ask
 ```
 
@@ -171,7 +172,26 @@ sources 包含 source_id、score、filename、page_number、chunk_id、preview
 usage 返回 token 使用信息
 ```
 
-### 4.5 Agent 问答
+### 4.5 调整模型和 Prompt
+
+入口：
+
+```text
+Web UI -> 设置
+或 Swagger Docs -> GET /settings / PUT /settings
+```
+
+检查：
+
+```text
+可以看到 base_url、model、timeout
+可以编辑 RAG system prompt 和 answer instructions
+API Key 输入框加载后为空
+GET /settings 不返回真实 API Key
+保存后 data/runtime_settings.json 仍然不被 git 跟踪
+```
+
+### 4.6 Agent 问答
 
 入口：
 
@@ -239,7 +259,7 @@ reply 明确提示资料不足
 当前基线：
 
 ```text
-pytest 25 passed
+pytest 28 passed
 ```
 
 测试覆盖：
@@ -254,6 +274,7 @@ rag/ask prompt 格式
 Web UI 路由
 agent/ask 三条 route
 OpenAPI / Swagger Docs
+运行时 settings 接口
 ```
 
 ---
@@ -304,6 +325,7 @@ PDF 表格精细抽取尚未实现
 网页正文抓取尚未实现
 Agent 路由仍是启发式规则
 Web UI 尚未接入 Agent 模式切换
+运行时设置目前是本地单机 JSON 文件
 没有登录鉴权和多用户隔离
 没有云端部署
 ```

@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前状态：
 
 ```text
-rag-pdf-qa 主线已完成到第 22 步。
+rag-pdf-qa 主线已完成到第 24 步。
 ```
 
 后续如果继续扩展，先创建新的 goal 文档，再写代码。
@@ -142,6 +142,7 @@ rag-pdf-qa 主线已完成到第 22 步。
 | 21 | [21-rag-agent-tool-routing-goal.md](21-rag-agent-tool-routing-goal.md) | 实现最小 RAG Agent 工具路由 |
 | 22 | [22-tests-and-project-final-summary-goal.md](22-tests-and-project-final-summary-goal.md) | 项目测试、收口和最终总结 |
 | 23 | [23-ui-answer-quality-refinement-goal.md](23-ui-answer-quality-refinement-goal.md) | 名称、问答交互和回答质量优化 |
+| 24 | [24-ui-tabs-runtime-settings-goal.md](24-ui-tabs-runtime-settings-goal.md) | UI 分页与运行时模型设置 |
 
 执行时不要跳过当前步骤直接做后面的功能。
 
