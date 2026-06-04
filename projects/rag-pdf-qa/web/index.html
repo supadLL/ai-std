@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>RAG PDF QA</title>
+    <title>Local Knowledge RAG Agent</title>
     <link rel="stylesheet" href="/web/styles.css" />
   </head>
   <body>
@@ -12,7 +12,7 @@
         <div class="panel-head">
           <div>
             <p class="eyebrow">Knowledge</p>
-            <h1>RAG PDF QA</h1>
+            <h1>Local Knowledge RAG Agent</h1>
           </div>
           <button class="icon-button" id="refreshDocuments" title="刷新文档列表">↻</button>
         </div>
@@ -38,13 +38,13 @@
       <section class="panel answer-panel">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">Ask</p>
-            <h2>本地知识库问答</h2>
+            <p class="eyebrow">Chat</p>
+            <h2>多格式知识库问答</h2>
           </div>
           <a class="ghost-link" href="/docs" target="_blank" rel="noreferrer">/docs</a>
         </div>
 
-        <div class="answer-output" id="answerOutput">
+        <div class="answer-output chat-thread" id="answerOutput">
           <p class="empty-state">等待问题</p>
         </div>
 

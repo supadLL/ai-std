@@ -49,9 +49,10 @@ def test_web_ui_routes_are_available():
     openapi_response = client.get("/openapi.json")
 
     assert app_response.status_code == 200
-    assert "RAG PDF QA" in app_response.text
+    assert "Local Knowledge RAG Agent" in app_response.text
     assert docs_response.status_code == 200
     assert openapi_response.status_code == 200
+    assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
     assert "/documents/index" in openapi_response.json()["paths"]
 
 
@@ -77,6 +78,8 @@ def test_build_rag_messages_requires_stable_output_format():
     assert "答案：" in prompt_text
     assert "依据：" in prompt_text
     assert "资料不足之处：" in prompt_text
+    assert "操作步骤" in prompt_text
+    assert "不要只回答一句话" in prompt_text
     assert "[Source 1]" in prompt_text
 
 

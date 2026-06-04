@@ -1,6 +1,6 @@
-﻿# RAG PDF QA
+﻿# Local Knowledge RAG Agent
 
-当前目标：把最小本地 PDF RAG 闭环，逐步升级成可管理、可评估、可交互的个人项目级 RAG Agent 工具。
+当前目标：把本地多格式知识库 RAG 闭环，逐步升级成可管理、可评估、可交互的个人项目级 RAG Agent 工具。
 
 如果你还不熟悉 FastAPI 和这一步的基本概念，先读：
 
@@ -32,6 +32,7 @@
 - [第 20 步完成总结：现代风 RAG Web UI 初版](docs/summary/20-modern-web-ui-summary.md)
 - [第 21 步完成总结：最小 RAG Agent 工具路由](docs/summary/21-rag-agent-tool-routing-summary.md)
 - [第 22 步完成总结：项目测试、收口和最终总结](docs/summary/22-tests-and-project-final-summary.md)
+- [第 23 步完成总结：名称、问答交互和回答质量优化](docs/summary/23-ui-answer-quality-refinement-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -47,6 +48,7 @@
 - [第 20 步执行目标：实现现代风 RAG Web UI](docs/goal/20-modern-web-ui-goal.md)
 - [第 21 步执行目标：实现最小 RAG Agent 工具路由](docs/goal/21-rag-agent-tool-routing-goal.md)
 - [第 22 步执行目标：项目测试、收口和最终总结](docs/goal/22-tests-and-project-final-summary-goal.md)
+- [第 23 步执行目标：名称、问答交互和回答质量优化](docs/goal/23-ui-answer-quality-refinement-goal.md)
 
 ## 快速唤醒本地 RAG
 

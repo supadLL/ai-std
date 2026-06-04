@@ -1,4 +1,4 @@
-﻿# 项目续接规范：RAG PDF QA
+﻿# 项目续接规范：Local Knowledge RAG Agent
 
 这份文档用于：
 
@@ -24,13 +24,13 @@ app/vector_store.py
 当前项目名称：
 
 ```text
-rag-pdf-qa
+Local Knowledge RAG Agent
 ```
 
 当前目标：
 
 ```text
-学习并实现一个本地 PDF RAG 问答系统，后续逐步升级为个人项目级 RAG Agent 工具。
+学习并实现一个本地多格式知识库 RAG Agent 工具。
 ```
 
 当前已经完成：
@@ -55,6 +55,7 @@ Markdown / txt 文档入库
 docx / csv / xlsx 文档入库
 现代风本地 Web UI 初版
 最小 RAG Agent 工具路由：/agent/ask
+名称、问答交互和回答质量优化
 最小 pytest 回归测试骨架
 ```
 

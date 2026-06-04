@@ -35,7 +35,7 @@
 
 ### `projects/rag-pdf-qa`
 
-本地 RAG PDF 问答项目。
+本地多格式知识库 RAG Agent 项目。
 
 技术栈：
 

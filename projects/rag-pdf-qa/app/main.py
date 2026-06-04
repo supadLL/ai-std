@@ -34,7 +34,7 @@ class UTF8JSONResponse(JSONResponse):
 
 
 app = FastAPI(
-    title="RAG PDF QA",
+    title="Local Knowledge RAG Agent",
     version="0.1.0",
     default_response_class=UTF8JSONResponse,
 )
@@ -769,6 +769,9 @@ def _build_rag_messages(question: str, results: list[SearchResult]) -> list[dict
         "Answer only from the retrieved context supplied by the user. "
         "If the context is insufficient, say so directly and do not invent facts. "
         "Prefer Chinese. Cite key claims with source ids, for example [Source 1]. "
+        "For how-to, implementation, setup, debugging, or process questions, provide a detailed, actionable answer. "
+        "Do not collapse rich retrieved context into a single short sentence. "
+        "Preserve important steps, commands, file paths, parameters, caveats, and ordering from the sources. "
         "Always answer with exactly these three Markdown sections: "
         "答案：, 依据：, 资料不足之处：."
     )
@@ -778,7 +781,10 @@ def _build_rag_messages(question: str, results: list[SearchResult]) -> list[dict
         "Answer based on the retrieved context above.\n\n"
         "Use this output format:\n"
         "答案：\n"
-        "- 用中文给出直接回答。关键结论后标注来源，例如 [Source 1]。\n\n"
+        "- 先用 1-2 句话给出直接结论，并标注来源，例如 [Source 1]。\n"
+        "- 如果问题是操作型或实现型，继续给出“操作步骤：”，按顺序列出可执行步骤。\n"
+        "- 尽量保留 context 中的关键命令、路径、参数、注意事项和前后顺序。\n"
+        "- 如果 sources 提供了较多细节，回答也要相应详尽，不要只回答一句话。\n\n"
         "依据：\n"
         "- [Source 1] 写出该来源支持了什么结论。\n"
         "- 如果使用多个来源，逐条列出。\n\n"

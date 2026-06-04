@@ -1,6 +1,7 @@
 const state = {
   documents: [],
   lastAnswer: null,
+  messages: [],
 };
 
 const els = {
@@ -121,7 +122,11 @@ async function askQuestion(event) {
   }
 
   setStatus("asking");
-  els.answerOutput.innerHTML = `<p class="empty-state">生成中</p>`;
+  const pendingId = `pending-${Date.now()}`;
+  state.messages.push({ role: "user", content: question });
+  state.messages.push({ id: pendingId, role: "assistant", pending: true });
+  renderMessages();
+  els.questionInput.value = "";
   els.sourceList.innerHTML = "";
   try {
     const data = await requestJson("/rag/ask", {
@@ -130,19 +135,78 @@ async function askQuestion(event) {
       body: JSON.stringify(payload),
     });
     state.lastAnswer = data;
-    renderAnswer(data);
+    replacePendingMessage(pendingId, {
+      role: "assistant",
+      content: data.reply || "",
+      meta: `${data.model || "model"} · sources ${data.source_count}`,
+    });
     renderSources(data.sources || []);
     renderDebug(data);
     setStatus("done");
   } catch (error) {
-    els.answerOutput.innerHTML = `<p class="danger">${escapeHtml(error.message)}</p>`;
+    replacePendingMessage(pendingId, {
+      role: "assistant",
+      content: `请求失败：${error.message}`,
+      error: true,
+    });
     els.debugGrid.innerHTML = "";
     setStatus("error");
   }
 }
 
-function renderAnswer(data) {
-  els.answerOutput.innerHTML = markdownLite(data.reply || "");
+function renderMessages() {
+  if (!state.messages.length) {
+    els.answerOutput.innerHTML = `<p class="empty-state">等待问题</p>`;
+    return;
+  }
+
+  els.answerOutput.innerHTML = state.messages.map(renderMessage).join("");
+  els.answerOutput.scrollTop = els.answerOutput.scrollHeight;
+}
+
+function renderMessage(message) {
+  const classes = ["chat-message", message.role];
+  if (message.error) {
+    classes.push("error");
+  }
+
+  if (message.pending) {
+    return `
+      <article class="${classes.join(" ")}">
+        <div class="bubble">
+          <div class="bubble-meta">AI 正在解析检索结果</div>
+          <span class="thinking">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            整理答案中
+          </span>
+        </div>
+      </article>
+    `;
+  }
+
+  const content = message.role === "assistant"
+    ? markdownLite(message.content || "")
+    : escapeHtml(message.content || "").replace(/\n/g, "<br />");
+  const meta = message.meta ? `<div class="bubble-meta">${escapeHtml(message.meta)}</div>` : "";
+
+  return `
+    <article class="${classes.join(" ")}">
+      <div class="bubble">
+        ${meta}
+        ${content}
+      </div>
+    </article>
+  `;
+}
+
+function replacePendingMessage(id, nextMessage) {
+  const index = state.messages.findIndex((message) => message.id === id);
+  if (index >= 0) {
+    state.messages[index] = nextMessage;
+  } else {
+    state.messages.push(nextMessage);
+  }
+  renderMessages();
 }
 
 function renderSources(sources) {
@@ -198,6 +262,20 @@ function escapeHtml(value) {
 
 els.uploadForm.addEventListener("submit", uploadDocument);
 els.askForm.addEventListener("submit", askQuestion);
+els.questionInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  if (event.ctrlKey) {
+    event.preventDefault();
+    insertTextareaNewline(els.questionInput);
+    return;
+  }
+
+  event.preventDefault();
+  els.askForm.requestSubmit();
+});
 els.refreshDocuments.addEventListener("click", () => {
   loadDocuments().catch((error) => showToast(error.message, true));
 });
@@ -206,3 +284,12 @@ loadDocuments().catch((error) => {
   showToast(error.message, true);
   setStatus("error");
 });
+
+function insertTextareaNewline(textarea) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const value = textarea.value;
+  textarea.value = `${value.slice(0, start)}\n${value.slice(end)}`;
+  textarea.selectionStart = start + 1;
+  textarea.selectionEnd = start + 1;
+}
