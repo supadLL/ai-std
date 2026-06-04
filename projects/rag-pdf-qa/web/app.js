@@ -1,4 +1,5 @@
 const PREFERENCES_KEY = "ragPdfQaUiPreferences";
+const DEFAULT_BACKGROUND_COLOR = "#0f1213";
 
 const state = {
   documents: [],
@@ -39,6 +40,8 @@ const els = {
   languageButtons: Array.from(document.querySelectorAll("[data-language]")),
   colorButtons: Array.from(document.querySelectorAll(".color-swatch[data-theme-color]")),
   customColorInput: document.querySelector("#customColorInput"),
+  backgroundColorInput: document.querySelector("#backgroundColorInput"),
+  resetBackgroundColor: document.querySelector("#resetBackgroundColor"),
 };
 
 const THEME_COLORS = {
@@ -81,7 +84,9 @@ const translations = {
     "preferences.title": "界面偏好",
     "preferences.language": "语言",
     "preferences.color": "系统颜色",
+    "preferences.background": "背景颜色",
     "preferences.customColor": "自定义颜色",
+    "preferences.resetBackground": "恢复默认",
     "settings.baseUrl": "API Base URL",
     "settings.model": "LLM Model",
     "settings.apiKey": "API Key",
@@ -120,6 +125,7 @@ const translations = {
     "toast.settingsSaved": "设置已保存",
     "toast.languageChanged": "语言已切换",
     "toast.colorChanged": "系统色已更新",
+    "toast.backgroundChanged": "背景色已更新",
     "status.idle": "idle",
     "status.loading": "loading",
     "status.indexing": "indexing",
@@ -164,7 +170,9 @@ const translations = {
     "preferences.title": "Interface Preferences",
     "preferences.language": "Language",
     "preferences.color": "System Color",
+    "preferences.background": "Background Color",
     "preferences.customColor": "Custom color",
+    "preferences.resetBackground": "Reset",
     "settings.baseUrl": "API Base URL",
     "settings.model": "LLM Model",
     "settings.apiKey": "API Key",
@@ -203,6 +211,7 @@ const translations = {
     "toast.settingsSaved": "Settings saved",
     "toast.languageChanged": "Language changed",
     "toast.colorChanged": "System color updated",
+    "toast.backgroundChanged": "Background color updated",
     "status.idle": "idle",
     "status.loading": "loading",
     "status.indexing": "indexing",
@@ -515,6 +524,7 @@ function loadPreferences() {
       language: "zh",
       themeColor: "teal",
       customColor: "#37d0b2",
+      backgroundColor: DEFAULT_BACKGROUND_COLOR,
       ...JSON.parse(localStorage.getItem(PREFERENCES_KEY) || "{}"),
     };
   } catch {
@@ -522,6 +532,7 @@ function loadPreferences() {
       language: "zh",
       themeColor: "teal",
       customColor: "#37d0b2",
+      backgroundColor: DEFAULT_BACKGROUND_COLOR,
     };
   }
 }
@@ -575,6 +586,7 @@ function applyTheme() {
       }
     : THEME_COLORS[selected] || THEME_COLORS.teal;
   const root = document.documentElement;
+  root.style.setProperty("--bg", state.preferences.backgroundColor || DEFAULT_BACKGROUND_COLOR);
   root.style.setProperty("--accent", palette.accent);
   root.style.setProperty("--accent-2", palette.accent2);
   root.style.setProperty("--accent-rgb", hexToRgbList(palette.accent));
@@ -584,6 +596,9 @@ function applyTheme() {
   });
   if (els.customColorInput) {
     els.customColorInput.value = state.preferences.customColor || "#37d0b2";
+  }
+  if (els.backgroundColorInput) {
+    els.backgroundColorInput.value = state.preferences.backgroundColor || DEFAULT_BACKGROUND_COLOR;
   }
 }
 
@@ -602,6 +617,17 @@ function setThemeColor(themeColor, customColor = null) {
   savePreferences();
   applyTheme();
   showToast(t("toast.colorChanged"));
+}
+
+function setBackgroundColor(backgroundColor) {
+  state.preferences.backgroundColor = backgroundColor || DEFAULT_BACKGROUND_COLOR;
+  savePreferences();
+  applyTheme();
+  showToast(t("toast.backgroundChanged"));
+}
+
+function resetBackgroundColor() {
+  setBackgroundColor(DEFAULT_BACKGROUND_COLOR);
 }
 
 function hexToRgbList(hex) {
@@ -732,6 +758,10 @@ els.colorButtons.forEach((button) => {
 els.customColorInput.addEventListener("input", (event) => {
   setThemeColor("custom", event.target.value);
 });
+els.backgroundColorInput.addEventListener("input", (event) => {
+  setBackgroundColor(event.target.value);
+});
+els.resetBackgroundColor.addEventListener("click", resetBackgroundColor);
 els.tabButtons.forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });

@@ -408,6 +408,7 @@ h3 {
 .color-control {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-height: 46px;
   margin-top: 8px;
@@ -443,6 +444,17 @@ h3 {
   padding: 0;
   overflow: hidden;
   background: transparent;
+}
+
+.mini-button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.055);
+  cursor: pointer;
+  padding: 0 10px;
+  font-size: 12px;
 }
 
 .settings-actions {

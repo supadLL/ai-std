@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Local Knowledge RAG Agent</title>
-    <link rel="stylesheet" href="/web/styles.css?v=27" />
+    <link rel="stylesheet" href="/web/styles.css?v=28" />
   </head>
   <body>
     <main class="shell">
@@ -145,6 +145,13 @@
                       <input id="customColorInput" class="color-picker" type="color" value="#37d0b2" title="Custom color" data-i18n-title="preferences.customColor" data-theme-color="custom" />
                     </div>
                   </label>
+                  <label>
+                    <span data-i18n="preferences.background">背景颜色</span>
+                    <div class="color-control" role="group" aria-label="背景颜色" data-i18n-aria-label="preferences.background">
+                      <input id="backgroundColorInput" class="color-picker" type="color" value="#0f1213" title="Background color" data-i18n-title="preferences.background" />
+                      <button class="mini-button" id="resetBackgroundColor" type="button" data-i18n="preferences.resetBackground">恢复默认</button>
+                    </div>
+                  </label>
                 </div>
               </section>
 
@@ -192,6 +199,6 @@
     </main>
 
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js?v=27"></script>
+    <script src="/web/app.js?v=28"></script>
   </body>
 </html>

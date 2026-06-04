@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前状态：
 
 ```text
-rag-pdf-qa 主线已完成到第 27 步。
+rag-pdf-qa 主线已完成到第 28 步。
 ```
 
 后续如果继续扩展，先创建新的 goal 文档，再写代码。
@@ -146,6 +146,7 @@ rag-pdf-qa 主线已完成到第 27 步。
 | 25 | [25-ui-tab-layout-fix-goal.md](25-ui-tab-layout-fix-goal.md) | 修复 UI Tab 布局混排 |
 | 26 | [26-ui-markdown-answer-rendering-goal.md](26-ui-markdown-answer-rendering-goal.md) | 优化回答 Markdown 展示 |
 | 27 | [27-ui-language-theme-preferences-goal.md](27-ui-language-theme-preferences-goal.md) | UI 语言和系统色偏好 |
+| 28 | [28-ui-background-color-preference-goal.md](28-ui-background-color-preference-goal.md) | UI 背景颜色偏好 |
 
 执行时不要跳过当前步骤直接做后面的功能。
 

@@ -37,6 +37,7 @@
 - [第 25 步完成总结：修复 UI Tab 布局混排](docs/summary/25-ui-tab-layout-fix-summary.md)
 - [第 26 步完成总结：优化回答 Markdown 展示](docs/summary/26-ui-markdown-answer-rendering-summary.md)
 - [第 27 步完成总结：UI 语言和系统色偏好](docs/summary/27-ui-language-theme-preferences-summary.md)
+- [第 28 步完成总结：UI 背景颜色偏好](docs/summary/28-ui-background-color-preference-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -57,6 +58,7 @@
 - [第 25 步执行目标：修复 UI Tab 布局混排](docs/goal/25-ui-tab-layout-fix-goal.md)
 - [第 26 步执行目标：优化回答 Markdown 展示](docs/goal/26-ui-markdown-answer-rendering-goal.md)
 - [第 27 步执行目标：UI 语言和系统色偏好](docs/goal/27-ui-language-theme-preferences-goal.md)
+- [第 28 步执行目标：UI 背景颜色偏好](docs/goal/28-ui-background-color-preference-goal.md)
 
 ## 快速唤醒本地 RAG
 
@@ -273,6 +275,7 @@ Invoke-RestMethod `
 - Web UI 已修复 Tab 混排问题，当前左侧为明确的垂直功能导航
 - Web UI 已支持轻量 Markdown 回答渲染，避免直接显示 `**` 和代码围栏
 - Web UI 已支持中文 / English 切换和系统色偏好设置
+- Web UI 已支持背景颜色偏好设置
 - 已支持在设置页调整 DeepSeek base_url、model、timeout、API Key 和 RAG prompt
 - 已新增运行时设置文件 `data/runtime_settings.json`，该文件不提交 GitHub
 - 已建立最小 pytest 回归测试骨架

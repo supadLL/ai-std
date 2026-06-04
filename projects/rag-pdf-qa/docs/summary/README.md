@@ -55,6 +55,7 @@ docs/summary/24-ui-tabs-runtime-settings-summary.md
 docs/summary/25-ui-tab-layout-fix-summary.md
 docs/summary/26-ui-markdown-answer-rendering-summary.md
 docs/summary/27-ui-language-theme-preferences-summary.md
+docs/summary/28-ui-background-color-preference-summary.md
 ```
 
 格式：

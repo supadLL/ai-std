@@ -56,12 +56,13 @@ def test_web_ui_routes_are_available():
     assert 'data-tab="settings"' in app_response.text
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=27" in app_response.text
-    assert "/web/app.js?v=27" in app_response.text
+    assert "/web/styles.css?v=28" in app_response.text
+    assert "/web/app.js?v=28" in app_response.text
     assert 'data-language="zh"' in app_response.text
     assert 'data-language="en"' in app_response.text
     assert 'data-theme-color="teal"' in app_response.text
     assert 'id="customColorInput"' in app_response.text
+    assert 'id="backgroundColorInput"' in app_response.text
     assert docs_response.status_code == 200
     assert openapi_response.status_code == 200
     assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
