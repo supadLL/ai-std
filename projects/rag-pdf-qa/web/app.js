@@ -55,6 +55,7 @@ const translations = {
   zh: {
     "app.eyebrow": "Local RAG",
     "app.title": "本地知识库 RAG Agent",
+    "app.documentTitle": "本地 RAG Agent | 知识库问答",
     "nav.aria": "主功能",
     "nav.import": "文件导入",
     "nav.importSub": "Import",
@@ -141,6 +142,7 @@ const translations = {
   en: {
     "app.eyebrow": "Local RAG",
     "app.title": "Local Knowledge RAG Agent",
+    "app.documentTitle": "Local RAG Agent | Knowledge QA",
     "nav.aria": "Main functions",
     "nav.import": "Import Files",
     "nav.importSub": "Import",
@@ -552,6 +554,7 @@ function applyPreferences() {
 
 function applyLanguage() {
   document.documentElement.lang = state.preferences.language === "en" ? "en" : "zh-CN";
+  document.title = t("app.documentTitle");
   document.querySelectorAll("[data-i18n]").forEach((element) => {
     element.textContent = t(element.dataset.i18n, element.textContent);
   });

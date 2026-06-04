@@ -71,6 +71,7 @@ pytest
 - ✅ 运行时 LLM 设置和 RAG prompt 调整
 - ✅ Web UI 中英文切换和系统色偏好
 - ✅ Web UI 背景颜色偏好
+- ✅ Web UI 科技感项目图标和浏览器 Tab 标题
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：
