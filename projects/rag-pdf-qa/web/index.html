@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Local Knowledge RAG Agent</title>
-    <link rel="stylesheet" href="/web/styles.css" />
+    <link rel="stylesheet" href="/web/styles.css?v=25" />
   </head>
   <body>
     <main class="shell">
@@ -16,17 +16,32 @@
           </div>
         </div>
 
-        <nav class="tab-nav" aria-label="主功能">
-          <button class="tab-button active" type="button" data-tab="import">文件导入</button>
-          <button class="tab-button" type="button" data-tab="ask">知识问答</button>
-          <button class="tab-button" type="button" data-tab="settings">设置</button>
+        <nav class="tab-nav" aria-label="主功能" role="tablist">
+          <button class="tab-button active" type="button" data-tab="import" role="tab" aria-selected="true">
+            <span>
+              <b>文件导入</b>
+              <small>Import</small>
+            </span>
+          </button>
+          <button class="tab-button" type="button" data-tab="ask" role="tab" aria-selected="false">
+            <span>
+              <b>知识问答</b>
+              <small>Ask</small>
+            </span>
+          </button>
+          <button class="tab-button" type="button" data-tab="settings" role="tab" aria-selected="false">
+            <span>
+              <b>设置</b>
+              <small>Settings</small>
+            </span>
+          </button>
         </nav>
 
         <a class="ghost-link docs-link" href="/docs" target="_blank" rel="noreferrer">Swagger Docs</a>
       </aside>
 
       <section class="workspace">
-        <section class="tab-page active" id="tab-import">
+        <section class="tab-page active" id="tab-import" role="tabpanel">
           <div class="panel import-panel">
             <div class="panel-head">
               <div>
@@ -55,7 +70,7 @@
           </div>
         </section>
 
-        <section class="tab-page ask-layout" id="tab-ask">
+        <section class="tab-page ask-layout" id="tab-ask" role="tabpanel" hidden>
           <section class="panel answer-panel">
             <div class="panel-head">
               <div>
@@ -97,7 +112,7 @@
           </aside>
         </section>
 
-        <section class="tab-page" id="tab-settings">
+        <section class="tab-page" id="tab-settings" role="tabpanel" hidden>
           <div class="panel settings-panel">
             <div class="panel-head">
               <div>
@@ -152,6 +167,6 @@
     </main>
 
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js"></script>
+    <script src="/web/app.js?v=25"></script>
   </body>
 </html>

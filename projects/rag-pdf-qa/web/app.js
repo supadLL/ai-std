@@ -272,10 +272,14 @@ function replacePendingMessage(id, nextMessage) {
 
 function switchTab(tabName) {
   els.tabButtons.forEach((button) => {
-    button.classList.toggle("active", button.dataset.tab === tabName);
+    const isActive = button.dataset.tab === tabName;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
   });
   els.tabPages.forEach((page) => {
-    page.classList.toggle("active", page.id === `tab-${tabName}`);
+    const isActive = page.id === `tab-${tabName}`;
+    page.classList.toggle("active", isActive);
+    page.hidden = !isActive;
   });
 }
 
@@ -367,6 +371,8 @@ loadSettings().catch((error) => {
     els.settingsStatus.textContent = "error";
   }
 });
+
+switchTab("import");
 
 function insertTextareaNewline(textarea) {
   const start = textarea.selectionStart;

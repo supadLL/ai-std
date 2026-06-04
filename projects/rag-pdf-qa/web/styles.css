@@ -1,9 +1,9 @@
 :root {
   color-scheme: dark;
-  --bg: #111315;
-  --panel: rgba(28, 32, 34, 0.72);
-  --panel-strong: rgba(36, 41, 43, 0.86);
-  --line: rgba(215, 230, 225, 0.14);
+  --bg: #0f1213;
+  --panel: rgba(25, 30, 31, 0.78);
+  --panel-strong: rgba(35, 40, 41, 0.9);
+  --line: rgba(215, 230, 225, 0.16);
   --text: #edf5f1;
   --muted: #9aa9a3;
   --accent: #37d0b2;
@@ -49,8 +49,8 @@ textarea {
 
 .shell {
   display: grid;
-  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 18px;
   height: 100vh;
   padding: 16px;
 }
@@ -72,6 +72,13 @@ textarea {
   padding: 18px;
 }
 
+.nav-panel {
+  position: sticky;
+  top: 16px;
+  height: calc(100vh - 32px);
+  overflow: hidden;
+}
+
 .answer-panel {
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -79,18 +86,26 @@ textarea {
 }
 
 .workspace {
+  position: relative;
   min-width: 0;
   min-height: 0;
+  height: calc(100vh - 32px);
+  overflow: hidden;
 }
 
 .tab-page {
   display: none;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
+}
+
+.tab-page[hidden] {
+  display: none !important;
 }
 
 .tab-page.active {
-  display: block;
+  display: grid;
 }
 
 .ask-layout.active {
@@ -101,11 +116,16 @@ textarea {
 
 .import-panel,
 .settings-panel {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   padding: 18px;
+  overflow: hidden;
+}
+
+.settings-panel {
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .panel-head {
@@ -177,8 +197,10 @@ h2 {
 }
 
 .tab-nav {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .tab-button,
@@ -192,13 +214,55 @@ h2 {
 }
 
 .tab-button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
   text-align: left;
-  padding: 0 14px;
+  padding: 0 16px;
+}
+
+.tab-button::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(237, 245, 241, 0.26);
+}
+
+.tab-button span {
+  display: grid;
+  gap: 4px;
+}
+
+.tab-button b {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.tab-button small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .tab-button.active {
   color: #101513;
   background: linear-gradient(135deg, rgba(55, 208, 178, 0.96), rgba(255, 184, 107, 0.92));
+}
+
+.tab-button.active small {
+  color: rgba(16, 21, 19, 0.66);
+}
+
+.tab-button.active::after {
+  background: #101513;
+  box-shadow: 0 0 0 6px rgba(16, 21, 19, 0.12);
 }
 
 .upload-box,
@@ -278,12 +342,14 @@ label,
 .document-list,
 .source-list {
   display: grid;
+  align-content: start;
   gap: 10px;
   margin-top: 14px;
 }
 
 .settings-form {
   overflow: auto;
+  align-content: start;
 }
 
 .settings-actions {
@@ -481,6 +547,24 @@ label,
     grid-template-columns: 1fr;
     height: auto;
     min-height: 100vh;
+  }
+
+  .nav-panel,
+  .workspace {
+    height: auto;
+  }
+
+  .nav-panel {
+    position: static;
+  }
+
+  .tab-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tab-button {
+    min-height: 58px;
   }
 
   .ask-layout.active {

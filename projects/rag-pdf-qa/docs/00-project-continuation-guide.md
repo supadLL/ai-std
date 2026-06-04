@@ -58,6 +58,7 @@ docx / csv / xlsx 文档入库
 最小 RAG Agent 工具路由：/agent/ask
 名称、问答交互和回答质量优化
 Web UI 分页：文件导入 / 知识问答 / 设置
+Web UI Tab 布局混排修复
 运行时 LLM 设置：base_url、model、timeout、API Key 和 RAG prompt
 最小 pytest 回归测试骨架
 ```
@@ -622,6 +623,7 @@ Docker 化或一键启动脚本
 | 22 | `docs/goal/22-tests-and-project-final-summary-goal.md` | 项目测试、收口和最终总结 |
 | 23 | `docs/goal/23-ui-answer-quality-refinement-goal.md` | 名称、问答交互和回答质量优化 |
 | 24 | `docs/goal/24-ui-tabs-runtime-settings-goal.md` | UI 分页与运行时模型设置 |
+| 25 | `docs/goal/25-ui-tab-layout-fix-goal.md` | 修复 UI Tab 布局混排 |
 
 执行节奏保持：
 
@@ -656,6 +658,7 @@ RAG sources 返回 source_id、score、filename、page_number、chunk_id、previ
 Web UI 初版
 /agent/ask 最小 Agent 工具路由
 Web UI 分页
+Web UI Tab 页面隔离和垂直导航
 /settings 运行时设置
 ```
 

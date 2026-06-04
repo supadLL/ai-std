@@ -51,6 +51,13 @@ def test_web_ui_routes_are_available():
 
     assert app_response.status_code == 200
     assert "Local Knowledge RAG Agent" in app_response.text
+    assert 'data-tab="import"' in app_response.text
+    assert 'data-tab="ask"' in app_response.text
+    assert 'data-tab="settings"' in app_response.text
+    assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
+    assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
+    assert "/web/styles.css?v=25" in app_response.text
+    assert "/web/app.js?v=25" in app_response.text
     assert docs_response.status_code == 200
     assert openapi_response.status_code == 200
     assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
