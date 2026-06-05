@@ -18,6 +18,9 @@ const state = {
 const els = {
   uploadForm: document.querySelector("#uploadForm"),
   fileInput: document.querySelector("#fileInput"),
+  filePicker: document.querySelector("#filePicker"),
+  chooseFileButton: document.querySelector("#chooseFileButton"),
+  fileNameDisplay: document.querySelector("#fileNameDisplay"),
   chunkSize: document.querySelector("#chunkSize"),
   overlap: document.querySelector("#overlap"),
   reindex: document.querySelector("#reindex"),
@@ -103,6 +106,8 @@ const translations = {
     "import.eyebrow": "Import",
     "import.title": "文件导入",
     "import.refresh": "刷新文档列表",
+    "import.chooseFile": "选择文件",
+    "import.noFile": "未选择文件",
     "import.chunk": "分块大小 chunk",
     "import.overlap": "重叠长度 overlap",
     "import.reindex": "重新索引 reindex",
@@ -257,6 +262,8 @@ const translations = {
     "import.eyebrow": "Import",
     "import.title": "Import Files",
     "import.refresh": "Refresh documents",
+    "import.chooseFile": "Choose File",
+    "import.noFile": "No file selected",
     "import.chunk": "chunk",
     "import.overlap": "overlap",
     "import.reindex": "reindex",
@@ -816,11 +823,22 @@ async function uploadDocument(event) {
       body: form,
     });
     showToast(data.message || t("toast.indexDone"));
+    els.fileInput.value = "";
+    updateSelectedFileName();
     await loadDocuments();
   } catch (error) {
     showToast(error.message, true);
     setStatus("error");
   }
+}
+
+function updateSelectedFileName() {
+  if (!els.fileNameDisplay || !els.fileInput) {
+    return;
+  }
+  const file = els.fileInput.files?.[0] || null;
+  els.fileNameDisplay.textContent = file ? file.name : t("import.noFile");
+  els.fileNameDisplay.classList.toggle("has-file", Boolean(file));
 }
 
 async function batchDeleteDocuments() {
@@ -1275,6 +1293,7 @@ function applyLanguage() {
   } else if (els.evaluationSummary) {
     renderEvaluation(null);
   }
+  updateSelectedFileName();
 }
 
 function applyTheme() {
@@ -1459,6 +1478,9 @@ function escapeHtml(value) {
 }
 
 els.uploadForm.addEventListener("submit", uploadDocument);
+els.chooseFileButton.addEventListener("click", () => els.fileInput.click());
+els.fileNameDisplay.addEventListener("click", () => els.fileInput.click());
+els.fileInput.addEventListener("change", updateSelectedFileName);
 els.documentNameFilter.addEventListener("input", renderDocuments);
 els.documentTypeFilter.addEventListener("change", renderDocuments);
 els.clearDocumentFilters.addEventListener("click", () => {

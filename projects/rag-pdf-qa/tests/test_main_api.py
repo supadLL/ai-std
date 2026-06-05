@@ -68,8 +68,8 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=39" in app_response.text
-    assert "/web/app.js?v=39" in app_response.text
+    assert "/web/styles.css?v=40" in app_response.text
+    assert "/web/app.js?v=40" in app_response.text
     assert "分块大小 chunk" in app_response.text
     assert "重叠长度 overlap" in app_response.text
     assert "重新索引 reindex" in app_response.text
@@ -90,6 +90,8 @@ def test_web_ui_routes_are_available():
     assert 'id="backgroundColorInput"' in app_response.text
     assert 'id="providerInput"' in app_response.text
     assert 'id="modelOptions"' in app_response.text
+    assert 'id="fileNameDisplay"' in app_response.text
+    assert 'id="chooseFileButton"' in app_response.text
     assert 'id="profileTableBody"' in app_response.text
     assert 'id="profileModal"' in app_response.text
     assert 'id="addProfileButton"' in app_response.text
