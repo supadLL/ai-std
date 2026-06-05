@@ -124,7 +124,7 @@ textarea {
 .import-panel,
 .settings-panel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   padding: 18px;
@@ -366,7 +366,12 @@ label,
   display: grid;
   align-content: start;
   gap: 10px;
-  margin-top: 14px;
+}
+
+.document-list {
+  min-height: 0;
+  margin-top: 10px;
+  padding-right: 4px;
 }
 
 .settings-form {
@@ -496,13 +501,28 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface);
+  z-index: 1;
 }
 
 .library-filter-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 130px minmax(110px, auto) minmax(110px, auto);
+  grid-template-columns: minmax(180px, 1fr) 130px minmax(92px, auto) minmax(110px, auto) minmax(110px, auto);
   gap: 10px;
   align-items: end;
+}
+
+.selection-count {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  background: var(--field);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .library-detail {
@@ -540,6 +560,10 @@ h3 {
 
 .danger-action {
   color: var(--danger);
+}
+
+.danger-action.is-idle {
+  color: var(--muted);
 }
 
 .ask-mode-row {

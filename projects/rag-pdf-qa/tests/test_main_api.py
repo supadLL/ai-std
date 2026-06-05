@@ -68,12 +68,13 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=36" in app_response.text
-    assert "/web/app.js?v=36" in app_response.text
+    assert "/web/styles.css?v=36.1" in app_response.text
+    assert "/web/app.js?v=36.1" in app_response.text
     assert 'data-ask-mode="rag"' in app_response.text
     assert 'data-ask-mode="agent"' in app_response.text
     assert 'id="documentNameFilter"' in app_response.text
     assert 'id="documentTypeFilter"' in app_response.text
+    assert 'id="selectedDocumentCount"' in app_response.text
     assert 'id="batchDeleteDocuments"' in app_response.text
     assert 'id="askDocumentFilter"' in app_response.text
     assert 'data-language="zh"' in app_response.text

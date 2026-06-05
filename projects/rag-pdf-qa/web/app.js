@@ -22,6 +22,7 @@ const els = {
   refreshDocuments: document.querySelector("#refreshDocuments"),
   documentNameFilter: document.querySelector("#documentNameFilter"),
   documentTypeFilter: document.querySelector("#documentTypeFilter"),
+  selectedDocumentCount: document.querySelector("#selectedDocumentCount"),
   clearDocumentFilters: document.querySelector("#clearDocumentFilters"),
   batchDeleteDocuments: document.querySelector("#batchDeleteDocuments"),
   documentDetail: document.querySelector("#documentDetail"),
@@ -99,6 +100,7 @@ const translations = {
     "library.detail": "详情",
     "library.reindex": "重新索引",
     "library.selected": "selected",
+    "library.selectFirst": "请先勾选要删除的文档",
     "library.noMatch": "没有匹配文档",
     "library.confirmDelete": "确认删除选中的文档？",
     "library.deleted": "批量删除完成",
@@ -226,6 +228,7 @@ const translations = {
     "library.detail": "Details",
     "library.reindex": "Reindex",
     "library.selected": "selected",
+    "library.selectFirst": "Select documents first",
     "library.noMatch": "No matching documents",
     "library.confirmDelete": "Delete selected documents?",
     "library.deleted": "Batch delete complete",
@@ -438,6 +441,7 @@ function renderDocuments() {
     )
     .join("");
   renderDocumentDetail();
+  updateDocumentSelectionState();
 }
 
 function getFilteredDocuments() {
@@ -467,6 +471,16 @@ function renderDocumentControls() {
       ...state.documents.map((doc) => `<option value="${escapeHtml(doc.document_id)}">${escapeHtml(doc.filename)}</option>`),
     ].join("");
     els.askDocumentFilter.value = state.documents.some((doc) => doc.document_id === currentDocumentId) ? currentDocumentId : "";
+  }
+  updateDocumentSelectionState();
+}
+
+function updateDocumentSelectionState() {
+  if (els.selectedDocumentCount) {
+    els.selectedDocumentCount.textContent = `${state.selectedDocumentIds.size} ${t("library.selected")}`;
+  }
+  if (els.batchDeleteDocuments) {
+    els.batchDeleteDocuments.classList.toggle("is-idle", state.selectedDocumentIds.size === 0);
   }
 }
 
@@ -521,6 +535,7 @@ async function uploadDocument(event) {
 async function batchDeleteDocuments() {
   const documentIds = [...state.selectedDocumentIds];
   if (!documentIds.length) {
+    showToast(t("library.selectFirst"), true);
     return;
   }
   if (!window.confirm(t("library.confirmDelete"))) {
@@ -587,6 +602,7 @@ function handleDocumentListChange(event) {
     } else {
       state.selectedDocumentIds.delete(selectInput.dataset.selectDoc);
     }
+    updateDocumentSelectionState();
     return;
   }
 
