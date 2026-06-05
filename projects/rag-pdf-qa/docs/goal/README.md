@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前状态：
 
 ```text
-rag-pdf-qa 主线已完成到第 39 步。
+rag-pdf-qa 主线已完成到第 40 步。
 ```
 
 后续如果继续扩展，先读取当前 goal 文档，再写代码。

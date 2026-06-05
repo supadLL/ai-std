@@ -67,6 +67,8 @@ docs/summary/36-knowledge-base-management-enhancement-summary.md
 docs/summary/37-multi-provider-llm-config-summary.md
 docs/summary/38-llm-profile-management-summary.md
 docs/summary/39-zh-technical-labels-summary.md
+docs/summary/40-project-demo-and-resume-polish-summary.md
+docs/summary/project-demo-script.md
 ```
 
 格式：

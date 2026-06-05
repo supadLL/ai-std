@@ -17,13 +17,16 @@ requirements.txt
 `.env` 至少需要：
 
 ```text
-DEEPSEEK_API_KEY=你的真实 DeepSeek API Key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-v4-flash
+LLM_PROVIDER=deepseek
+LLM_API_KEY=你的真实模型 API Key
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-v4-flash
 EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
 QDRANT_LOCAL_PATH=.qdrant
 QDRANT_COLLECTION=rag_chunks
 ```
+
+旧的 `DEEPSEEK_*` 变量仍然兼容，新环境优先使用 `LLM_*`。
 
 注意：
 
@@ -185,6 +188,7 @@ Web UI -> 设置
 
 ```text
 可以看到 base_url、model、timeout
+可以新增、编辑、删除和启用 LLM API 配置档案
 可以编辑 RAG system prompt 和 answer instructions
 API Key 输入框加载后为空
 GET /settings 不返回真实 API Key
@@ -259,7 +263,7 @@ reply 明确提示资料不足
 当前基线：
 
 ```text
-pytest 28 passed
+pytest 50 passed
 ```
 
 测试覆盖：
@@ -319,12 +323,10 @@ keyword_hit_rate = 1.0000
 ## 7. 当前限制
 
 ```text
-扫描型 PDF OCR 尚未实现
-PDF 图片/图表理解尚未实现
+PDF 图片/图表深度理解尚未实现
 PDF 表格精细抽取尚未实现
 网页正文抓取尚未实现
 Agent 路由仍是启发式规则
-Web UI 尚未接入 Agent 模式切换
 运行时设置目前是本地单机 JSON 文件
 没有登录鉴权和多用户隔离
 没有云端部署
@@ -335,5 +337,5 @@ Web UI 尚未接入 Agent 模式切换
 ## 8. 演示时的一句话
 
 ```text
-这是一个基于 FastAPI、DeepSeek、fastembed 和本地 Qdrant 的个人 RAG Agent 项目，支持多格式文档入库、向量检索、基于 sources 的回答、Web UI 操作和最小 Agent 工具路由。
+这是一个基于 FastAPI、fastembed、本地 Qdrant 和 OpenAI-compatible LLM API 的个人 RAG Agent 项目，支持多格式文档入库、向量检索、基于 sources 的回答、Web UI 操作、检索评估和最小 Agent 工具路由。
 ```

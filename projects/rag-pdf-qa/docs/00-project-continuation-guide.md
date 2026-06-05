@@ -720,6 +720,7 @@ Web UI 项目图标和 Tab 标题
 Web UI 背景色覆盖左侧导航、主面板、表单、卡片和回答区域
 Web UI RAG / Agent 模式切换和 Agent 路由解释展示
 Web UI 提问限定 document_id
+README 项目架构图、RAG 链路图、Web UI 截图、简历描述模板和项目演示脚本
 一键启动脚本和 Dockerfile
 /settings 多供应商 LLM 运行时设置
 /settings LLM API 配置档案管理

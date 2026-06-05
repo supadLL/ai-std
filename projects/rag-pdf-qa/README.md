@@ -2,12 +2,147 @@
 
 当前目标：把本地多格式知识库 RAG 闭环，逐步升级成可管理、可评估、可交互的个人项目级 RAG Agent 工具。
 
+## 项目速览
+
+这是一个本地知识库 RAG Agent 学习项目，核心目标是自己打通：
+
+```text
+多格式文档入库 -> 文本切分 -> 本地 embedding -> Qdrant 向量检索 -> LLM 基于 sources 回答 -> Web UI / Swagger 测试
+```
+
+它适合用于：
+
+```text
+学习 RAG 和 Agent 工程链路
+搭建个人本地知识库问答工具
+展示 FastAPI + 向量数据库 + LLM 接入能力
+作为简历中的 AI 工程化个人项目
+```
+
+当前不是企业级平台，也没有登录鉴权和多用户隔离；它更像一个可运行、可解释、可继续扩展的个人项目级 RAG Agent。
+
+## 技术栈
+
+| 模块 | 技术 |
+|---|---|
+| Web 服务 | FastAPI / Pydantic / Uvicorn |
+| 前端 | 原生 HTML / CSS / JavaScript |
+| 文档解析 | PDF / OCR / Markdown / txt / docx / csv / xlsx |
+| Embedding | fastembed，本地向量化 |
+| 向量库 | Qdrant local |
+| LLM | DeepSeek 默认，支持 Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax、自定义 OpenAI-compatible API |
+| 测试 | pytest / Playwright 基础页面验证 |
+| 启动 | PowerShell 脚本 / Docker |
+
+## 项目架构
+
+```mermaid
+flowchart LR
+  User[用户 / 同事] --> WebUI[Web UI]
+  User --> Docs[Swagger Docs]
+  WebUI --> API[FastAPI API]
+  Docs --> API
+  API --> Loader[Document Loaders]
+  Loader --> Splitter[Text Splitter]
+  Splitter --> Embed[fastembed]
+  Embed --> Qdrant[(Qdrant Local)]
+  API --> Search[Vector Search]
+  Search --> Qdrant
+  API --> LLM[Active LLM Profile]
+  LLM --> Answer[RAG / Agent Answer]
+  API --> Store[(documents.json / runtime_settings.json)]
+```
+
+## RAG 链路
+
+```mermaid
+flowchart TD
+  A[上传 PDF / Markdown / txt / docx / 表格] --> B[解析文本、表格和 OCR 内容]
+  B --> C[按 chunk_size / overlap 切分]
+  C --> D[fastembed 生成向量]
+  D --> E[写入 Qdrant local]
+  F[用户问题] --> G[问题向量化]
+  G --> H[Qdrant top_k 检索]
+  H --> I[构造 sources 和 RAG prompt]
+  I --> J[当前启用的 LLM profile]
+  J --> K[答案 / 依据 / 资料不足之处]
+```
+
+## Web UI 预览
+
+知识问答页：
+
+![知识问答页](docs/assets/web-ui-knowledge-qa.png)
+
+模型配置页：
+
+![模型配置页](docs/assets/web-ui-settings-profiles.png)
+
+## 核心能力
+
+| 能力 | 说明 |
+|---|---|
+| 多格式入库 | 支持 PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 图片 OCR、csv、xlsx |
+| 文档管理 | 支持列表、筛选、详情、批量删除、指定文档重建索引 |
+| 去重策略 | 使用 content_hash 避免重复入库，支持 reindex 重建 |
+| RAG 问答 | 返回稳定三段式回答，并提供 sources |
+| Agent 路由 | 支持 chat / rag / insufficient_context，并返回 route_reason、tools_used |
+| 检索评估 | 支持本地评估问题集、命中率、页码命中、关键词命中 |
+| 模型配置 | 支持多个 LLM API 配置档案和一键启用 |
+| 本地部署 | 默认 8000 端口，可本机或可信局域网访问 |
+
+## 核心接口
+
+| 接口 | 作用 |
+|---|---|
+| `GET /health` | 健康检查 |
+| `POST /documents/index` | 上传并索引文档 |
+| `GET /documents` | 查看知识库文档列表 |
+| `POST /documents/search` | 只做语义检索 |
+| `POST /rag/ask` | 检索后调用 LLM 生成 RAG 回答 |
+| `POST /agent/ask` | 可解释 Agent 路由问答 |
+| `GET /evaluation/latest` | 查看最近检索评估结果 |
+| `POST /evaluation/run` | 运行本地检索评估 |
+| `GET /settings` | 查看模型、prompt 和运行时设置 |
+| `POST /settings/llm-profiles` | 新增 LLM API 配置档案 |
+
+## 简历描述模板
+
+可以这样写：
+
+```text
+本地知识库 RAG Agent：基于 FastAPI、fastembed、Qdrant local 和 OpenAI-compatible LLM API 实现多格式文档入库、向量检索、RAG 问答、可解释 Agent 路由和 Web UI 管理。支持 PDF/OCR/Markdown/docx/表格等内容解析，提供 sources 可追溯回答、检索评估面板、LLM 多供应商配置和本地 Docker/脚本启动。
+```
+
+简历要点可以拆成：
+
+```text
+1. 自研 RAG 基础链路：文档解析、chunk、embedding、Qdrant 检索、prompt 组装。
+2. 支持多格式知识库：PDF、扫描型 PDF OCR、Markdown、txt、docx、csv、xlsx。
+3. 实现可解释 Agent 路由：区分普通聊天、知识库检索、资料不足，并返回调试信息。
+4. 增加检索评估能力：维护评估问题集，统计 hit_rate、page_hit_rate、keyword_hit_rate。
+5. 构建本地 Web UI：支持文件导入、知识问答、评估面板、知识库管理和模型配置。
+```
+
+## 面试讲解要点
+
+讲项目时建议按这个顺序：
+
+```text
+1. 先说明为什么不用大框架：为了学习底层 RAG 链路，先自己实现关键步骤。
+2. 再讲数据怎么进来：多格式 loader -> ParsedDocument -> chunk -> embedding -> Qdrant。
+3. 再讲问题怎么回答：query embedding -> top_k search -> sources -> RAG prompt -> LLM。
+4. 再讲如何避免“看起来能答但不可控”：sources 返回、固定输出格式、score_threshold、检索评估。
+5. 最后讲工程化扩展：Web UI、LLM profile、Docker、一键启动、后续可接权限和评估历史。
+```
+
 如果你还不熟悉 FastAPI 和这一步的基本概念，先读：
 
 - [项目续接规范：新对话 / 新开发者先读](docs/00-project-continuation-guide.md)
 - [goal 执行文档规范：开工前先读](docs/goal/README.md)
 - [summary 总结文档规范：完成后记录](docs/summary/README.md)
 - [项目演示检查清单](docs/summary/project-demo-checklist.md)
+- [项目演示脚本](docs/summary/project-demo-script.md)
 - [第 1 步学习笔记：跑通 FastAPI + DeepSeek `/chat`](docs/summary/01-fastapi-chat-step.md)
 - [第 2 步学习笔记：配置 API Key 并测试 `/chat`](docs/summary/02-api-key-and-chat-test.md)
 - [第 3 步学习笔记：PDF 解析与文件上传接口](docs/summary/03-pdf-extraction-step.md)
@@ -49,6 +184,7 @@
 - [第 37 步完成总结：多模型供应商与自定义 API 配置](docs/summary/37-multi-provider-llm-config-summary.md)
 - [第 38 步完成总结：LLM API 配置档案管理](docs/summary/38-llm-profile-management-summary.md)
 - [第 39 步完成总结：中文模式技术标签可读性优化](docs/summary/39-zh-technical-labels-summary.md)
+- [第 40 步完成总结：项目演示与简历呈现优化](docs/summary/40-project-demo-and-resume-polish-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -453,5 +589,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 40 步“项目演示与简历呈现优化”继续推进。
+后续如果继续扩展，不要直接堆复杂多 Agent。当前项目演示材料已经补齐，后续建议从登录鉴权、多用户知识库隔离、评估历史记录或 LLM-as-a-judge 回答质量评估继续推进。
 

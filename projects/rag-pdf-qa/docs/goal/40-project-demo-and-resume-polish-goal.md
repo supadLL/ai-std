@@ -79,7 +79,7 @@ docs/assets/evaluation-screenshot.png
 完成后新增：
 
 ```text
-docs/summary/38-project-demo-and-resume-polish-summary.md
+docs/summary/40-project-demo-and-resume-polish-summary.md
 ```
 
 ---
@@ -138,5 +138,5 @@ docs/summary/38-project-demo-and-resume-polish-summary.md
 完成后写入：
 
 ```text
-docs/summary/38-project-demo-and-resume-polish-summary.md
+docs/summary/40-project-demo-and-resume-polish-summary.md
 ```
