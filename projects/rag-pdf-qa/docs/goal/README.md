@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前状态：
 
 ```text
-rag-pdf-qa 主线已完成到第 30 步。
+rag-pdf-qa 主线已完成到第 35 步。
 ```
 
 后续如果继续扩展，先创建新的 goal 文档，再写代码。
@@ -149,6 +149,13 @@ rag-pdf-qa 主线已完成到第 30 步。
 | 28 | [28-ui-background-color-preference-goal.md](28-ui-background-color-preference-goal.md) | UI 背景颜色偏好 |
 | 29 | [29-web-title-favicon-goal.md](29-web-title-favicon-goal.md) | 网页标题与项目图标 |
 | 30 | [30-ui-background-surface-color-goal.md](30-ui-background-surface-color-goal.md) | 背景色作用到整体 UI 面板 |
+| 31 | [31-one-click-start-and-docker-goal.md](31-one-click-start-and-docker-goal.md) | 一键启动与 Docker 化 |
+| 32 | [32-scanned-pdf-ocr-goal.md](32-scanned-pdf-ocr-goal.md) | 扫描型 PDF OCR 支持 |
+| 33 | [33-multiformat-image-ocr-loader-goal.md](33-multiformat-image-ocr-loader-goal.md) | 多格式文档图片内容抽取与 OCR 统一链路 |
+| 34 | [34-rag-evaluation-panel-goal.md](34-rag-evaluation-panel-goal.md) | RAG 评估脚本与评估面板 |
+| 35 | [35-agent-routing-enhancement-goal.md](35-agent-routing-enhancement-goal.md) | Agent 工具路由增强 |
+| 36 | [36-knowledge-base-management-enhancement-goal.md](36-knowledge-base-management-enhancement-goal.md) | 知识库管理能力增强 |
+| 37 | [37-project-demo-and-resume-polish-goal.md](37-project-demo-and-resume-polish-goal.md) | 项目演示与简历呈现优化 |
 
 执行时不要跳过当前步骤直接做后面的功能。
 

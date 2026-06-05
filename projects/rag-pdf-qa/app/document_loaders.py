@@ -3,12 +3,15 @@ from io import BytesIO, StringIO
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.ocr_extractor import OcrExtractionError, extract_ocr_text_from_image_bytes
+
 
 @dataclass(frozen=True)
 class ParsedSection:
     section_number: int
     title: str | None
     text: str
+    extraction_method: str = "text"
 
 
 @dataclass(frozen=True)
@@ -24,7 +27,13 @@ class DocumentLoadError(RuntimeError):
     pass
 
 
-def load_document_from_bytes(filename: str, content: bytes, preview_chars: int = 500) -> ParsedDocument:
+def load_document_from_bytes(
+    filename: str,
+    content: bytes,
+    preview_chars: int = 500,
+    enable_image_ocr: bool = False,
+    ocr_language: str = "chi_sim+eng",
+) -> ParsedDocument:
     if not content:
         raise DocumentLoadError("Document file is empty")
 
@@ -32,7 +41,13 @@ def load_document_from_bytes(filename: str, content: bytes, preview_chars: int =
     if suffix in {".md", ".markdown", ".txt"}:
         return _load_text_document_from_bytes(filename=filename, content=content, preview_chars=preview_chars)
     if suffix == ".docx":
-        return _load_docx_document_from_bytes(filename=filename, content=content, preview_chars=preview_chars)
+        return _load_docx_document_from_bytes(
+            filename=filename,
+            content=content,
+            preview_chars=preview_chars,
+            enable_image_ocr=enable_image_ocr,
+            ocr_language=ocr_language,
+        )
     if suffix == ".csv":
         return _load_csv_document_from_bytes(filename=filename, content=content, preview_chars=preview_chars)
     if suffix == ".xlsx":
@@ -84,7 +99,13 @@ def _detect_text_file_type(filename: str) -> str:
     raise DocumentLoadError("Only Markdown and txt files are supported by the text document loader")
 
 
-def _load_docx_document_from_bytes(filename: str, content: bytes, preview_chars: int = 500) -> ParsedDocument:
+def _load_docx_document_from_bytes(
+    filename: str,
+    content: bytes,
+    preview_chars: int = 500,
+    enable_image_ocr: bool = False,
+    ocr_language: str = "chi_sim+eng",
+) -> ParsedDocument:
     try:
         from docx import Document
 
@@ -92,20 +113,52 @@ def _load_docx_document_from_bytes(filename: str, content: bytes, preview_chars:
     except Exception as exc:
         raise DocumentLoadError(f"Failed to load docx document: {exc}") from exc
 
-    parts: list[str] = []
+    sections: list[ParsedSection] = []
+    paragraph_parts: list[str] = []
     for paragraph in doc.paragraphs:
         text = paragraph.text.strip()
         if text:
-            parts.append(text)
+            paragraph_parts.append(text)
 
+    if paragraph_parts:
+        sections.append(
+            ParsedSection(
+                section_number=len(sections) + 1,
+                title="docx paragraphs",
+                text="\n".join(paragraph_parts),
+                extraction_method="text",
+            )
+        )
+
+    table_parts: list[str] = []
     for table_index, table in enumerate(doc.tables, start=1):
         for row_index, row in enumerate(table.rows, start=1):
             values = [cell.text.strip() for cell in row.cells]
             values = [value for value in values if value]
             if values:
-                parts.append(f"table {table_index} row {row_index}: " + " | ".join(values))
+                table_parts.append(f"table {table_index} row {row_index}: " + " | ".join(values))
 
-    full_text = "\n".join(parts).strip()
+    if table_parts:
+        sections.append(
+            ParsedSection(
+                section_number=len(sections) + 1,
+                title="docx tables",
+                text="\n".join(table_parts),
+                extraction_method="table",
+            )
+        )
+
+    if enable_image_ocr:
+        sections.extend(
+            _extract_docx_image_ocr_sections(
+                doc=doc,
+                filename=filename,
+                start_section_number=len(sections) + 1,
+                ocr_language=ocr_language,
+            )
+        )
+
+    full_text = "\n\n".join(section.text for section in sections).strip()
     if not full_text:
         raise DocumentLoadError("docx document has no text content")
 
@@ -114,8 +167,47 @@ def _load_docx_document_from_bytes(filename: str, content: bytes, preview_chars:
         file_type="docx",
         char_count=len(full_text),
         preview=full_text[:preview_chars],
-        sections=[ParsedSection(section_number=1, title=None, text=full_text)],
+        sections=sections,
     )
+
+
+def _extract_docx_image_ocr_sections(
+    *,
+    doc: object,
+    filename: str,
+    start_section_number: int,
+    ocr_language: str,
+) -> list[ParsedSection]:
+    image_parts = [
+        part
+        for part in doc.part.related_parts.values()
+        if str(getattr(part, "content_type", "")).startswith("image/")
+    ]
+
+    sections: list[ParsedSection] = []
+    for image_index, image_part in enumerate(image_parts, start=1):
+        try:
+            ocr_image = extract_ocr_text_from_image_bytes(
+                filename=filename,
+                image_number=image_index,
+                content=image_part.blob,
+                language=ocr_language,
+            )
+        except OcrExtractionError as exc:
+            raise DocumentLoadError(str(exc)) from exc
+
+        if not ocr_image.text.strip():
+            continue
+
+        sections.append(
+            ParsedSection(
+                section_number=start_section_number + len(sections),
+                title=f"docx image {image_index} OCR",
+                text=ocr_image.text,
+                extraction_method="image_ocr",
+            )
+        )
+    return sections
 
 
 def _load_csv_document_from_bytes(filename: str, content: bytes, preview_chars: int = 500) -> ParsedDocument:
@@ -134,7 +226,7 @@ def _load_csv_document_from_bytes(filename: str, content: bytes, preview_chars: 
         file_type="csv",
         char_count=len(full_text),
         preview=full_text[:preview_chars],
-        sections=[ParsedSection(section_number=1, title="csv rows", text=full_text)],
+        sections=[ParsedSection(section_number=1, title="csv rows", text=full_text, extraction_method="table")],
     )
 
 
@@ -160,6 +252,7 @@ def _load_xlsx_document_from_bytes(filename: str, content: bytes, preview_chars:
                     section_number=len(sections) + 1,
                     title=sheet.title,
                     text=section_text,
+                    extraction_method="table",
                 )
             )
 

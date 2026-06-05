@@ -134,6 +134,15 @@ textarea {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+.evaluation-panel {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  padding: 18px;
+  overflow: hidden;
+}
+
 .panel-head {
   display: flex;
   align-items: center;
@@ -394,6 +403,11 @@ h3 {
   background: var(--field);
 }
 
+.segmented-control.compact {
+  width: min(260px, 100%);
+  margin-top: 0;
+}
+
 .segment-button {
   min-height: 34px;
   border: 0;
@@ -467,17 +481,96 @@ h3 {
   gap: 10px;
 }
 
+.ask-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.evaluation-controls {
+  display: grid;
+  grid-template-columns: 110px 140px minmax(140px, auto) minmax(140px, auto);
+  gap: 10px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.08), transparent),
+    var(--surface);
+}
+
+.evaluation-summary {
+  min-height: 92px;
+  margin-top: 14px;
+}
+
+.evaluation-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.evaluation-meta {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.evaluation-case-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  margin-top: 14px;
+  overflow: auto;
+}
+
 .doc-item,
 .source-item,
-.debug-item {
+.debug-item,
+.evaluation-case {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
 }
 
 .doc-item,
-.source-item {
+.source-item,
+.evaluation-case {
   padding: 12px;
+}
+
+.evaluation-case {
+  position: relative;
+  overflow: hidden;
+}
+
+.evaluation-case::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--danger);
+}
+
+.evaluation-case.hit::before {
+  background: var(--accent);
+}
+
+.evaluation-case.hit .type-pill {
+  color: var(--accent);
+}
+
+.evaluation-case.miss .type-pill {
+  color: var(--danger);
+  background: rgba(255, 107, 107, 0.09);
 }
 
 .doc-title,
@@ -681,6 +774,10 @@ h3 {
   padding: 10px;
 }
 
+.debug-item.wide {
+  grid-column: 1 / -1;
+}
+
 .debug-item b {
   display: block;
   color: var(--text);
@@ -734,7 +831,7 @@ h3 {
 
   .tab-nav {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .tab-button {
@@ -747,7 +844,22 @@ h3 {
 
   .controls,
   .upload-meta,
-  .settings-grid {
+  .settings-grid,
+  .evaluation-controls,
+  .evaluation-metrics {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .tab-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .evaluation-case .source-title,
+  .doc-title,
+  .source-title {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

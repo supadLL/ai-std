@@ -65,6 +65,8 @@ pytest
 - ✅ `content_hash` 去重与 `reindex=true` 重建索引策略
 - ✅ Markdown 和 txt 文档入库
 - ✅ docx、csv、xlsx 文档入库
+- ✅ 扫描型 PDF 可选 OCR 入库
+- ✅ docx 内嵌图片可选 OCR 入库
 - ✅ 本地 Web UI 初版
 - ✅ Web UI 分页：文件导入、知识问答、设置
 - ✅ 最小 RAG Agent 工具路由
@@ -73,6 +75,7 @@ pytest
 - ✅ Web UI 背景颜色偏好
 - ✅ Web UI 科技感项目图标和浏览器 Tab 标题
 - ✅ Web UI 背景色已覆盖整体面板、表单、卡片和回答区域
+- ✅ 本地一键启动脚本和最小 Docker 启动方案
 - ✅ `docs/goal` 和 `docs/summary` 文档工作流
 
 下一步：

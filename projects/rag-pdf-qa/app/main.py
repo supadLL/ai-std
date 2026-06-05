@@ -10,12 +10,18 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from app.agent import decide_agent_route
+from app.agent import explain_agent_route
 from app.config import get_settings
 from app.deepseek_client import DeepSeekClient, DeepSeekClientError
 from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
 from app.document_loaders import DocumentLoadError, is_supported_document, load_document_from_bytes
 from app.embedding_client import EmbeddingError, embed_text
+from app.evaluation import (
+    EvaluationError,
+    load_evaluation_dataset,
+    read_latest_evaluation,
+    run_rag_search_evaluation,
+)
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
 from app.runtime_settings import (
     RuntimeSettings,
@@ -93,6 +99,7 @@ class ExtractedPageResponse(BaseModel):
     page_number: int
     char_count: int
     preview: str
+    extraction_method: str = "text"
 
 
 class PdfExtractResponse(BaseModel):
@@ -101,6 +108,8 @@ class PdfExtractResponse(BaseModel):
     char_count: int
     preview: str
     scanned_like: bool
+    extraction_mode: str = "text"
+    ocr_page_count: int = 0
     pages: list[ExtractedPageResponse]
 
 
@@ -109,6 +118,7 @@ class TextChunkResponse(BaseModel):
     page_number: int
     char_count: int
     text: str
+    extraction_method: str = "text"
 
 
 class PdfChunkResponse(BaseModel):
@@ -119,6 +129,8 @@ class PdfChunkResponse(BaseModel):
     overlap: int
     chunk_count: int
     scanned_like: bool
+    extraction_mode: str = "text"
+    ocr_page_count: int = 0
     chunks: list[TextChunkResponse]
 
 
@@ -149,6 +161,10 @@ class DocumentIndexResponse(BaseModel):
     deleted_chunks: int = 0
     dimension: int | None = None
     local_path: str
+    extraction_mode: str | None = None
+    ocr_page_count: int = 0
+    image_ocr_count: int = 0
+    extraction_methods: list[str] = Field(default_factory=list)
 
 
 class SearchRequest(BaseModel):
@@ -164,6 +180,7 @@ class SearchResultResponse(BaseModel):
     page_number: int
     chunk_id: int
     text: str
+    extraction_method: str = "text"
 
 
 class SearchResponse(BaseModel):
@@ -188,6 +205,7 @@ class RagSourceResponse(BaseModel):
     page_number: int
     chunk_id: int
     preview: str
+    extraction_method: str = "text"
 
 
 class RagAskResponse(BaseModel):
@@ -211,6 +229,9 @@ class AgentAskRequest(BaseModel):
 class AgentAskResponse(BaseModel):
     question: str
     route: str
+    route_reason: str = ""
+    tools_used: list[str] = Field(default_factory=list)
+    routing_debug: dict[str, Any] = Field(default_factory=dict)
     reply: str
     model: str | None = None
     collection: str
@@ -219,6 +240,74 @@ class AgentAskResponse(BaseModel):
     source_count: int = 0
     sources: list[RagSourceResponse] = Field(default_factory=list)
     usage: dict[str, Any] | None = None
+
+
+class EvaluationQuestionResponse(BaseModel):
+    case_id: str
+    question: str
+    question_type: str = ""
+    expected_pages: list[int] = Field(default_factory=list)
+    expected_keywords: list[str] = Field(default_factory=list)
+
+
+class EvaluationQuestionsResponse(BaseModel):
+    dataset_name: str
+    dataset_version: str
+    case_count: int
+    questions: list[EvaluationQuestionResponse]
+
+
+class EvaluationRunRequest(BaseModel):
+    limit: int = Field(default=5, ge=1, le=20)
+    score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class EvaluationSourceResponse(BaseModel):
+    score: float
+    document_id: str | None = None
+    file_type: str
+    filename: str
+    page_number: int
+    chunk_id: int
+    extraction_method: str = "text"
+    preview: str
+
+
+class EvaluationCaseResultResponse(BaseModel):
+    case_id: str
+    question: str
+    question_type: str = ""
+    scored: bool
+    hit: bool
+    page_hit: bool
+    keyword_hit: bool
+    expected_pages: list[int]
+    matched_keywords: list[str]
+    top_pages: list[int]
+    top_scores: list[float]
+    top_sources: list[EvaluationSourceResponse]
+    low_score_count: int
+
+
+class EvaluationRunResponse(BaseModel):
+    dataset_name: str
+    dataset_version: str
+    generated_at: str
+    collection: str
+    embedding_model: str
+    limit: int
+    score_threshold: float | None = None
+    low_score_threshold: float
+    case_count: int
+    scored_case_count: int
+    hit_count: int
+    hit_rate: float
+    page_hit_count: int
+    page_hit_rate: float
+    keyword_hit_count: int
+    keyword_hit_rate: float
+    low_score_result_count: int
+    cases: list[EvaluationCaseResultResponse]
 
 
 class DocumentRecordResponse(BaseModel):
@@ -325,6 +414,55 @@ async def update_app_settings(request: UpdateAppSettingsRequest) -> AppSettingsR
     )
 
 
+@app.get("/evaluation/questions", response_model=EvaluationQuestionsResponse)
+async def read_evaluation_questions() -> EvaluationQuestionsResponse:
+    try:
+        dataset = await run_in_threadpool(load_evaluation_dataset)
+    except EvaluationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    questions = [
+        EvaluationQuestionResponse(
+            case_id=str(case.get("case_id", "")),
+            question=str(case.get("question", "")),
+            question_type=str(case.get("question_type", "")),
+            expected_pages=[int(page) for page in case.get("expected_pages", [])],
+            expected_keywords=[str(keyword) for keyword in case.get("expected_keywords", [])],
+        )
+        for case in dataset.get("cases", [])
+    ]
+    return EvaluationQuestionsResponse(
+        dataset_name=str(dataset.get("dataset_name", "rag_eval")),
+        dataset_version=str(dataset.get("version", "")),
+        case_count=len(questions),
+        questions=questions,
+    )
+
+
+@app.get("/evaluation/latest", response_model=EvaluationRunResponse)
+async def read_latest_rag_evaluation() -> EvaluationRunResponse:
+    try:
+        result = await run_in_threadpool(read_latest_evaluation)
+    except EvaluationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return EvaluationRunResponse(**result)
+
+
+@app.post("/evaluation/run", response_model=EvaluationRunResponse)
+async def run_rag_evaluation(request: EvaluationRunRequest) -> EvaluationRunResponse:
+    settings = get_settings()
+    try:
+        result = await run_in_threadpool(
+            run_rag_search_evaluation,
+            settings=settings,
+            limit=request.limit,
+            score_threshold=request.score_threshold,
+        )
+    except (EvaluationError, EmbeddingError, VectorStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return EvaluationRunResponse(**result)
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     settings = _get_effective_settings()
@@ -339,10 +477,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
 
 @app.post("/documents/extract", response_model=PdfExtractResponse)
-async def extract_document(file: UploadFile = File(...)) -> PdfExtractResponse:
+async def extract_document(
+    file: UploadFile = File(...),
+    enable_ocr: bool = Form(False),
+    ocr_language: str = Form("chi_sim+eng"),
+) -> PdfExtractResponse:
     filename = file.filename or "uploaded.pdf"
-    if not _is_supported_index_file(filename):
-        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported by this extraction endpoint")
 
     content = await file.read()
     max_size = 10 * 1024 * 1024
@@ -350,7 +492,12 @@ async def extract_document(file: UploadFile = File(...)) -> PdfExtractResponse:
         raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
 
     try:
-        extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
+        extracted = extract_text_from_pdf_bytes(
+            filename=filename,
+            content=content,
+            enable_ocr=enable_ocr,
+            ocr_language=ocr_language,
+        )
     except PdfExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -360,11 +507,14 @@ async def extract_document(file: UploadFile = File(...)) -> PdfExtractResponse:
         char_count=extracted.char_count,
         preview=extracted.preview,
         scanned_like=extracted.scanned_like,
+        extraction_mode=extracted.extraction_mode,
+        ocr_page_count=extracted.ocr_page_count,
         pages=[
             ExtractedPageResponse(
                 page_number=page.page_number,
                 char_count=page.char_count,
                 preview=page.preview,
+                extraction_method=page.extraction_method,
             )
             for page in extracted.pages
         ],
@@ -376,10 +526,12 @@ async def chunk_document(
     file: UploadFile = File(...),
     chunk_size: int = Form(800),
     overlap: int = Form(100),
+    enable_ocr: bool = Form(False),
+    ocr_language: str = Form("chi_sim+eng"),
 ) -> PdfChunkResponse:
     filename = file.filename or "uploaded.pdf"
-    if not _is_supported_index_file(filename):
-        raise HTTPException(status_code=400, detail="Only PDF, Markdown, and txt files are supported")
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported by this chunk endpoint")
 
     content = await file.read()
     max_size = 10 * 1024 * 1024
@@ -387,7 +539,12 @@ async def chunk_document(
         raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
 
     try:
-        extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
+        extracted = extract_text_from_pdf_bytes(
+            filename=filename,
+            content=content,
+            enable_ocr=enable_ocr,
+            ocr_language=ocr_language,
+        )
         chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
     except PdfExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -402,12 +559,15 @@ async def chunk_document(
         overlap=overlap,
         chunk_count=len(chunks),
         scanned_like=extracted.scanned_like,
+        extraction_mode=extracted.extraction_mode,
+        ocr_page_count=extracted.ocr_page_count,
         chunks=[
             TextChunkResponse(
                 chunk_id=chunk.chunk_id,
                 page_number=chunk.page_number,
                 char_count=chunk.char_count,
                 text=chunk.text,
+                extraction_method=chunk.extraction_method,
             )
             for chunk in chunks
         ],
@@ -441,10 +601,13 @@ async def index_document(
     chunk_size: int = Form(800),
     overlap: int = Form(100),
     reindex: bool = Form(False),
+    enable_ocr: bool = Form(False),
+    enable_image_ocr: bool = Form(False),
+    ocr_language: str = Form("chi_sim+eng"),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
-        raise HTTPException(status_code=400, detail="Only PDF, Markdown, and txt files are supported")
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
 
     content = await file.read()
     max_size = 10 * 1024 * 1024
@@ -474,15 +637,22 @@ async def index_document(
                 deleted_chunks=0,
                 dimension=None,
                 local_path=settings.qdrant_local_path,
+                extraction_mode=None,
+                ocr_page_count=0,
+                image_ocr_count=0,
+                extraction_methods=[],
             )
 
         document_id = existing_record.document_id if existing_record is not None else str(uuid4())
         deleted_chunks = 0
-        file_type, page_count, chunks = _parse_and_split_index_file(
+        file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = _parse_and_split_index_file(
             filename=filename,
             content=content,
             chunk_size=chunk_size,
             overlap=overlap,
+            enable_ocr=enable_ocr,
+            enable_image_ocr=enable_image_ocr,
+            ocr_language=ocr_language,
         )
         if not chunks:
             raise VectorStoreError("No text chunks to index")
@@ -544,6 +714,10 @@ async def index_document(
         deleted_chunks=deleted_chunks,
         dimension=dimension,
         local_path=settings.qdrant_local_path,
+        extraction_mode=extraction_mode,
+        ocr_page_count=ocr_page_count,
+        image_ocr_count=image_ocr_count,
+        extraction_methods=extraction_methods,
     )
 
 
@@ -688,7 +862,15 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
     settings = get_settings()
     runtime_settings = _load_runtime_settings_or_422()
     llm_settings = apply_runtime_settings(settings, runtime_settings)
-    selected_route = decide_agent_route(request.question)
+    route_decision = explain_agent_route(request.question)
+    selected_route = route_decision.route
+    routing_debug: dict[str, Any] = {
+        "selected_route": selected_route,
+        "matched_keywords": route_decision.matched_keywords,
+        "normalized_question": route_decision.normalized_question,
+        "requested_limit": request.limit,
+        "score_threshold": request.score_threshold,
+    }
 
     if selected_route == "chat":
         deepseek_client = DeepSeekClient(llm_settings)
@@ -700,6 +882,14 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
         return AgentAskResponse(
             question=request.question,
             route="chat",
+            route_reason=route_decision.reason,
+            tools_used=["deepseek_chat"],
+            routing_debug={
+                **routing_debug,
+                "retrieved_count": 0,
+                "filtered_count": 0,
+                "fallback": None,
+            },
             reply=answer["reply"],
             model=answer["model"],
             collection=settings.qdrant_collection,
@@ -721,11 +911,23 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
         _to_rag_source_response(index, result)
         for index, result in enumerate(results, start=1)
     ]
+    retrieval_debug = {
+        **routing_debug,
+        "retrieved_count": len(retrieved_results),
+        "filtered_count": len(results),
+        "top_score": float(retrieved_results[0].score) if retrieved_results else None,
+    }
 
     if not retrieved_results:
         return AgentAskResponse(
             question=request.question,
             route="insufficient_context",
+            route_reason="Agent 选择了本地知识库检索，但 Qdrant 没有返回任何相关 chunk。",
+            tools_used=["local_embedding", "qdrant_search"],
+            routing_debug={
+                **retrieval_debug,
+                "fallback": "no_retrieved_chunks",
+            },
             reply="资料不足：本地知识库中没有检索到相关内容。请先上传并索引相关文档，或换一个更具体的问题。",
             collection=settings.qdrant_collection,
             score_threshold=request.score_threshold,
@@ -738,6 +940,12 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
         return AgentAskResponse(
             question=request.question,
             route="insufficient_context",
+            route_reason="Agent 检索到了候选 chunk，但它们没有达到当前 score_threshold。",
+            tools_used=["local_embedding", "qdrant_search"],
+            routing_debug={
+                **retrieval_debug,
+                "fallback": "score_threshold_filtered_all",
+            },
             reply="资料不足：检索结果没有达到当前 score_threshold。可以降低阈值，或补充更相关的资料后再问。",
             collection=settings.qdrant_collection,
             score_threshold=request.score_threshold,
@@ -765,6 +973,12 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
     return AgentAskResponse(
         question=request.question,
         route="rag",
+        route_reason=route_decision.reason,
+        tools_used=["local_embedding", "qdrant_search", "deepseek_rag"],
+        routing_debug={
+            **retrieval_debug,
+            "fallback": None,
+        },
         reply=answer["reply"],
         model=answer["model"],
         collection=settings.qdrant_collection,
@@ -844,6 +1058,7 @@ def _to_search_result_response(result: SearchResult) -> SearchResultResponse:
         page_number=result.page_number,
         chunk_id=result.chunk_id,
         text=result.text,
+        extraction_method=result.extraction_method,
     )
 
 
@@ -858,6 +1073,7 @@ def _to_rag_source_response(source_id: int, result: SearchResult, preview_chars:
         page_number=result.page_number,
         chunk_id=result.chunk_id,
         preview=preview,
+        extraction_method=result.extraction_method,
     )
 
 
@@ -884,14 +1100,48 @@ def _parse_and_split_index_file(
     content: bytes,
     chunk_size: int,
     overlap: int,
-) -> tuple[str, int, list[TextChunk]]:
+    enable_ocr: bool = False,
+    enable_image_ocr: bool = False,
+    ocr_language: str = "chi_sim+eng",
+) -> tuple[str, int, list[TextChunk], str | None, int, int, list[str]]:
     if filename.lower().endswith(".pdf"):
-        extracted = extract_text_from_pdf_bytes(filename=filename, content=content)
-        return "pdf", extracted.page_count, split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
+        extracted = extract_text_from_pdf_bytes(
+            filename=filename,
+            content=content,
+            enable_ocr=enable_ocr,
+            ocr_language=ocr_language,
+        )
+        chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
+        return (
+            "pdf",
+            extracted.page_count,
+            chunks,
+            extracted.extraction_mode,
+            extracted.ocr_page_count,
+            0,
+            _chunk_extraction_methods(chunks),
+        )
 
-    parsed = load_document_from_bytes(filename=filename, content=content)
+    parsed = load_document_from_bytes(
+        filename=filename,
+        content=content,
+        enable_image_ocr=enable_image_ocr,
+        ocr_language=ocr_language,
+    )
     chunks = split_parsed_document(parsed, chunk_size=chunk_size, overlap=overlap)
-    return parsed.file_type, len(parsed.sections), chunks
+    return (
+        parsed.file_type,
+        len(parsed.sections),
+        chunks,
+        None,
+        0,
+        sum(1 for section in parsed.sections if section.extraction_method == "image_ocr"),
+        _chunk_extraction_methods(chunks),
+    )
+
+
+def _chunk_extraction_methods(chunks: list[TextChunk]) -> list[str]:
+    return sorted({chunk.extraction_method for chunk in chunks})
 
 
 def _filter_results_by_score(
@@ -911,7 +1161,8 @@ def _build_rag_messages(
     context = "\n\n".join(
         (
             f"[Source {index}] type: {result.file_type} | file: {result.filename} | page: {result.page_number} | "
-            f"chunk_id: {result.chunk_id} | score: {result.score:.4f}\n{result.text}"
+            f"chunk_id: {result.chunk_id} | extraction: {result.extraction_method} | "
+            f"score: {result.score:.4f}\n{result.text}"
         )
         for index, result in enumerate(results, start=1)
     )

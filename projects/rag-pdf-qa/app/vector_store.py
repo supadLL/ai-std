@@ -17,6 +17,7 @@ class SearchResult:
     page_number: int
     chunk_id: int
     text: str
+    extraction_method: str = "text"
 
 
 class VectorStoreError(RuntimeError):
@@ -79,6 +80,7 @@ def upsert_chunks(
                     "page_number": chunk.page_number,
                     "chunk_id": chunk.chunk_id,
                     "char_count": chunk.char_count,
+                    "extraction_method": chunk.extraction_method,
                     "text": chunk.text,
                 },
             )
@@ -154,6 +156,7 @@ def search_chunks(
                 page_number=int(payload.get("page_number", 0)),
                 chunk_id=int(payload.get("chunk_id", 0)),
                 text=str(payload.get("text", "")),
+                extraction_method=str(payload.get("extraction_method", "text")),
             )
         )
     return results

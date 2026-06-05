@@ -40,6 +40,11 @@
 - [第 28 步完成总结：UI 背景颜色偏好](docs/summary/28-ui-background-color-preference-summary.md)
 - [第 29 步完成总结：网页标题与项目图标](docs/summary/29-web-title-favicon-summary.md)
 - [第 30 步完成总结：背景色作用到整体 UI 面板](docs/summary/30-ui-background-surface-color-summary.md)
+- [第 31 步完成总结：一键启动与 Docker 化](docs/summary/31-one-click-start-and-docker-summary.md)
+- [第 32 步完成总结：扫描型 PDF OCR 支持](docs/summary/32-scanned-pdf-ocr-summary.md)
+- [第 33 步完成总结：多格式文档图片内容抽取与 OCR 统一链路](docs/summary/33-multiformat-image-ocr-loader-summary.md)
+- [第 34 步完成总结：RAG 评估脚本与评估面板](docs/summary/34-rag-evaluation-panel-summary.md)
+- [第 35 步完成总结：Agent 工具路由增强](docs/summary/35-agent-routing-enhancement-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -63,6 +68,13 @@
 - [第 28 步执行目标：UI 背景颜色偏好](docs/goal/28-ui-background-color-preference-goal.md)
 - [第 29 步执行目标：网页标题与项目图标](docs/goal/29-web-title-favicon-goal.md)
 - [第 30 步执行目标：背景色作用到整体 UI 面板](docs/goal/30-ui-background-surface-color-goal.md)
+- [第 31 步执行目标：一键启动与 Docker 化](docs/goal/31-one-click-start-and-docker-goal.md)
+- [第 32 步执行目标：扫描型 PDF OCR 支持](docs/goal/32-scanned-pdf-ocr-goal.md)
+- [第 33 步执行目标：多格式文档图片内容抽取与 OCR 统一链路](docs/goal/33-multiformat-image-ocr-loader-goal.md)
+- [第 34 步执行目标：RAG 评估脚本与评估面板](docs/goal/34-rag-evaluation-panel-goal.md)
+- [第 35 步执行目标：Agent 工具路由增强](docs/goal/35-agent-routing-enhancement-goal.md)
+- [第 36 步执行目标：知识库管理能力增强](docs/goal/36-knowledge-base-management-enhancement-goal.md)
+- [第 37 步执行目标：项目演示与简历呈现优化](docs/goal/37-project-demo-and-resume-polish-goal.md)
 
 ## 快速唤醒本地 RAG
 
@@ -92,6 +104,19 @@ Health Check: http://127.0.0.1:8000/health
 
 ```powershell
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+也可以使用项目脚本检查环境并启动：
+
+```powershell
+.\scripts\check_environment.ps1
+.\scripts\start.ps1
+```
+
+开发时需要自动重载：
+
+```powershell
+.\scripts\start.ps1 -Reload
 ```
 
 ## 首次部署 / 换电脑后恢复
@@ -131,7 +156,24 @@ DEEPSEEK_API_KEY=你的真实 DeepSeek API Key
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
+或者使用一键启动脚本：
+
+```powershell
+.\scripts\start.ps1
+```
+
 本项目使用的是 Qdrant local 模式，不需要单独启动 Qdrant Docker。首次索引文档时会在本地生成 `.qdrant/` 数据目录。
+
+### Docker 启动
+
+如果本机已经安装 Docker，也可以在项目根目录执行：
+
+```powershell
+docker build -t local-rag-agent .
+docker run --rm -p 8000:8000 --env-file .env local-rag-agent
+```
+
+Docker 构建不会打包 `.env`、`.qdrant/`、`data/documents.json` 或 `data/runtime_settings.json`。
 
 ### 4. 打开使用入口
 
@@ -163,7 +205,7 @@ POST /documents/index
 当前支持入库的文件类型：
 
 ```text
-PDF / Markdown / txt / docx / csv / xlsx
+PDF / 扫描型 PDF OCR / Markdown / txt / docx / docx 图片 OCR / csv / xlsx
 ```
 
 推荐索引参数：
@@ -251,10 +293,10 @@ Invoke-RestMethod `
 
 - `GET /health`：健康检查
 - `POST /chat`：调用 DeepSeek Chat Completions
-- `POST /documents/extract`：上传 PDF 并提取文本
-- `POST /documents/chunk`：上传 PDF 并切分文本块
+- `POST /documents/extract`：上传 PDF 并提取文本，支持 `enable_ocr=true` 对扫描型 PDF 做 OCR
+- `POST /documents/chunk`：上传 PDF 并切分文本块，支持 OCR 页面来源标记
 - `POST /embeddings/text`：把文本转换成 embedding 向量
-- `POST /documents/index`：上传 PDF / Markdown / txt / docx / csv / xlsx，切分并写入本地 Qdrant，支持 `content_hash` 去重和 `reindex`
+- `POST /documents/index`：上传 PDF / 扫描型 PDF OCR / Markdown / txt / docx / csv / xlsx，切分并写入本地 Qdrant，支持 `content_hash` 去重和 `reindex`
 - `GET /documents`：查看本地知识库文档列表
 - `GET /documents/{document_id}`：查看单个文档 metadata
 - `DELETE /documents/{document_id}`：删除某个文档在 Qdrant 中的 chunks 和 metadata
@@ -263,7 +305,10 @@ Invoke-RestMethod `
 - `GET /` / `GET /app`：打开本地 RAG Web UI
 - `GET /settings`：读取本地运行时 LLM 设置，不返回真实 API Key
 - `PUT /settings`：保存本地运行时 LLM、API Key 和 RAG prompt 设置
-- `POST /agent/ask`：最小 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`
+- `POST /agent/ask`：可解释 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`，返回 `route_reason`、`tools_used`、`routing_debug`
+- `GET /evaluation/questions`：读取本地 RAG 评估问题集
+- `POST /evaluation/run`：运行本地检索评估并保存最近结果，不调用 DeepSeek
+- `GET /evaluation/latest`：读取最近一次 RAG 检索评估结果
 - `/rag/ask` 支持 `score_threshold` 低分过滤
 - `/rag/ask` 的 `sources` 已优化为 `source_id` + `preview` 结构
 - `/rag/ask` 的 `reply` 已通过 prompt 约束为“答案 / 依据 / 资料不足之处”三段式格式
@@ -274,7 +319,9 @@ Invoke-RestMethod `
 - 已支持 Markdown 和 txt 文档入库
 - 已支持 docx、csv、xlsx 文档入库
 - 已新增本地 Web UI 入口，用于上传文档、查看知识库、提问和查看 sources
-- 已新增最小 RAG Agent 工具路由接口 `/agent/ask`
+- 已增强 RAG Agent 工具路由接口 `/agent/ask`，可返回路由理由、工具使用和调试信息
+- 已新增 RAG 检索评估脚本、API 和 Web UI 评估面板
+- Web UI 知识问答页已支持 RAG / Agent 模式切换，并展示 Agent 路由理由和工具使用情况
 - Web UI 已拆分为“文件导入 / 知识问答 / 设置”三个页签
 - Web UI 已修复 Tab 混排问题，当前左侧为明确的垂直功能导航
 - Web UI 已支持轻量 Markdown 回答渲染，避免直接显示 `**` 和代码围栏
@@ -282,6 +329,11 @@ Invoke-RestMethod `
 - Web UI 已支持背景颜色偏好设置
 - Web UI 背景颜色已覆盖左侧导航、主面板、表单、卡片和回答区域
 - Web UI 已新增科技感项目图标和浏览器 Tab 标题优化
+- 已新增 `scripts/check_environment.ps1` 和 `scripts/start.ps1`，支持本地环境检查和一键启动
+- 已新增 Dockerfile 和 `.dockerignore`，支持最小 Docker 启动且不打包本地密钥和运行数据
+- PDF 入库已支持可选 OCR：`enable_ocr=true`、`ocr_language=chi_sim+eng`
+- docx 入库已支持可选图片 OCR：`enable_image_ocr=true`
+- RAG sources 已返回 `extraction_method`，可区分 `text`、`table`、`pdf_ocr`、`image_ocr`
 - 已支持在设置页调整 DeepSeek base_url、model、timeout、API Key 和 RAG prompt
 - 已新增运行时设置文件 `data/runtime_settings.json`，该文件不提交 GitHub
 - 已建立最小 pytest 回归测试骨架
@@ -312,6 +364,23 @@ curl.exe -X POST "http://127.0.0.1:8000/documents/index" `
   -F "overlap=100"
 ```
 
+如果是扫描型 PDF，可以打开 OCR：
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/documents/index" `
+  -F "file=@D:\path\to\scanned.pdf" `
+  -F "chunk_size=800" `
+  -F "overlap=100" `
+  -F "enable_ocr=true" `
+  -F "ocr_language=chi_sim+eng"
+```
+
+Windows 如果 `tesseract.exe` 不在 PATH，可以在 `.env` 中设置：
+
+```text
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+```
+
 再基于本地知识库提问：
 
 ```powershell
@@ -324,6 +393,29 @@ Invoke-RestMethod `
     limit = 5
     score_threshold = 0.5
   } | ConvertTo-Json)
+```
+
+## 运行本地 RAG 检索评估
+
+评估脚本只调用本地 embedding 和本地 Qdrant，不调用 DeepSeek：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_rag_evaluation.py
+```
+
+运行后会更新：
+
+```text
+data/eval/latest_rag_evaluation.json
+data/eval/latest_rag_evaluation.md
+```
+
+也可以在 Web UI 左侧进入“检索评估”，或在 Swagger Docs 中测试：
+
+```text
+GET /evaluation/questions
+POST /evaluation/run
+GET /evaluation/latest
 ```
 
 ## 当前状态
@@ -343,5 +435,5 @@ Invoke-RestMethod `
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续扩展，不要直接堆复杂多 Agent。建议从 OCR、PDF 表格/图片处理、Web UI Agent 模式切换、回答质量评估或一键启动脚本中选择一个新 goal 继续推进。
+后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 36 步“知识库管理能力增强”继续推进，再进入项目演示材料。
 

@@ -1,0 +1,1296 @@
+{
+  "dataset_name": "guiagent_pdf_rag_eval",
+  "dataset_version": "0.1.0",
+  "generated_at": "2026-06-05T06:04:41.125453+00:00",
+  "collection": "rag_chunks",
+  "embedding_model": "BAAI/bge-small-zh-v1.5",
+  "limit": 5,
+  "score_threshold": null,
+  "low_score_threshold": 0.45,
+  "case_count": 15,
+  "scored_case_count": 14,
+  "hit_count": 13,
+  "hit_rate": 0.9286,
+  "page_hit_count": 10,
+  "page_hit_rate": 0.7143,
+  "keyword_hit_count": 13,
+  "keyword_hit_rate": 0.9286,
+  "low_score_result_count": 0,
+  "cases": [
+    {
+      "case_id": "Q01",
+      "question": "GUI 智能体是什么？",
+      "question_type": "concept",
+      "scored": true,
+      "hit": true,
+      "page_hit": false,
+      "keyword_hit": true,
+      "expected_pages": [
+        6
+      ],
+      "matched_keywords": [
+        "输入"
+      ],
+      "top_pages": [
+        5,
+        5,
+        9,
+        9,
+        38
+      ],
+      "top_scores": [
+        0.7340139828235216,
+        0.7340139828235216,
+        0.7266213928408676,
+        0.7266213928408676,
+        0.6994262558544403
+      ],
+      "top_sources": [
+        {
+          "score": 0.7340139828235216,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 5,
+          "chunk_id": 5,
+          "extraction_method": "text",
+          "preview": "研究背景：智能体的定义 ❑ （多模态）大模型智能体：依靠（多模态）大模型构建，能够动态指导其自身流程和工具使用，并根据实时反 馈调整自己的操作的系统 （多模态）大语言模型 大模型智能体（系统） ❑ 具备自主和进化能力 用户 大模型 用户 智能体 ⚫ 环境交互：感知理解、 规划决策、动作落实 ❑ 通用能力的提供者 ⚫ 持久运行：反思优化、 环境 迭代演化、安全"
+        },
+        {
+          "score": 0.7340139828235216,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 5,
+          "chunk_id": 5,
+          "extraction_method": "text",
+          "preview": "研究背景：智能体的定义 ❑ （多模态）大模型智能体：依靠（多模态）大模型构建，能够动态指导其自身流程和工具使用，并根据实时反 馈调整自己的操作的系统 （多模态）大语言模型 大模型智能体（系统） ❑ 具备自主和进化能力 用户 大模型 用户 智能体 ⚫ 环境交互：感知理解、 规划决策、动作落实 ❑ 通用能力的提供者 ⚫ 持久运行：反思优化、 环境 迭代演化、安全"
+        },
+        {
+          "score": 0.7266213928408676,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 9,
+          "chunk_id": 9,
+          "extraction_method": "text",
+          "preview": "发展现状 ❑ GUI智能体的构建凭借其出色的实用价值得到了学术界和工业界的广泛关注，近年迎来井喷式发展 ❑ 在网页、手机、电脑等多个平台上均有大量构建GUI智能体的工作涌现 [1] Zhang, Chaoyun, et al. Large Language Model-Brained GUI Agents: A Survey."
+        },
+        {
+          "score": 0.7266213928408676,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 9,
+          "chunk_id": 9,
+          "extraction_method": "text",
+          "preview": "发展现状 ❑ GUI智能体的构建凭借其出色的实用价值得到了学术界和工业界的广泛关注，近年迎来井喷式发展 ❑ 在网页、手机、电脑等多个平台上均有大量构建GUI智能体的工作涌现 [1] Zhang, Chaoyun, et al. Large Language Model-Brained GUI Agents: A Survey."
+        },
+        {
+          "score": 0.6994262558544403,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 38,
+          "chunk_id": 38,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ GUI智能体的OOD检测相对于传统的OOD检测还有领域内的独特挑战： ⚫ 复杂的输入语义空间理解：GUI智能体需要同时理解复杂的屏幕布局和多样的用户指令 ⚫ 动态变化的真实环境：现实世界的应用程序和网页的布局会随时迭代更新 复杂语义空间： 动态真实环境： 一张截屏被识 淘宝临时更新 别出40个box 五一狂欢界面 ["
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q02",
+      "question": "大模型智能体具备哪些核心能力？",
+      "question_type": "concept",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        5
+      ],
+      "matched_keywords": [
+        "环境交互",
+        "规划决策",
+        "动作落实",
+        "反思优化",
+        "知识库"
+      ],
+      "top_pages": [
+        5,
+        5,
+        12,
+        12,
+        16
+      ],
+      "top_scores": [
+        0.7250133570256856,
+        0.7250133570256856,
+        0.6686789202517095,
+        0.6686789202517095,
+        0.6544298750015451
+      ],
+      "top_sources": [
+        {
+          "score": 0.7250133570256856,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 5,
+          "chunk_id": 5,
+          "extraction_method": "text",
+          "preview": "研究背景：智能体的定义 ❑ （多模态）大模型智能体：依靠（多模态）大模型构建，能够动态指导其自身流程和工具使用，并根据实时反 馈调整自己的操作的系统 （多模态）大语言模型 大模型智能体（系统） ❑ 具备自主和进化能力 用户 大模型 用户 智能体 ⚫ 环境交互：感知理解、 规划决策、动作落实 ❑ 通用能力的提供者 ⚫ 持久运行：反思优化、 环境 迭代演化、安全"
+        },
+        {
+          "score": 0.7250133570256856,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 5,
+          "chunk_id": 5,
+          "extraction_method": "text",
+          "preview": "研究背景：智能体的定义 ❑ （多模态）大模型智能体：依靠（多模态）大模型构建，能够动态指导其自身流程和工具使用，并根据实时反 馈调整自己的操作的系统 （多模态）大语言模型 大模型智能体（系统） ❑ 具备自主和进化能力 用户 大模型 用户 智能体 ⚫ 环境交互：感知理解、 规划决策、动作落实 ❑ 通用能力的提供者 ⚫ 持久运行：反思优化、 环境 迭代演化、安全"
+        },
+        {
+          "score": 0.6686789202517095,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 12,
+          "chunk_id": 12,
+          "extraction_method": "text",
+          "preview": "技术分支：基于闭源模型构建的GUI Agent代表 ❑ Mobile-Agent系列是有代表性的基于闭源模型构建的GUI Agent之一 ❑ Mobile-Agent-v2构建了包括三个智能体的多智能体系统 ⚫ 规划智能体：根据历史操作生成任务进度，记忆单元存储焦点内容 ⚫ 决策智能体：参考记忆单元和任务进度生成操作 ⚫ 反思智能体：观察操作前后屏幕变化，必"
+        },
+        {
+          "score": 0.6686789202517095,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 12,
+          "chunk_id": 12,
+          "extraction_method": "text",
+          "preview": "技术分支：基于闭源模型构建的GUI Agent代表 ❑ Mobile-Agent系列是有代表性的基于闭源模型构建的GUI Agent之一 ❑ Mobile-Agent-v2构建了包括三个智能体的多智能体系统 ⚫ 规划智能体：根据历史操作生成任务进度，记忆单元存储焦点内容 ⚫ 决策智能体：参考记忆单元和任务进度生成操作 ⚫ 反思智能体：观察操作前后屏幕变化，必"
+        },
+        {
+          "score": 0.6544298750015451,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 16,
+          "chunk_id": 16,
+          "extraction_method": "text",
+          "preview": "GUI智能体部署 ❑ GUI智能体有很多优秀的开源项目可以直接部署： ⚫ 基于闭源模型构建的GUI agent框架：如Mobile-Agent系列、AppAgent系列等 ⚫ GUI领域开源强基座模型：如OS-Atlas、UI-TARS、CogAgent、Aguvis等 ❑ 如何才能利用这些项目和真实设备交互呢？ [1] Zhang, Chaoyun, et"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q03",
+      "question": "GUI 智能体和 API 智能体有什么区别？",
+      "question_type": "comparison",
+      "scored": true,
+      "hit": true,
+      "page_hit": false,
+      "keyword_hit": true,
+      "expected_pages": [
+        7
+      ],
+      "matched_keywords": [
+        "GUI智能体",
+        "输入"
+      ],
+      "top_pages": [
+        38,
+        38,
+        5,
+        5,
+        9
+      ],
+      "top_scores": [
+        0.7114781064936797,
+        0.7114781064936797,
+        0.7108068139600043,
+        0.7108068139600043,
+        0.6947369480445478
+      ],
+      "top_sources": [
+        {
+          "score": 0.7114781064936797,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 38,
+          "chunk_id": 38,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ GUI智能体的OOD检测相对于传统的OOD检测还有领域内的独特挑战： ⚫ 复杂的输入语义空间理解：GUI智能体需要同时理解复杂的屏幕布局和多样的用户指令 ⚫ 动态变化的真实环境：现实世界的应用程序和网页的布局会随时迭代更新 复杂语义空间： 动态真实环境： 一张截屏被识 淘宝临时更新 别出40个box 五一狂欢界面 ["
+        },
+        {
+          "score": 0.7114781064936797,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 38,
+          "chunk_id": 38,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ GUI智能体的OOD检测相对于传统的OOD检测还有领域内的独特挑战： ⚫ 复杂的输入语义空间理解：GUI智能体需要同时理解复杂的屏幕布局和多样的用户指令 ⚫ 动态变化的真实环境：现实世界的应用程序和网页的布局会随时迭代更新 复杂语义空间： 动态真实环境： 一张截屏被识 淘宝临时更新 别出40个box 五一狂欢界面 ["
+        },
+        {
+          "score": 0.7108068139600043,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 5,
+          "chunk_id": 5,
+          "extraction_method": "text",
+          "preview": "研究背景：智能体的定义 ❑ （多模态）大模型智能体：依靠（多模态）大模型构建，能够动态指导其自身流程和工具使用，并根据实时反 馈调整自己的操作的系统 （多模态）大语言模型 大模型智能体（系统） ❑ 具备自主和进化能力 用户 大模型 用户 智能体 ⚫ 环境交互：感知理解、 规划决策、动作落实 ❑ 通用能力的提供者 ⚫ 持久运行：反思优化、 环境 迭代演化、安全"
+        },
+        {
+          "score": 0.7108068139600043,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 5,
+          "chunk_id": 5,
+          "extraction_method": "text",
+          "preview": "研究背景：智能体的定义 ❑ （多模态）大模型智能体：依靠（多模态）大模型构建，能够动态指导其自身流程和工具使用，并根据实时反 馈调整自己的操作的系统 （多模态）大语言模型 大模型智能体（系统） ❑ 具备自主和进化能力 用户 大模型 用户 智能体 ⚫ 环境交互：感知理解、 规划决策、动作落实 ❑ 通用能力的提供者 ⚫ 持久运行：反思优化、 环境 迭代演化、安全"
+        },
+        {
+          "score": 0.6947369480445478,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 9,
+          "chunk_id": 9,
+          "extraction_method": "text",
+          "preview": "发展现状 ❑ GUI智能体的构建凭借其出色的实用价值得到了学术界和工业界的广泛关注，近年迎来井喷式发展 ❑ 在网页、手机、电脑等多个平台上均有大量构建GUI智能体的工作涌现 [1] Zhang, Chaoyun, et al. Large Language Model-Brained GUI Agents: A Survey."
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q04",
+      "question": "GUI 智能体的发展现状是什么？",
+      "question_type": "summary",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        9
+      ],
+      "matched_keywords": [
+        "学术界",
+        "工业界",
+        "广泛关注",
+        "井喷式发展",
+        "网页",
+        "手机",
+        "电脑"
+      ],
+      "top_pages": [
+        9,
+        9,
+        5,
+        5,
+        37
+      ],
+      "top_scores": [
+        0.7991270096971386,
+        0.7991270096971386,
+        0.7006706360926189,
+        0.7006706360926189,
+        0.6935938914161448
+      ],
+      "top_sources": [
+        {
+          "score": 0.7991270096971386,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 9,
+          "chunk_id": 9,
+          "extraction_method": "text",
+          "preview": "发展现状 ❑ GUI智能体的构建凭借其出色的实用价值得到了学术界和工业界的广泛关注，近年迎来井喷式发展 ❑ 在网页、手机、电脑等多个平台上均有大量构建GUI智能体的工作涌现 [1] Zhang, Chaoyun, et al. Large Language Model-Brained GUI Agents: A Survey."
+        },
+        {
+          "score": 0.7991270096971386,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 9,
+          "chunk_id": 9,
+          "extraction_method": "text",
+          "preview": "发展现状 ❑ GUI智能体的构建凭借其出色的实用价值得到了学术界和工业界的广泛关注，近年迎来井喷式发展 ❑ 在网页、手机、电脑等多个平台上均有大量构建GUI智能体的工作涌现 [1] Zhang, Chaoyun, et al. Large Language Model-Brained GUI Agents: A Survey."
+        },
+        {
+          "score": 0.7006706360926189,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 5,
+          "chunk_id": 5,
+          "extraction_method": "text",
+          "preview": "研究背景：智能体的定义 ❑ （多模态）大模型智能体：依靠（多模态）大模型构建，能够动态指导其自身流程和工具使用，并根据实时反 馈调整自己的操作的系统 （多模态）大语言模型 大模型智能体（系统） ❑ 具备自主和进化能力 用户 大模型 用户 智能体 ⚫ 环境交互：感知理解、 规划决策、动作落实 ❑ 通用能力的提供者 ⚫ 持久运行：反思优化、 环境 迭代演化、安全"
+        },
+        {
+          "score": 0.7006706360926189,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 5,
+          "chunk_id": 5,
+          "extraction_method": "text",
+          "preview": "研究背景：智能体的定义 ❑ （多模态）大模型智能体：依靠（多模态）大模型构建，能够动态指导其自身流程和工具使用，并根据实时反 馈调整自己的操作的系统 （多模态）大语言模型 大模型智能体（系统） ❑ 具备自主和进化能力 用户 大模型 用户 智能体 ⚫ 环境交互：感知理解、 规划决策、动作落实 ❑ 通用能力的提供者 ⚫ 持久运行：反思优化、 环境 迭代演化、安全"
+        },
+        {
+          "score": 0.6935938914161448,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 37,
+          "chunk_id": 37,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ 现有GUI智能体强基座模型于静态数据训练得到，在真实世界执行会面临out-of-distribution (OOD)问题 ⚫ 内生OOD (Internalization-OOD): 在特定操作系统训练的GUI智能体不具备其它操作系统的任务执行能力 ⚫ 外推OOD (Extrapolation-OOD): 静态数据训"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q05",
+      "question": "GUI Agent 有哪些主要技术分支？",
+      "question_type": "summary",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        11
+      ],
+      "matched_keywords": [
+        "闭源模型",
+        "开源模型",
+        "GPT-4o",
+        "Qwen-VL",
+        "Qwen2-VL",
+        "LLaVa2"
+      ],
+      "top_pages": [
+        11,
+        11,
+        13,
+        13,
+        12
+      ],
+      "top_scores": [
+        0.6638482538606539,
+        0.6638482538606539,
+        0.5973756190060134,
+        0.5973756190060134,
+        0.5763970342223079
+      ],
+      "top_sources": [
+        {
+          "score": 0.6638482538606539,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 11,
+          "chunk_id": 11,
+          "extraction_method": "text",
+          "preview": "技术分支 ❑ 基于闭源模型构建的GUI Agent: 通过 GPT-4o，Qwen-VL-Max，GLM-4v 等闭源模型构建，模型API调用 ❑ 基于开源模型构建的GUI Agent: 通过 Blip+T5 架构，Qwen2-VL，LLaVa2 等开源模型构建，模型本地部署 基于闭源模型构造的多智能体协作系统 基于开源模型构造的多模态GUI智能体 [1] "
+        },
+        {
+          "score": 0.6638482538606539,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 11,
+          "chunk_id": 11,
+          "extraction_method": "text",
+          "preview": "技术分支 ❑ 基于闭源模型构建的GUI Agent: 通过 GPT-4o，Qwen-VL-Max，GLM-4v 等闭源模型构建，模型API调用 ❑ 基于开源模型构建的GUI Agent: 通过 Blip+T5 架构，Qwen2-VL，LLaVa2 等开源模型构建，模型本地部署 基于闭源模型构造的多智能体协作系统 基于开源模型构造的多模态GUI智能体 [1] "
+        },
+        {
+          "score": 0.5973756190060134,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 13,
+          "chunk_id": 13,
+          "extraction_method": "text",
+          "preview": "技术分支：基于闭源模型构建的GUI Agent代表 ❑ AppAgent系列是另一个组有代表性的基于闭源模型构建的GUI Agent ❑ AppAgentX能够在任务执行过程中学习并优化自身行为模式，记忆捷径节点 [1] Jiang, Wenjia, et al. AppAgentX: Evolving GUI Agents as Proficient Sm"
+        },
+        {
+          "score": 0.5973756190060134,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 13,
+          "chunk_id": 13,
+          "extraction_method": "text",
+          "preview": "技术分支：基于闭源模型构建的GUI Agent代表 ❑ AppAgent系列是另一个组有代表性的基于闭源模型构建的GUI Agent ❑ AppAgentX能够在任务执行过程中学习并优化自身行为模式，记忆捷径节点 [1] Jiang, Wenjia, et al. AppAgentX: Evolving GUI Agents as Proficient Sm"
+        },
+        {
+          "score": 0.5763970342223079,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 12,
+          "chunk_id": 12,
+          "extraction_method": "text",
+          "preview": "技术分支：基于闭源模型构建的GUI Agent代表 ❑ Mobile-Agent系列是有代表性的基于闭源模型构建的GUI Agent之一 ❑ Mobile-Agent-v2构建了包括三个智能体的多智能体系统 ⚫ 规划智能体：根据历史操作生成任务进度，记忆单元存储焦点内容 ⚫ 决策智能体：参考记忆单元和任务进度生成操作 ⚫ 反思智能体：观察操作前后屏幕变化，必"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q06",
+      "question": "Mobile-Agent-v2 包含哪些智能体？",
+      "question_type": "detail",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        12
+      ],
+      "matched_keywords": [
+        "规划智能体",
+        "决策智能体",
+        "反思智能体",
+        "记忆单元",
+        "任务进度"
+      ],
+      "top_pages": [
+        12,
+        12,
+        16,
+        16,
+        11
+      ],
+      "top_scores": [
+        0.7421767494930753,
+        0.7421767494930753,
+        0.710671569174636,
+        0.710671569174636,
+        0.666898811459112
+      ],
+      "top_sources": [
+        {
+          "score": 0.7421767494930753,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 12,
+          "chunk_id": 12,
+          "extraction_method": "text",
+          "preview": "技术分支：基于闭源模型构建的GUI Agent代表 ❑ Mobile-Agent系列是有代表性的基于闭源模型构建的GUI Agent之一 ❑ Mobile-Agent-v2构建了包括三个智能体的多智能体系统 ⚫ 规划智能体：根据历史操作生成任务进度，记忆单元存储焦点内容 ⚫ 决策智能体：参考记忆单元和任务进度生成操作 ⚫ 反思智能体：观察操作前后屏幕变化，必"
+        },
+        {
+          "score": 0.7421767494930753,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 12,
+          "chunk_id": 12,
+          "extraction_method": "text",
+          "preview": "技术分支：基于闭源模型构建的GUI Agent代表 ❑ Mobile-Agent系列是有代表性的基于闭源模型构建的GUI Agent之一 ❑ Mobile-Agent-v2构建了包括三个智能体的多智能体系统 ⚫ 规划智能体：根据历史操作生成任务进度，记忆单元存储焦点内容 ⚫ 决策智能体：参考记忆单元和任务进度生成操作 ⚫ 反思智能体：观察操作前后屏幕变化，必"
+        },
+        {
+          "score": 0.710671569174636,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 16,
+          "chunk_id": 16,
+          "extraction_method": "text",
+          "preview": "GUI智能体部署 ❑ GUI智能体有很多优秀的开源项目可以直接部署： ⚫ 基于闭源模型构建的GUI agent框架：如Mobile-Agent系列、AppAgent系列等 ⚫ GUI领域开源强基座模型：如OS-Atlas、UI-TARS、CogAgent、Aguvis等 ❑ 如何才能利用这些项目和真实设备交互呢？ [1] Zhang, Chaoyun, et"
+        },
+        {
+          "score": 0.710671569174636,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 16,
+          "chunk_id": 16,
+          "extraction_method": "text",
+          "preview": "GUI智能体部署 ❑ GUI智能体有很多优秀的开源项目可以直接部署： ⚫ 基于闭源模型构建的GUI agent框架：如Mobile-Agent系列、AppAgent系列等 ⚫ GUI领域开源强基座模型：如OS-Atlas、UI-TARS、CogAgent、Aguvis等 ❑ 如何才能利用这些项目和真实设备交互呢？ [1] Zhang, Chaoyun, et"
+        },
+        {
+          "score": 0.666898811459112,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 11,
+          "chunk_id": 11,
+          "extraction_method": "text",
+          "preview": "技术分支 ❑ 基于闭源模型构建的GUI Agent: 通过 GPT-4o，Qwen-VL-Max，GLM-4v 等闭源模型构建，模型API调用 ❑ 基于开源模型构建的GUI Agent: 通过 Blip+T5 架构，Qwen2-VL，LLaVa2 等开源模型构建，模型本地部署 基于闭源模型构造的多智能体协作系统 基于开源模型构造的多模态GUI智能体 [1] "
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q07",
+      "question": "AppAgentX 的特点是什么？",
+      "question_type": "detail",
+      "scored": true,
+      "hit": false,
+      "page_hit": false,
+      "keyword_hit": false,
+      "expected_pages": [
+        13
+      ],
+      "matched_keywords": [],
+      "top_pages": [
+        44,
+        50,
+        5,
+        1,
+        48
+      ],
+      "top_scores": [
+        0.5742924948108519,
+        0.5512959847274586,
+        0.545820412433782,
+        0.5354902390731342,
+        0.5309673802464766
+      ],
+      "top_sources": [
+        {
+          "score": 0.5742924948108519,
+          "document_id": "fac9475e-b067-4a89-8cd4-3f4807550653",
+          "file_type": "markdown",
+          "filename": "Prompt提示词学习.md",
+          "page_number": 44,
+          "chunk_id": 48,
+          "extraction_method": "text",
+          "preview": "##### -概念- RAG 是一个**架构模式 (Architectural Pattern)**，而不是一个单一的提示词。它是一个多步骤的**数据管道 (Data Pipeline)**，目的是在 LLM 回答问题*之前*，先为它准备好“开卷考试”的“小抄”。这解决了 LLM 最大的两个痛点：**知识陈旧**（它不知道上周的新闻）和**事实捏造**（它会"
+        },
+        {
+          "score": 0.5512959847274586,
+          "document_id": "fac9475e-b067-4a89-8cd4-3f4807550653",
+          "file_type": "markdown",
+          "filename": "Prompt提示词学习.md",
+          "page_number": 50,
+          "chunk_id": 57,
+          "extraction_method": "text",
+          "preview": "##### -概念- “那么，ART 是什么？从你作为程序员的视角来看，ART 是为了给 LLM 接上**‘I/O 接口’ (Input/Output Ports)**。它是将一个‘思考者’ (Thinker) 转变为一个‘行动者’ (Doer) 的框架。” “如果说 RAG 是让 LLM ‘读取’世界，那么 ART 就是让 LLM **‘读写’** 世界。"
+        },
+        {
+          "score": 0.545820412433782,
+          "document_id": "aee51c8f-ad5a-4295-affb-fd05d14db494",
+          "file_type": "markdown",
+          "filename": "bbs+codex+hermes.md",
+          "page_number": 5,
+          "chunk_id": 6,
+          "extraction_method": "text",
+          "preview": "### 三、Hermes：让整个系统更像一个 AI 管家 如果说 Obsidian 是仓库，Codex 是整理师，那么 Hermes 更像管家。 它不一定负责亲自写文章、改文件，而是负责帮你判断： 最近哪些想法最值得继续发展？ 哪些内容适合写成公众号文章？ 哪些任务应该优先推进？ 哪些重复工作可以沉淀成固定流程？ 哪些事情应该交给 Codex 去执行？ 所以"
+        },
+        {
+          "score": 0.5354902390731342,
+          "document_id": "aee51c8f-ad5a-4295-affb-fd05d14db494",
+          "file_type": "markdown",
+          "filename": "bbs+codex+hermes.md",
+          "page_number": 1,
+          "chunk_id": 1,
+          "extraction_method": "text",
+          "preview": "# 从笔记软件到 AI 管家：Obsidian、Codex、Hermes 如何组成你的个人知识系统 原创 数字话思维 [数字话思维](javascript:void(0);) *2026年4月27日 15:49* *北京* 听全文 ![图片](https://mmbiz.qpic.cn/mmbiz_png/rZlqTibVmUwgaCLHH2NQBq6RyC"
+        },
+        {
+          "score": 0.5309673802464766,
+          "document_id": "fac9475e-b067-4a89-8cd4-3f4807550653",
+          "file_type": "markdown",
+          "filename": "Prompt提示词学习.md",
+          "page_number": 48,
+          "chunk_id": 55,
+          "extraction_method": "text",
+          "preview": "##### 总结：RAG 对程序员的意义 - **RAG 是一种“开卷考试”：** 它保证了 LLM 的答案“有据可查”（Grounded），因为你提供了“书本”（上下文）。 - **RAG 是一种“解耦”：** 它将“知识库”（向量数据库）和“推理引擎”（LLM）分离开来。你更新知识时，不需要重新训练那个耗资数百万美元的 LLM，你只需要更新你的向量数据库"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q08",
+      "question": "GUI 智能体如何和安卓设备或电脑设备交互？",
+      "question_type": "process",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        17
+      ],
+      "matched_keywords": [
+        "ADB",
+        "AVD",
+        "pyautogui",
+        "鼠标",
+        "键盘",
+        "安卓设备"
+      ],
+      "top_pages": [
+        17,
+        17,
+        16,
+        16,
+        32
+      ],
+      "top_scores": [
+        0.7910127090216315,
+        0.7910127090216315,
+        0.7063557164947977,
+        0.7063557164947977,
+        0.643600180740631
+      ],
+      "top_sources": [
+        {
+          "score": 0.7910127090216315,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 17,
+          "chunk_id": 17,
+          "extraction_method": "text",
+          "preview": "GUI智能体部署：如何让大模型和设备交互？ ❑ 安卓设备 ⚫ 真实安卓设备：通过安卓调试桥(Android Debug Bridge, ADB)来用命令行控制连接在电脑上的真机 ⚫ 虚拟安卓设备：通过安卓虚拟机(Android Virtual Device, AVD)实现在机器上并行运行虚拟的安卓设备 ❑ 电脑设备：通过把智能体输出转化为符合pyautogu"
+        },
+        {
+          "score": 0.7910127090216315,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 17,
+          "chunk_id": 17,
+          "extraction_method": "text",
+          "preview": "GUI智能体部署：如何让大模型和设备交互？ ❑ 安卓设备 ⚫ 真实安卓设备：通过安卓调试桥(Android Debug Bridge, ADB)来用命令行控制连接在电脑上的真机 ⚫ 虚拟安卓设备：通过安卓虚拟机(Android Virtual Device, AVD)实现在机器上并行运行虚拟的安卓设备 ❑ 电脑设备：通过把智能体输出转化为符合pyautogu"
+        },
+        {
+          "score": 0.7063557164947977,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 16,
+          "chunk_id": 16,
+          "extraction_method": "text",
+          "preview": "GUI智能体部署 ❑ GUI智能体有很多优秀的开源项目可以直接部署： ⚫ 基于闭源模型构建的GUI agent框架：如Mobile-Agent系列、AppAgent系列等 ⚫ GUI领域开源强基座模型：如OS-Atlas、UI-TARS、CogAgent、Aguvis等 ❑ 如何才能利用这些项目和真实设备交互呢？ [1] Zhang, Chaoyun, et"
+        },
+        {
+          "score": 0.7063557164947977,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 16,
+          "chunk_id": 16,
+          "extraction_method": "text",
+          "preview": "GUI智能体部署 ❑ GUI智能体有很多优秀的开源项目可以直接部署： ⚫ 基于闭源模型构建的GUI agent框架：如Mobile-Agent系列、AppAgent系列等 ⚫ GUI领域开源强基座模型：如OS-Atlas、UI-TARS、CogAgent、Aguvis等 ❑ 如何才能利用这些项目和真实设备交互呢？ [1] Zhang, Chaoyun, et"
+        },
+        {
+          "score": 0.643600180740631,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 32,
+          "chunk_id": 32,
+          "extraction_method": "text",
+          "preview": "GUI智能体的安全问题：注入攻击 ❑ 嵌入在屏幕中的恶意图像补丁也可能绕过GUI智能体的防护机制 [1] Lukas Aichberger, et al. Attacking Multimodal OS Agents with Malicious Image Patches."
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q09",
+      "question": "静态场景下 GUI Agent 为什么可以使用监督微调？",
+      "question_type": "concept",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        19
+      ],
+      "matched_keywords": [
+        "静态",
+        "监督微调",
+        "数据驱动",
+        "输入用户指令",
+        "当前屏幕",
+        "输出动作指令"
+      ],
+      "top_pages": [
+        19,
+        19,
+        27,
+        27,
+        28
+      ],
+      "top_scores": [
+        0.7176289254308661,
+        0.7176289254308661,
+        0.5224054530727665,
+        0.5224054530727665,
+        0.5138548755084817
+      ],
+      "top_sources": [
+        {
+          "score": 0.7176289254308661,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 19,
+          "chunk_id": 19,
+          "extraction_method": "text",
+          "preview": "面向静态场景的解决方案——监督微调 ❑ 对于真实世界环境相对训练数据变化较小的静态情况下，最直觉的方式就是数据驱动的监督微调 Goal: Look up the best rated coffee maker 基于第一性原理 ❑ 以视觉为核心的感知模式 ❑ 不依赖系统/应用API接口 ❑ 工作模式 ⚫ 输入用户指令 + 当前屏幕 ⚫ 输出动作指令 通用性 轻"
+        },
+        {
+          "score": 0.7176289254308661,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 19,
+          "chunk_id": 19,
+          "extraction_method": "text",
+          "preview": "面向静态场景的解决方案——监督微调 ❑ 对于真实世界环境相对训练数据变化较小的静态情况下，最直觉的方式就是数据驱动的监督微调 Goal: Look up the best rated coffee maker 基于第一性原理 ❑ 以视觉为核心的感知模式 ❑ 不依赖系统/应用API接口 ❑ 工作模式 ⚫ 输入用户指令 + 当前屏幕 ⚫ 输出动作指令 通用性 轻"
+        },
+        {
+          "score": 0.5224054530727665,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 27,
+          "chunk_id": 27,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 ❑ UI-NEXUS：首个专门针对GUI智能体复合任务设定的全面测试基准 ❑ 已有智能体基座和框架展现明显缺陷，难以处理复杂依赖、进度管理、信息传递以及动作与通用推理的融合 [1]Guo, Yuan et al. Atomic-to-Compositional Generalization for Mobile Agent"
+        },
+        {
+          "score": 0.5224054530727665,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 27,
+          "chunk_id": 27,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 ❑ UI-NEXUS：首个专门针对GUI智能体复合任务设定的全面测试基准 ❑ 已有智能体基座和框架展现明显缺陷，难以处理复杂依赖、进度管理、信息传递以及动作与通用推理的融合 [1]Guo, Yuan et al. Atomic-to-Compositional Generalization for Mobile Agent"
+        },
+        {
+          "score": 0.5138548755084817,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 28,
+          "chunk_id": 28,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 单个智能体模型难以处理多场景协调和复杂依赖，容易出现语境溢出、进度混乱问题 构建智能体任务调度系统，对复杂任务进行拆解和调度 示例指令：分别在美团、饿了 么搜索肯德基超级全家桶， 然后在价格最便宜的一个平台 下单，停留在下单界面 [1]Guo, Yuan et al. Atomic-to-Compositional Gen"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q10",
+      "question": "为什么动态场景下 GUI Agent 需要强化学习？",
+      "question_type": "concept",
+      "scored": true,
+      "hit": true,
+      "page_hit": false,
+      "keyword_hit": true,
+      "expected_pages": [
+        21
+      ],
+      "matched_keywords": [
+        "强化学习"
+      ],
+      "top_pages": [
+        22,
+        22,
+        23,
+        23,
+        24
+      ],
+      "top_scores": [
+        0.7719731351386212,
+        0.7719731351386212,
+        0.7414743413189437,
+        0.7414743413189437,
+        0.6986413787865834
+      ],
+      "top_sources": [
+        {
+          "score": 0.7719731351386212,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 22,
+          "chunk_id": 22,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习：DigiRL ❑ DigiRL采用课程学习适应环境的动态，GUI智能体先学习简单的任务，然后学习困难的任务 [1] Bai, Hao, et al. DigiRL:TrainingIn-The-Wild Device-Control Agents with Autonomous Reinforcement Learning"
+        },
+        {
+          "score": 0.7719731351386212,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 22,
+          "chunk_id": 22,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习：DigiRL ❑ DigiRL采用课程学习适应环境的动态，GUI智能体先学习简单的任务，然后学习困难的任务 [1] Bai, Hao, et al. DigiRL:TrainingIn-The-Wild Device-Control Agents with Autonomous Reinforcement Learning"
+        },
+        {
+          "score": 0.7414743413189437,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 23,
+          "chunk_id": 23,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习：DistRL ❑ DistRL在DigiRL的基础上，做了进一步工作： ⚫ 进一步采用异步分布式框架解耦数据采集和训练过程，提升训练效率 ⚫ 提出分布式优先重播技术，判断出哪些轨迹更有价值，优先重复学习 [1]Wang, Taiyi, et al. DISTRL: AN ASYNCHRONOUS DISTRIBUTED R"
+        },
+        {
+          "score": 0.7414743413189437,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 23,
+          "chunk_id": 23,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习：DistRL ❑ DistRL在DigiRL的基础上，做了进一步工作： ⚫ 进一步采用异步分布式框架解耦数据采集和训练过程，提升训练效率 ⚫ 提出分布式优先重播技术，判断出哪些轨迹更有价值，优先重复学习 [1]Wang, Taiyi, et al. DISTRL: AN ASYNCHRONOUS DISTRIBUTED R"
+        },
+        {
+          "score": 0.6986413787865834,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 24,
+          "chunk_id": 24,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习：GRPO出现 ❑ 随着Deepseek的爆火，GRPO基于规则奖励的强化学习思想迅速被GUI智能体领域借鉴 ❑ UI-R1，GUI-R1和InfiGUI-R1分别验证了规则奖励思想在GUI智能体领域的可行性 [1]Lu, Zhengxini, et al. UI-R1: Enhancing Action Predictio"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q11",
+      "question": "DigiRL 是如何适应环境动态变化的？",
+      "question_type": "detail",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        22
+      ],
+      "matched_keywords": [
+        "DigiRL",
+        "课程学习",
+        "简单的任务",
+        "困难的任务",
+        "动态"
+      ],
+      "top_pages": [
+        21,
+        21,
+        22,
+        22,
+        23
+      ],
+      "top_scores": [
+        0.6994422384037761,
+        0.6994422384037761,
+        0.6747818617825057,
+        0.6747818617825057,
+        0.6141478772774314
+      ],
+      "top_sources": [
+        {
+          "score": 0.6994422384037761,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 21,
+          "chunk_id": 21,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习 ❑ GUI agent面临的现实环境总是在变化。如何让GUI agent适应真实环境的动态性？ ⚫ 网页布局：例如同样的搜索，每次搜索结果的排序可能不同 ⚫ 软件更新：软件更新会大幅改动软件布局 ⚫ 特殊节日：在一些特殊节日，软件的图标可能会换上具有节日色彩的皮肤 [1] Bai, Hao, et al. DigiRL:T"
+        },
+        {
+          "score": 0.6994422384037761,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 21,
+          "chunk_id": 21,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习 ❑ GUI agent面临的现实环境总是在变化。如何让GUI agent适应真实环境的动态性？ ⚫ 网页布局：例如同样的搜索，每次搜索结果的排序可能不同 ⚫ 软件更新：软件更新会大幅改动软件布局 ⚫ 特殊节日：在一些特殊节日，软件的图标可能会换上具有节日色彩的皮肤 [1] Bai, Hao, et al. DigiRL:T"
+        },
+        {
+          "score": 0.6747818617825057,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 22,
+          "chunk_id": 22,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习：DigiRL ❑ DigiRL采用课程学习适应环境的动态，GUI智能体先学习简单的任务，然后学习困难的任务 [1] Bai, Hao, et al. DigiRL:TrainingIn-The-Wild Device-Control Agents with Autonomous Reinforcement Learning"
+        },
+        {
+          "score": 0.6747818617825057,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 22,
+          "chunk_id": 22,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习：DigiRL ❑ DigiRL采用课程学习适应环境的动态，GUI智能体先学习简单的任务，然后学习困难的任务 [1] Bai, Hao, et al. DigiRL:TrainingIn-The-Wild Device-Control Agents with Autonomous Reinforcement Learning"
+        },
+        {
+          "score": 0.6141478772774314,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 23,
+          "chunk_id": 23,
+          "extraction_method": "text",
+          "preview": "面向动态场景的解决方案——强化学习：DistRL ❑ DistRL在DigiRL的基础上，做了进一步工作： ⚫ 进一步采用异步分布式框架解耦数据采集和训练过程，提升训练效率 ⚫ 提出分布式优先重播技术，判断出哪些轨迹更有价值，优先重复学习 [1]Wang, Taiyi, et al. DISTRL: AN ASYNCHRONOUS DISTRIBUTED R"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q12",
+      "question": "复杂任务中为什么需要 GUI 智能体调度系统？",
+      "question_type": "process",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        26,
+        27,
+        28
+      ],
+      "matched_keywords": [
+        "复杂任务",
+        "调度系统",
+        "子任务依赖",
+        "UI-NEXUS",
+        "进度管理",
+        "信息传递"
+      ],
+      "top_pages": [
+        27,
+        27,
+        28,
+        28,
+        26
+      ],
+      "top_scores": [
+        0.7358823464534923,
+        0.7358823464534923,
+        0.7136021453738282,
+        0.7136021453738282,
+        0.691503835172093
+      ],
+      "top_sources": [
+        {
+          "score": 0.7358823464534923,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 27,
+          "chunk_id": 27,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 ❑ UI-NEXUS：首个专门针对GUI智能体复合任务设定的全面测试基准 ❑ 已有智能体基座和框架展现明显缺陷，难以处理复杂依赖、进度管理、信息传递以及动作与通用推理的融合 [1]Guo, Yuan et al. Atomic-to-Compositional Generalization for Mobile Agent"
+        },
+        {
+          "score": 0.7358823464534923,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 27,
+          "chunk_id": 27,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 ❑ UI-NEXUS：首个专门针对GUI智能体复合任务设定的全面测试基准 ❑ 已有智能体基座和框架展现明显缺陷，难以处理复杂依赖、进度管理、信息传递以及动作与通用推理的融合 [1]Guo, Yuan et al. Atomic-to-Compositional Generalization for Mobile Agent"
+        },
+        {
+          "score": 0.7136021453738282,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 28,
+          "chunk_id": 28,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 单个智能体模型难以处理多场景协调和复杂依赖，容易出现语境溢出、进度混乱问题 构建智能体任务调度系统，对复杂任务进行拆解和调度 示例指令：分别在美团、饿了 么搜索肯德基超级全家桶， 然后在价格最便宜的一个平台 下单，停留在下单界面 [1]Guo, Yuan et al. Atomic-to-Compositional Gen"
+        },
+        {
+          "score": 0.7136021453738282,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 28,
+          "chunk_id": 28,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 单个智能体模型难以处理多场景协调和复杂依赖，容易出现语境溢出、进度混乱问题 构建智能体任务调度系统，对复杂任务进行拆解和调度 示例指令：分别在美团、饿了 么搜索肯德基超级全家桶， 然后在价格最便宜的一个平台 下单，停留在下单界面 [1]Guo, Yuan et al. Atomic-to-Compositional Gen"
+        },
+        {
+          "score": 0.691503835172093,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 26,
+          "chunk_id": 26,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 ❑ 真实场景需求正驱动系统级GUI智能体，从执行规则明确的简单任务到能胜任复杂有序与复杂无序任务 ❑ 基于子任务依赖关系的复合指令分类：拼接型、传递型、深度分析型 [1]Guo, Yuan et al. Atomic-to-Compositional Generalization for Mobile Agents wit"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q13",
+      "question": "GUI 智能体面临哪些注入攻击风险？",
+      "question_type": "detail",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        31,
+        32
+      ],
+      "matched_keywords": [
+        "注入攻击",
+        "恶意提示",
+        "用户信息",
+        "恶意网站",
+        "恶意图像补丁"
+      ],
+      "top_pages": [
+        31,
+        31,
+        32,
+        32,
+        33
+      ],
+      "top_scores": [
+        0.7579429932073484,
+        0.7579429932073484,
+        0.7360814947178684,
+        0.7360814947178684,
+        0.6987247864219961
+      ],
+      "top_sources": [
+        {
+          "score": 0.7579429932073484,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 31,
+          "chunk_id": 31,
+          "extraction_method": "text",
+          "preview": "GUI智能体的安全问题：注入攻击 ❑ GUI智能体甚至面对简单的注入攻击都很脆弱，用户条款隐藏的恶意提示会让智能体把用户信息发到恶意网站 [1] Chen, Chaoran, et al. The Obvious Invisible Threat: LLM-Powered GUI Agents’ Vulnerability to Fine-Print Inj"
+        },
+        {
+          "score": 0.7579429932073484,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 31,
+          "chunk_id": 31,
+          "extraction_method": "text",
+          "preview": "GUI智能体的安全问题：注入攻击 ❑ GUI智能体甚至面对简单的注入攻击都很脆弱，用户条款隐藏的恶意提示会让智能体把用户信息发到恶意网站 [1] Chen, Chaoran, et al. The Obvious Invisible Threat: LLM-Powered GUI Agents’ Vulnerability to Fine-Print Inj"
+        },
+        {
+          "score": 0.7360814947178684,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 32,
+          "chunk_id": 32,
+          "extraction_method": "text",
+          "preview": "GUI智能体的安全问题：注入攻击 ❑ 嵌入在屏幕中的恶意图像补丁也可能绕过GUI智能体的防护机制 [1] Lukas Aichberger, et al. Attacking Multimodal OS Agents with Malicious Image Patches."
+        },
+        {
+          "score": 0.7360814947178684,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 32,
+          "chunk_id": 32,
+          "extraction_method": "text",
+          "preview": "GUI智能体的安全问题：注入攻击 ❑ 嵌入在屏幕中的恶意图像补丁也可能绕过GUI智能体的防护机制 [1] Lukas Aichberger, et al. Attacking Multimodal OS Agents with Malicious Image Patches."
+        },
+        {
+          "score": 0.6987247864219961,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 33,
+          "chunk_id": 33,
+          "extraction_method": "text",
+          "preview": "GUI智能体的安全问题：鲁棒性问题 ❑ 研究表明，当前GUI智能体的鲁棒性远未到达实用标准。巨大的攻击成功率意味着巨大的风险 ❑ 相应的，如何提升GUI智能体的鲁棒性具有巨大的研究潜力 [1] Zhao, Haoren, et al. On the Robustness of GUI Grounding Models Against Image Attack"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q14",
+      "question": "GUI 智能体的 OOD 问题包括哪些类型？",
+      "question_type": "concept",
+      "scored": true,
+      "hit": true,
+      "page_hit": true,
+      "keyword_hit": true,
+      "expected_pages": [
+        37,
+        38
+      ],
+      "matched_keywords": [
+        "OOD",
+        "Internalization-OOD",
+        "Extrapolation-OOD",
+        "复杂的输入语义空间",
+        "动态真实环境"
+      ],
+      "top_pages": [
+        37,
+        37,
+        38,
+        38,
+        30
+      ],
+      "top_scores": [
+        0.7456187129877474,
+        0.7456187129877474,
+        0.7171138996336266,
+        0.7171138996336266,
+        0.7007548113522553
+      ],
+      "top_sources": [
+        {
+          "score": 0.7456187129877474,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 37,
+          "chunk_id": 37,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ 现有GUI智能体强基座模型于静态数据训练得到，在真实世界执行会面临out-of-distribution (OOD)问题 ⚫ 内生OOD (Internalization-OOD): 在特定操作系统训练的GUI智能体不具备其它操作系统的任务执行能力 ⚫ 外推OOD (Extrapolation-OOD): 静态数据训"
+        },
+        {
+          "score": 0.7456187129877474,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 37,
+          "chunk_id": 37,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ 现有GUI智能体强基座模型于静态数据训练得到，在真实世界执行会面临out-of-distribution (OOD)问题 ⚫ 内生OOD (Internalization-OOD): 在特定操作系统训练的GUI智能体不具备其它操作系统的任务执行能力 ⚫ 外推OOD (Extrapolation-OOD): 静态数据训"
+        },
+        {
+          "score": 0.7171138996336266,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 38,
+          "chunk_id": 38,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ GUI智能体的OOD检测相对于传统的OOD检测还有领域内的独特挑战： ⚫ 复杂的输入语义空间理解：GUI智能体需要同时理解复杂的屏幕布局和多样的用户指令 ⚫ 动态变化的真实环境：现实世界的应用程序和网页的布局会随时迭代更新 复杂语义空间： 动态真实环境： 一张截屏被识 淘宝临时更新 别出40个box 五一狂欢界面 ["
+        },
+        {
+          "score": 0.7171138996336266,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 38,
+          "chunk_id": 38,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ GUI智能体的OOD检测相对于传统的OOD检测还有领域内的独特挑战： ⚫ 复杂的输入语义空间理解：GUI智能体需要同时理解复杂的屏幕布局和多样的用户指令 ⚫ 动态变化的真实环境：现实世界的应用程序和网页的布局会随时迭代更新 复杂语义空间： 动态真实环境： 一张截屏被识 淘宝临时更新 别出40个box 五一狂欢界面 ["
+        },
+        {
+          "score": 0.7007548113522553,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 30,
+          "chunk_id": 30,
+          "extraction_method": "text",
+          "preview": "GUI智能体的安全问题：安全风险 ❑ GUI智能体的部署环境并非绝对可信，可能面临安全风险： ⚫ 用户指令可能被插入恶意操作 ⚫ 环境可能有干扰性的恶意信息 [1] Ma, Xinbei, et al. Caution for the Environment: Multimodal Agents are Susceptible to Environmenta"
+        }
+      ],
+      "low_score_count": 0
+    },
+    {
+      "case_id": "Q15",
+      "question": "这份资料有没有说明 GUI 智能体在医疗诊断审批系统中的合规流程？",
+      "question_type": "insufficient_context",
+      "scored": false,
+      "hit": false,
+      "page_hit": false,
+      "keyword_hit": false,
+      "expected_pages": [],
+      "matched_keywords": [],
+      "top_pages": [
+        27,
+        27,
+        38,
+        38,
+        12
+      ],
+      "top_scores": [
+        0.5822182253342143,
+        0.5822182253342143,
+        0.5734239071964202,
+        0.5734239071964202,
+        0.5703887588940517
+      ],
+      "top_sources": [
+        {
+          "score": 0.5822182253342143,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 27,
+          "chunk_id": 27,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 ❑ UI-NEXUS：首个专门针对GUI智能体复合任务设定的全面测试基准 ❑ 已有智能体基座和框架展现明显缺陷，难以处理复杂依赖、进度管理、信息传递以及动作与通用推理的融合 [1]Guo, Yuan et al. Atomic-to-Compositional Generalization for Mobile Agent"
+        },
+        {
+          "score": 0.5822182253342143,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 27,
+          "chunk_id": 27,
+          "extraction_method": "text",
+          "preview": "面向复杂场景的解决方案——调度系统 ❑ UI-NEXUS：首个专门针对GUI智能体复合任务设定的全面测试基准 ❑ 已有智能体基座和框架展现明显缺陷，难以处理复杂依赖、进度管理、信息传递以及动作与通用推理的融合 [1]Guo, Yuan et al. Atomic-to-Compositional Generalization for Mobile Agent"
+        },
+        {
+          "score": 0.5734239071964202,
+          "document_id": null,
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 38,
+          "chunk_id": 38,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ GUI智能体的OOD检测相对于传统的OOD检测还有领域内的独特挑战： ⚫ 复杂的输入语义空间理解：GUI智能体需要同时理解复杂的屏幕布局和多样的用户指令 ⚫ 动态变化的真实环境：现实世界的应用程序和网页的布局会随时迭代更新 复杂语义空间： 动态真实环境： 一张截屏被识 淘宝临时更新 别出40个box 五一狂欢界面 ["
+        },
+        {
+          "score": 0.5734239071964202,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 38,
+          "chunk_id": 38,
+          "extraction_method": "text",
+          "preview": "GUI智能体的可靠性问题：OOD问题 ❑ GUI智能体的OOD检测相对于传统的OOD检测还有领域内的独特挑战： ⚫ 复杂的输入语义空间理解：GUI智能体需要同时理解复杂的屏幕布局和多样的用户指令 ⚫ 动态变化的真实环境：现实世界的应用程序和网页的布局会随时迭代更新 复杂语义空间： 动态真实环境： 一张截屏被识 淘宝临时更新 别出40个box 五一狂欢界面 ["
+        },
+        {
+          "score": 0.5703887588940517,
+          "document_id": "3b929f17-ea19-4844-87ab-d59481afda41",
+          "file_type": "pdf",
+          "filename": "GUIagent.pdf",
+          "page_number": 12,
+          "chunk_id": 12,
+          "extraction_method": "text",
+          "preview": "技术分支：基于闭源模型构建的GUI Agent代表 ❑ Mobile-Agent系列是有代表性的基于闭源模型构建的GUI Agent之一 ❑ Mobile-Agent-v2构建了包括三个智能体的多智能体系统 ⚫ 规划智能体：根据历史操作生成任务进度，记忆单元存储焦点内容 ⚫ 决策智能体：参考记忆单元和任务进度生成操作 ⚫ 反思智能体：观察操作前后屏幕变化，必"
+        }
+      ],
+      "low_score_count": 0
+    }
+  ]
+}

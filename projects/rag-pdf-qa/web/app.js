@@ -5,6 +5,8 @@ const state = {
   documents: [],
   lastAnswer: null,
   messages: [],
+  evaluation: null,
+  askMode: "rag",
   preferences: loadPreferences(),
 };
 
@@ -17,6 +19,7 @@ const els = {
   documentList: document.querySelector("#documentList"),
   refreshDocuments: document.querySelector("#refreshDocuments"),
   askForm: document.querySelector("#askForm"),
+  askModeButtons: Array.from(document.querySelectorAll("[data-ask-mode]")),
   questionInput: document.querySelector("#questionInput"),
   topK: document.querySelector("#topK"),
   scoreThreshold: document.querySelector("#scoreThreshold"),
@@ -24,6 +27,13 @@ const els = {
   sourceList: document.querySelector("#sourceList"),
   debugGrid: document.querySelector("#debugGrid"),
   statusPill: document.querySelector("#statusPill"),
+  evaluationForm: document.querySelector("#evaluationForm"),
+  evaluationTopK: document.querySelector("#evaluationTopK"),
+  evaluationThreshold: document.querySelector("#evaluationThreshold"),
+  evaluationStatus: document.querySelector("#evaluationStatus"),
+  evaluationSummary: document.querySelector("#evaluationSummary"),
+  evaluationCases: document.querySelector("#evaluationCases"),
+  reloadEvaluation: document.querySelector("#reloadEvaluation"),
   toast: document.querySelector("#toast"),
   tabButtons: Array.from(document.querySelectorAll(".tab-button")),
   tabPages: Array.from(document.querySelectorAll(".tab-page")),
@@ -61,6 +71,8 @@ const translations = {
     "nav.importSub": "Import",
     "nav.ask": "知识问答",
     "nav.askSub": "Ask",
+    "nav.evaluation": "检索评估",
+    "nav.evaluationSub": "Eval",
     "nav.settings": "设置",
     "nav.settingsSub": "Settings",
     "nav.docs": "Swagger Docs",
@@ -75,11 +87,30 @@ const translations = {
     "ask.title": "知识问答",
     "ask.empty": "等待问题",
     "ask.placeholder": "输入问题",
+    "ask.mode": "模式",
+    "ask.ragMode": "RAG",
+    "ask.agentMode": "Agent",
     "ask.topK": "top_k",
     "ask.threshold": "threshold",
     "ask.submit": "提问",
     "sources.eyebrow": "Sources",
     "sources.title": "检索来源",
+    "evaluation.eyebrow": "Evaluation",
+    "evaluation.title": "检索评估",
+    "evaluation.topK": "top_k",
+    "evaluation.threshold": "threshold",
+    "evaluation.run": "运行评估",
+    "evaluation.reload": "读取最近结果",
+    "evaluation.empty": "暂无评估结果",
+    "evaluation.dataset": "数据集",
+    "evaluation.cases": "cases",
+    "evaluation.hitRate": "hit_rate",
+    "evaluation.pageHitRate": "page_hit",
+    "evaluation.keywordHitRate": "keyword_hit",
+    "evaluation.lowScore": "low_score",
+    "evaluation.generatedAt": "generated",
+    "evaluation.caseHit": "hit",
+    "evaluation.caseMiss": "miss",
     "settings.eyebrow": "Settings",
     "settings.title": "模型与提示词",
     "preferences.title": "界面偏好",
@@ -117,6 +148,10 @@ const translations = {
     "debug.sources": "sources",
     "debug.model": "model",
     "debug.tokens": "tokens",
+    "debug.route": "route",
+    "debug.tools": "tools",
+    "debug.reason": "reason",
+    "debug.fallback": "fallback",
     "message.pendingMeta": "AI 正在解析检索结果",
     "message.pendingText": "整理答案中",
     "message.requestFailed": "请求失败",
@@ -131,6 +166,7 @@ const translations = {
     "status.loading": "loading",
     "status.indexing": "indexing",
     "status.asking": "asking",
+    "status.evaluating": "evaluating",
     "status.done": "done",
     "status.error": "error",
     "settingsStatus.loading": "loading",
@@ -148,6 +184,8 @@ const translations = {
     "nav.importSub": "Import",
     "nav.ask": "Knowledge Q&A",
     "nav.askSub": "Ask",
+    "nav.evaluation": "Evaluation",
+    "nav.evaluationSub": "Eval",
     "nav.settings": "Settings",
     "nav.settingsSub": "Settings",
     "nav.docs": "Swagger Docs",
@@ -162,11 +200,30 @@ const translations = {
     "ask.title": "Knowledge Q&A",
     "ask.empty": "Waiting for a question",
     "ask.placeholder": "Ask a question",
+    "ask.mode": "Mode",
+    "ask.ragMode": "RAG",
+    "ask.agentMode": "Agent",
     "ask.topK": "top_k",
     "ask.threshold": "threshold",
     "ask.submit": "Ask",
     "sources.eyebrow": "Sources",
     "sources.title": "Retrieved Sources",
+    "evaluation.eyebrow": "Evaluation",
+    "evaluation.title": "Retrieval Evaluation",
+    "evaluation.topK": "top_k",
+    "evaluation.threshold": "threshold",
+    "evaluation.run": "Run Evaluation",
+    "evaluation.reload": "Load Latest",
+    "evaluation.empty": "No evaluation result",
+    "evaluation.dataset": "Dataset",
+    "evaluation.cases": "cases",
+    "evaluation.hitRate": "hit_rate",
+    "evaluation.pageHitRate": "page_hit",
+    "evaluation.keywordHitRate": "keyword_hit",
+    "evaluation.lowScore": "low_score",
+    "evaluation.generatedAt": "generated",
+    "evaluation.caseHit": "hit",
+    "evaluation.caseMiss": "miss",
     "settings.eyebrow": "Settings",
     "settings.title": "Model & Prompts",
     "preferences.title": "Interface Preferences",
@@ -204,6 +261,10 @@ const translations = {
     "debug.sources": "sources",
     "debug.model": "model",
     "debug.tokens": "tokens",
+    "debug.route": "route",
+    "debug.tools": "tools",
+    "debug.reason": "reason",
+    "debug.fallback": "fallback",
     "message.pendingMeta": "AI is reading retrieved sources",
     "message.pendingText": "Composing answer",
     "message.requestFailed": "Request failed",
@@ -218,6 +279,7 @@ const translations = {
     "status.loading": "loading",
     "status.indexing": "indexing",
     "status.asking": "asking",
+    "status.evaluating": "evaluating",
     "status.done": "done",
     "status.error": "error",
     "settingsStatus.loading": "loading",
@@ -231,6 +293,14 @@ const translations = {
 function setStatus(value) {
   els.statusPill.dataset.status = value;
   els.statusPill.textContent = t(`status.${value}`, value);
+}
+
+function setEvaluationStatus(value) {
+  if (!els.evaluationStatus) {
+    return;
+  }
+  els.evaluationStatus.dataset.status = value;
+  els.evaluationStatus.textContent = t(`status.${value}`, value);
 }
 
 function setSettingsStatus(value, source = "") {
@@ -394,16 +464,18 @@ async function askQuestion(event) {
   els.questionInput.value = "";
   els.sourceList.innerHTML = "";
   try {
-    const data = await requestJson("/rag/ask", {
+    const endpoint = state.askMode === "agent" ? "/agent/ask" : "/rag/ask";
+    const data = await requestJson(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     state.lastAnswer = data;
+    const routeMeta = data.route ? `${t("debug.route")} ${data.route} · ` : "";
     replacePendingMessage(pendingId, {
       role: "assistant",
       content: data.reply || "",
-      meta: `${data.model || t("debug.model")} · ${t("debug.sources")} ${data.source_count}`,
+      meta: `${routeMeta}${data.model || t("debug.model")} · ${t("debug.sources")} ${data.source_count}`,
     });
     renderSources(data.sources || []);
     renderDebug(data);
@@ -485,6 +557,10 @@ function switchTab(tabName) {
     page.classList.toggle("active", isActive);
     page.hidden = !isActive;
   });
+
+  if (tabName === "evaluation" && !state.evaluation) {
+    loadLatestEvaluation();
+  }
 }
 
 function renderSources(sources) {
@@ -512,12 +588,133 @@ function renderSources(sources) {
 
 function renderDebug(data) {
   const usage = data.usage || {};
-  els.debugGrid.innerHTML = `
-    <div class="debug-item"><span>${t("debug.retrieved")}</span><b>${data.retrieved_count}</b></div>
-    <div class="debug-item"><span>${t("debug.sources")}</span><b>${data.source_count}</b></div>
-    <div class="debug-item"><span>${t("debug.model")}</span><b>${escapeHtml(data.model || "-")}</b></div>
-    <div class="debug-item"><span>${t("debug.tokens")}</span><b>${usage.total_tokens ?? "-"}</b></div>
+  const debugItems = [
+    `<div class="debug-item"><span>${t("debug.retrieved")}</span><b>${data.retrieved_count}</b></div>`,
+    `<div class="debug-item"><span>${t("debug.sources")}</span><b>${data.source_count}</b></div>`,
+    `<div class="debug-item"><span>${t("debug.model")}</span><b>${escapeHtml(data.model || "-")}</b></div>`,
+    `<div class="debug-item"><span>${t("debug.tokens")}</span><b>${usage.total_tokens ?? "-"}</b></div>`,
+  ];
+
+  if (data.route) {
+    debugItems.push(`<div class="debug-item"><span>${t("debug.route")}</span><b>${escapeHtml(data.route)}</b></div>`);
+  }
+  if (data.tools_used?.length) {
+    debugItems.push(`<div class="debug-item wide"><span>${t("debug.tools")}</span><b>${escapeHtml(data.tools_used.join(" · "))}</b></div>`);
+  }
+  if (data.route_reason) {
+    debugItems.push(`<div class="debug-item wide"><span>${t("debug.reason")}</span><b>${escapeHtml(data.route_reason)}</b></div>`);
+  }
+  if (data.routing_debug?.fallback) {
+    debugItems.push(`<div class="debug-item wide"><span>${t("debug.fallback")}</span><b>${escapeHtml(data.routing_debug.fallback)}</b></div>`);
+  }
+
+  els.debugGrid.innerHTML = debugItems.join("");
+}
+
+async function loadLatestEvaluation() {
+  if (!els.evaluationSummary) {
+    return;
+  }
+  setEvaluationStatus("loading");
+  try {
+    const data = await requestJson("/evaluation/latest");
+    state.evaluation = data;
+    renderEvaluation(data);
+    setEvaluationStatus("done");
+  } catch (error) {
+    state.evaluation = null;
+    renderEvaluation(null);
+    setEvaluationStatus("idle");
+  }
+}
+
+async function runEvaluation(event) {
+  event.preventDefault();
+  const payload = {
+    limit: Number(els.evaluationTopK.value || 5),
+  };
+  if (els.evaluationThreshold.value !== "") {
+    payload.score_threshold = Number(els.evaluationThreshold.value);
+  }
+
+  setEvaluationStatus("evaluating");
+  try {
+    const data = await requestJson("/evaluation/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    state.evaluation = data;
+    renderEvaluation(data);
+    setEvaluationStatus("done");
+  } catch (error) {
+    setEvaluationStatus("error");
+    showToast(error.message, true);
+  }
+}
+
+function renderEvaluation(data) {
+  if (!data) {
+    els.evaluationSummary.innerHTML = `<p class="empty-state">${t("evaluation.empty")}</p>`;
+    els.evaluationCases.innerHTML = "";
+    return;
+  }
+
+  els.evaluationSummary.innerHTML = `
+    <div class="debug-grid evaluation-metrics">
+      <div class="debug-item"><span>${t("evaluation.hitRate")}</span><b>${formatRate(data.hit_rate)}</b></div>
+      <div class="debug-item"><span>${t("evaluation.pageHitRate")}</span><b>${formatRate(data.page_hit_rate)}</b></div>
+      <div class="debug-item"><span>${t("evaluation.keywordHitRate")}</span><b>${formatRate(data.keyword_hit_rate)}</b></div>
+      <div class="debug-item"><span>${t("evaluation.lowScore")}</span><b>${data.low_score_result_count}</b></div>
+    </div>
+    <div class="evaluation-meta">
+      ${t("evaluation.dataset")} ${escapeHtml(data.dataset_name)} ·
+      ${t("evaluation.cases")} ${data.scored_case_count}/${data.case_count} ·
+      top_k ${data.limit} ·
+      ${t("evaluation.generatedAt")} ${formatDateTime(data.generated_at)}
+    </div>
   `;
+
+  els.evaluationCases.innerHTML = (data.cases || [])
+    .map(renderEvaluationCase)
+    .join("");
+}
+
+function renderEvaluationCase(item) {
+  const statusText = item.hit ? t("evaluation.caseHit") : t("evaluation.caseMiss");
+  const scores = (item.top_scores || []).map((score) => Number(score).toFixed(4)).join(", ");
+  const sources = (item.top_sources || [])
+    .slice(0, 3)
+    .map((source) => `${escapeHtml(source.filename)} p${source.page_number} c${source.chunk_id} ${escapeHtml(source.extraction_method || "text")}`)
+    .join("<br />");
+  return `
+    <article class="evaluation-case ${item.hit ? "hit" : "miss"}">
+      <div class="source-title">
+        <span>${escapeHtml(item.case_id)} · ${escapeHtml(item.question)}</span>
+        <span class="type-pill">${statusText}</span>
+      </div>
+      <div class="meta">
+        pages ${escapeHtml((item.top_pages || []).join(", ") || "-")} · scores ${escapeHtml(scores || "-")}<br />
+        keywords ${escapeHtml((item.matched_keywords || []).join(", ") || "-")}
+      </div>
+      ${sources ? `<p class="preview">${sources}</p>` : ""}
+    </article>
+  `;
+}
+
+function formatRate(value) {
+  return `${(Number(value || 0) * 100).toFixed(1)}%`;
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString();
 }
 
 function loadPreferences() {
@@ -570,6 +767,9 @@ function applyLanguage() {
   els.languageButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.language === state.preferences.language);
   });
+  els.askModeButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.askMode === state.askMode);
+  });
   setStatus(els.statusPill.dataset.status || "idle");
   setSettingsStatus(els.settingsStatus.dataset.status || "noKey", els.settingsStatus.dataset.source || "");
   renderDocuments();
@@ -577,6 +777,11 @@ function applyLanguage() {
   if (state.lastAnswer) {
     renderSources(state.lastAnswer.sources || []);
     renderDebug(state.lastAnswer);
+  }
+  if (state.evaluation) {
+    renderEvaluation(state.evaluation);
+  } else if (els.evaluationSummary) {
+    renderEvaluation(null);
   }
 }
 
@@ -618,6 +823,13 @@ function setLanguage(language) {
   savePreferences();
   applyLanguage();
   showToast(t("toast.languageChanged"));
+}
+
+function setAskMode(mode) {
+  state.askMode = mode === "agent" ? "agent" : "rag";
+  els.askModeButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.askMode === state.askMode);
+  });
 }
 
 function setThemeColor(themeColor, customColor = null) {
@@ -757,11 +969,18 @@ function escapeHtml(value) {
 els.uploadForm.addEventListener("submit", uploadDocument);
 els.askForm.addEventListener("submit", askQuestion);
 els.settingsForm.addEventListener("submit", saveSettings);
+els.evaluationForm.addEventListener("submit", runEvaluation);
+els.reloadEvaluation.addEventListener("click", () => {
+  loadLatestEvaluation().catch((error) => showToast(error.message, true));
+});
 els.reloadSettings.addEventListener("click", () => {
   loadSettings().catch((error) => showToast(error.message, true));
 });
 els.languageButtons.forEach((button) => {
   button.addEventListener("click", () => setLanguage(button.dataset.language));
+});
+els.askModeButtons.forEach((button) => {
+  button.addEventListener("click", () => setAskMode(button.dataset.askMode));
 });
 els.colorButtons.forEach((button) => {
   button.addEventListener("click", () => setThemeColor(button.dataset.themeColor));

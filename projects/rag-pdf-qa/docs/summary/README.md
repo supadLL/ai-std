@@ -58,6 +58,11 @@ docs/summary/27-ui-language-theme-preferences-summary.md
 docs/summary/28-ui-background-color-preference-summary.md
 docs/summary/29-web-title-favicon-summary.md
 docs/summary/30-ui-background-surface-color-summary.md
+docs/summary/31-one-click-start-and-docker-summary.md
+docs/summary/32-scanned-pdf-ocr-summary.md
+docs/summary/33-multiformat-image-ocr-loader-summary.md
+docs/summary/34-rag-evaluation-panel-summary.md
+docs/summary/35-agent-routing-enhancement-summary.md
 ```
 
 格式：

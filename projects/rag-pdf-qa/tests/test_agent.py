@@ -54,6 +54,10 @@ def test_agent_ask_routes_small_talk_to_chat(monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert data["route"] == "chat"
+    assert data["route_reason"]
+    assert data["tools_used"] == ["deepseek_chat"]
+    assert data["routing_debug"]["selected_route"] == "chat"
+    assert data["routing_debug"]["fallback"] is None
     assert data["reply"] == "你好，我是本地 RAG 助手。"
     assert data["source_count"] == 0
     assert data["sources"] == []
@@ -107,6 +111,12 @@ def test_agent_ask_routes_document_question_to_rag(monkeypatch):
     assert response.status_code == 200
     data = response.json()
     assert data["route"] == "rag"
+    assert "知识库" in data["route_reason"] or "资料" in data["route_reason"]
+    assert data["tools_used"] == ["local_embedding", "qdrant_search", "deepseek_rag"]
+    assert data["routing_debug"]["selected_route"] == "rag"
+    assert data["routing_debug"]["retrieved_count"] == 1
+    assert data["routing_debug"]["filtered_count"] == 1
+    assert data["routing_debug"]["fallback"] is None
     assert data["model"] == "fake-rag-model"
     assert data["retrieved_count"] == 1
     assert data["source_count"] == 1
@@ -140,7 +150,58 @@ def test_agent_ask_returns_insufficient_context_without_calling_deepseek(monkeyp
     assert response.status_code == 200
     data = response.json()
     assert data["route"] == "insufficient_context"
+    assert "没有返回任何相关 chunk" in data["route_reason"]
+    assert data["tools_used"] == ["local_embedding", "qdrant_search"]
+    assert data["routing_debug"]["fallback"] == "no_retrieved_chunks"
     assert "资料不足" in data["reply"]
     assert data["retrieved_count"] == 0
     assert data["source_count"] == 0
     assert data["sources"] == []
+
+
+def test_agent_ask_returns_threshold_fallback_reason(monkeypatch):
+    class FakeDeepSeekClient:
+        def __init__(self, settings):
+            self.settings = settings
+
+        async def chat(self, *args, **kwargs):
+            raise AssertionError("threshold fallback should not call DeepSeek")
+
+        async def chat_messages(self, *args, **kwargs):
+            raise AssertionError("threshold fallback should not call DeepSeek")
+
+    monkeypatch.setattr(main, "get_settings", lambda: Settings(deepseek_api_key="test"))
+    monkeypatch.setattr(main, "DeepSeekClient", FakeDeepSeekClient)
+    monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(
+        main,
+        "search_chunks",
+        lambda client, collection_name, query_vector, limit: [
+            SearchResult(
+                point_id="point-low",
+                score=0.2,
+                document_id="doc-1",
+                file_type="pdf",
+                filename="demo.pdf",
+                page_number=1,
+                chunk_id=1,
+                text="低分检索结果。",
+            )
+        ],
+    )
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/agent/ask",
+        json={"question": "请根据知识库回答 GUI Agent 是什么？", "limit": 5, "score_threshold": 0.9},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["route"] == "insufficient_context"
+    assert "score_threshold" in data["route_reason"]
+    assert data["tools_used"] == ["local_embedding", "qdrant_search"]
+    assert data["routing_debug"]["retrieved_count"] == 1
+    assert data["routing_debug"]["filtered_count"] == 0
+    assert data["routing_debug"]["fallback"] == "score_threshold_filtered_all"

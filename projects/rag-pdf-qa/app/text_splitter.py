@@ -10,6 +10,7 @@ class TextChunk:
     page_number: int
     char_count: int
     text: str
+    extraction_method: str = "text"
 
 
 class TextSplitError(ValueError):
@@ -25,6 +26,7 @@ def split_pdf_text(extracted: ExtractedPdf, chunk_size: int = 800, overlap: int 
             _split_text_unit(
                 unit_number=page.page_number,
                 text=page.text,
+                extraction_method=page.extraction_method,
                 current_count=len(chunks),
                 chunk_size=chunk_size,
                 overlap=overlap,
@@ -43,6 +45,7 @@ def split_parsed_document(document: ParsedDocument, chunk_size: int = 800, overl
             _split_text_unit(
                 unit_number=section.section_number,
                 text=section.text,
+                extraction_method=section.extraction_method,
                 current_count=len(chunks),
                 chunk_size=chunk_size,
                 overlap=overlap,
@@ -66,6 +69,7 @@ def _split_text_unit(
     *,
     unit_number: int,
     text: str,
+    extraction_method: str,
     current_count: int,
     chunk_size: int,
     overlap: int,
@@ -78,6 +82,7 @@ def _split_text_unit(
                 page_number=unit_number,
                 char_count=len(chunk_text),
                 text=chunk_text,
+                extraction_method=extraction_method,
             )
         )
     return chunks

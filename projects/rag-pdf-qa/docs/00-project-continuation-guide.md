@@ -55,7 +55,7 @@ content_hash 去重与 reindex 重建索引策略
 Markdown / txt 文档入库
 docx / csv / xlsx 文档入库
 现代风本地 Web UI 初版
-最小 RAG Agent 工具路由：/agent/ask
+可解释 RAG Agent 工具路由：/agent/ask，返回 route_reason、tools_used、routing_debug
 名称、问答交互和回答质量优化
 Web UI 分页：文件导入 / 知识问答 / 设置
 Web UI Tab 布局混排修复
@@ -64,6 +64,10 @@ Web UI 中文 / English 切换和系统色偏好
 Web UI 背景颜色偏好
 Web UI 科技感项目图标和浏览器 Tab 标题优化
 Web UI 背景色覆盖整体 UI 面板
+一键启动脚本和 Dockerfile
+扫描型 PDF 可选 OCR 入库
+docx 内嵌图片 OCR 入库
+RAG 检索评估脚本、API 和 Web UI 评估面板
 运行时 LLM 设置：base_url、model、timeout、API Key 和 RAG prompt
 最小 pytest 回归测试骨架
 ```
@@ -154,7 +158,7 @@ prompt 调优
 sources 可解释性
 异常处理
 多文档管理
-最小 Agent 工具调用
+Agent 工具路由可解释性
 ```
 
 ---
@@ -186,6 +190,13 @@ cd D:\ll-work\ai-play\ai-std\projects\rag-pdf-qa
 uvicorn app.main:app --reload
 ```
 
+也可以使用项目脚本：
+
+```powershell
+.\scripts\check_environment.ps1
+.\scripts\start.ps1 -Reload
+```
+
 验证：
 
 ```text
@@ -204,16 +215,19 @@ Swagger Docs 页面必须能测试接口。
 |---|---|
 | `GET /health` | 健康检查 |
 | `POST /chat` | 直接调用 DeepSeek |
-| `POST /documents/extract` | 上传 PDF 并提取文本 |
-| `POST /documents/chunk` | 上传 PDF 并切分 chunk |
+| `POST /documents/extract` | 上传 PDF 并提取文本，支持可选 OCR |
+| `POST /documents/chunk` | 上传 PDF 并切分 chunk，支持 OCR 来源标记 |
 | `POST /embeddings/text` | 文本向量化 |
-| `POST /documents/index` | PDF / Markdown / txt / docx / csv / xlsx 切分、向量化并写入 Qdrant，支持 content_hash 去重和 reindex |
+| `POST /documents/index` | PDF / 扫描型 PDF OCR / Markdown / txt / docx / csv / xlsx 切分、向量化并写入 Qdrant，支持 content_hash 去重和 reindex |
 | `GET /documents` | 查看本地知识库文档列表 |
 | `GET /documents/{document_id}` | 查看单个文档 metadata |
 | `DELETE /documents/{document_id}` | 删除某个文档的 Qdrant chunks 和 metadata |
 | `POST /documents/search` | 只做语义检索，不调用 DeepSeek |
 | `POST /rag/ask` | 检索 Qdrant，再调用 DeepSeek 生成 RAG 回答 |
-| `POST /agent/ask` | 最小 Agent 工具路由，自动选择 chat / rag / insufficient_context |
+| `POST /agent/ask` | 可解释 Agent 工具路由，自动选择 chat / rag / insufficient_context，并返回 route_reason / tools_used / routing_debug |
+| `GET /evaluation/questions` | 读取本地 RAG 评估问题集 |
+| `POST /evaluation/run` | 运行本地检索评估并保存最近结果，不调用 DeepSeek |
+| `GET /evaluation/latest` | 读取最近一次 RAG 检索评估结果 |
 | `GET /` / `GET /app` | 打开本地 RAG Web UI |
 | `GET /settings` | 读取本地运行时 LLM 设置，不返回真实 API Key |
 | `PUT /settings` | 保存本地运行时 LLM、API Key 和 RAG prompt 设置 |
@@ -226,6 +240,7 @@ Swagger Docs 页面必须能测试接口。
 3. GET /documents
 4. POST /documents/search
 5. POST /rag/ask
+6. POST /evaluation/run
 ```
 
 调试 RAG 时，不要一上来只看 `/rag/ask`。
@@ -244,8 +259,10 @@ app/
   embedding_client.py  fastembed 本地 embedding 封装
   document_loaders.py  Markdown / txt / docx / csv / xlsx 文档解析
   pdf_extractor.py     PDF 文本提取
+  ocr_extractor.py     扫描型 PDF 页面 OCR
   text_splitter.py     PDF 文本 chunk 切分
   vector_store.py      Qdrant 本地 collection、upsert、search
+  evaluation.py        本地 RAG 检索评估、结果保存和 Markdown 报告
   runtime_settings.py  本地运行时 LLM 和 RAG prompt 设置
 ```
 
@@ -518,7 +535,7 @@ docs/summary/10-rag-test-result.md
 
 ## 11. Agent 实现规范
 
-当前已经实现最小 Agent 工具路由：
+当前已经实现可解释 Agent 工具路由：
 
 ```text
 POST /agent/ask
@@ -526,7 +543,7 @@ POST /agent/ask
 
 当前不要直接上复杂多 Agent。
 
-当前最小工具选择：
+当前工具选择：
 
 ```text
 用户问题
@@ -534,6 +551,7 @@ POST /agent/ask
 -> 如果需要，调用 search_documents
 -> 基于 sources 回答
 -> 如果不需要，走普通 chat
+-> 返回 route_reason、tools_used、routing_debug
 ```
 
 最小工具可以是：
@@ -578,10 +596,10 @@ app/vector_store.py
 PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> DeepSeek 基于 sources 回答。
 
 后续规划已经纳入：
-PDF OCR / 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
+PDF 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
-PDF、Markdown、txt、docx、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 最小 Agent 路由、/settings 运行时 LLM 和 prompt 设置。
+PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 运行时 LLM 和 prompt 设置、/evaluation/* 本地检索评估接口。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。
@@ -604,12 +622,11 @@ PDF、Markdown、txt、docx、csv、xlsx 入库，并提供 http://127.0.0.1:800
 当前可优先从这些方向选择：
 
 ```text
-扫描型 PDF OCR
-PDF 表格和图片信息抽取
-Web UI Agent 模式切换
-Agent route_reason 和更稳定的工具选择
-回答质量评估集
-Docker 化或一键启动脚本
+Web UI 文档详情查看
+Web UI 文档删除
+知识库文档 metadata 展示增强
+RAG 评估历史记录列表
+项目演示与简历呈现优化
 ```
 
 完整后续执行路线：
@@ -634,6 +651,13 @@ Docker 化或一键启动脚本
 | 28 | `docs/goal/28-ui-background-color-preference-goal.md` | UI 背景颜色偏好 |
 | 29 | `docs/goal/29-web-title-favicon-goal.md` | 网页标题与项目图标 |
 | 30 | `docs/goal/30-ui-background-surface-color-goal.md` | 背景色作用到整体 UI 面板 |
+| 31 | `docs/goal/31-one-click-start-and-docker-goal.md` | 一键启动与 Docker 化 |
+| 32 | `docs/goal/32-scanned-pdf-ocr-goal.md` | 扫描型 PDF OCR 支持 |
+| 33 | `docs/goal/33-multiformat-image-ocr-loader-goal.md` | 多格式文档图片内容抽取与 OCR 统一链路 |
+| 34 | `docs/goal/34-rag-evaluation-panel-goal.md` | RAG 评估脚本与评估面板 |
+| 35 | `docs/goal/35-agent-routing-enhancement-goal.md` | Agent 工具路由增强 |
+| 36 | `docs/goal/36-knowledge-base-management-enhancement-goal.md` | 知识库管理能力增强 |
+| 37 | `docs/goal/37-project-demo-and-resume-polish-goal.md` | 项目演示与简历呈现优化 |
 
 执行节奏保持：
 
@@ -660,13 +684,16 @@ Docker 化或一键启动脚本
 
 ```text
 PDF 文本型文档
+扫描型 PDF OCR
 Markdown / txt 文本文档
 docx 文档
+docx 内嵌图片 OCR
 csv / xlsx 表格文件
 RAG score_threshold 低分过滤
-RAG sources 返回 source_id、score、filename、page_number、chunk_id、preview
+RAG sources 返回 source_id、score、filename、page_number、chunk_id、preview、extraction_method
+RAG 检索评估脚本、/evaluation/* API 和 Web UI 评估面板
 Web UI 初版
-/agent/ask 最小 Agent 工具路由
+/agent/ask 可解释 Agent 工具路由
 Web UI 分页
 Web UI Tab 页面隔离和垂直导航
 Web UI 回答 Markdown 展示
@@ -674,16 +701,18 @@ Web UI 语言和系统色偏好
 Web UI 背景颜色偏好
 Web UI 项目图标和 Tab 标题
 Web UI 背景色覆盖左侧导航、主面板、表单、卡片和回答区域
+Web UI RAG / Agent 模式切换和 Agent 路由解释展示
+一键启动脚本和 Dockerfile
 /settings 运行时设置
 ```
 
 当前还没有支持：
 
 ```text
-扫描型 PDF OCR
 PDF 表格抽取
 PDF 图片/图表理解
 网页正文
+LLM-as-a-judge 回答质量评估
 ```
 
 这些都已经纳入后续规划。
@@ -734,6 +763,7 @@ http://127.0.0.1:8000/docs
 ```text
 文件导入
 知识问答
+检索评估
 设置
 ```
 
@@ -767,11 +797,12 @@ RAG system prompt / answer instructions 编辑
 ```text
 左侧：主功能页签
 文件导入页：上传与文档列表
-知识问答页：聊天区 + sources / debug
+知识问答页：聊天区 + sources / debug + RAG / Agent 模式切换
+检索评估页：top_k / score_threshold 评估控制 + 指标 + case 明细
 设置页：LLM 参数与 prompt
 ```
 
-UI 是后续展示项目的重要方向，但不要早于 RAG 检索质量评估。
+UI 是后续展示项目的重要方向，后续可以继续补文档详情、删除和评估历史列表。
 
 ---
 

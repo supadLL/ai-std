@@ -2,7 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.vector_store import VectorStoreError, _document_id_filter, ensure_collection
+from app.text_splitter import TextChunk
+from app.vector_store import VectorStoreError, _document_id_filter, ensure_collection, upsert_chunks
 
 
 class FakeClient:
@@ -34,3 +35,27 @@ def test_document_id_filter_targets_document_payload():
 
     assert filter_model.must[0].key == "document_id"
     assert filter_model.must[0].match.value == "doc-1"
+
+
+def test_upsert_chunks_stores_extraction_method_payload():
+    captured = {}
+
+    class FakeUpsertClient:
+        def upsert(self, collection_name, points):
+            captured["collection_name"] = collection_name
+            captured["points"] = points
+
+    count = upsert_chunks(
+        client=FakeUpsertClient(),
+        collection_name="rag_chunks",
+        filename="scan.pdf",
+        chunks=[TextChunk(chunk_id=1, page_number=1, char_count=8, text="ocr text", extraction_method="pdf_ocr")],
+        vectors=[[0.1, 0.2, 0.3]],
+        document_id="doc-1",
+        content_hash="a" * 64,
+        file_type="pdf",
+    )
+
+    assert count == 1
+    assert captured["collection_name"] == "rag_chunks"
+    assert captured["points"][0].payload["extraction_method"] == "pdf_ocr"

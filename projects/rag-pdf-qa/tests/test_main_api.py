@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 import app.main as main
 from app.config import Settings
+from app.document_loaders import ParsedDocument, ParsedSection
 from app.document_store import DocumentRecord
 from app.pdf_extractor import ExtractedPage, ExtractedPdf
 from app.runtime_settings import RuntimeSettings
@@ -55,11 +56,15 @@ def test_web_ui_routes_are_available():
     assert "/web/assets/rag-agent-icon-192.png?v=29" in app_response.text
     assert 'data-tab="import"' in app_response.text
     assert 'data-tab="ask"' in app_response.text
+    assert 'data-tab="evaluation"' in app_response.text
     assert 'data-tab="settings"' in app_response.text
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
+    assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=30" in app_response.text
-    assert "/web/app.js?v=30" in app_response.text
+    assert "/web/styles.css?v=35" in app_response.text
+    assert "/web/app.js?v=35" in app_response.text
+    assert 'data-ask-mode="rag"' in app_response.text
+    assert 'data-ask-mode="agent"' in app_response.text
     assert 'data-language="zh"' in app_response.text
     assert 'data-language="en"' in app_response.text
     assert 'data-theme-color="teal"' in app_response.text
@@ -69,6 +74,120 @@ def test_web_ui_routes_are_available():
     assert openapi_response.status_code == 200
     assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
     assert "/documents/index" in openapi_response.json()["paths"]
+    assert "/evaluation/questions" in openapi_response.json()["paths"]
+    assert "/evaluation/latest" in openapi_response.json()["paths"]
+    assert "/evaluation/run" in openapi_response.json()["paths"]
+
+
+def test_evaluation_api_endpoints_return_dataset_and_run_result(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "load_evaluation_dataset",
+        lambda: {
+            "dataset_name": "demo_eval",
+            "version": "0.1",
+            "cases": [
+                {
+                    "case_id": "Q1",
+                    "question": "什么是 RAG？",
+                    "question_type": "concept",
+                    "expected_pages": [2],
+                    "expected_keywords": ["检索"],
+                }
+            ],
+        },
+    )
+
+    fake_result = {
+        "dataset_name": "demo_eval",
+        "dataset_version": "0.1",
+        "generated_at": "2026-06-05T00:00:00+00:00",
+        "collection": "rag_chunks",
+        "embedding_model": "BAAI/bge-small-zh-v1.5",
+        "limit": 3,
+        "score_threshold": None,
+        "low_score_threshold": 0.45,
+        "case_count": 1,
+        "scored_case_count": 1,
+        "hit_count": 1,
+        "hit_rate": 1.0,
+        "page_hit_count": 1,
+        "page_hit_rate": 1.0,
+        "keyword_hit_count": 1,
+        "keyword_hit_rate": 1.0,
+        "low_score_result_count": 0,
+        "cases": [
+            {
+                "case_id": "Q1",
+                "question": "什么是 RAG？",
+                "question_type": "concept",
+                "scored": True,
+                "hit": True,
+                "page_hit": True,
+                "keyword_hit": True,
+                "expected_pages": [2],
+                "matched_keywords": ["检索"],
+                "top_pages": [2],
+                "top_scores": [0.82],
+                "top_sources": [
+                    {
+                        "score": 0.82,
+                        "document_id": "doc-1",
+                        "file_type": "markdown",
+                        "filename": "demo.md",
+                        "page_number": 2,
+                        "chunk_id": 1,
+                        "extraction_method": "text",
+                        "preview": "RAG 会先检索资料。",
+                    }
+                ],
+                "low_score_count": 0,
+            }
+        ],
+    }
+
+    def fake_run_rag_search_evaluation(*, settings, limit, score_threshold):
+        assert settings.qdrant_collection
+        assert limit == 3
+        assert score_threshold is None
+        return fake_result
+
+    monkeypatch.setattr(main, "run_rag_search_evaluation", fake_run_rag_search_evaluation)
+    monkeypatch.setattr(main, "read_latest_evaluation", lambda: fake_result)
+
+    client = TestClient(main.app)
+
+    questions_response = client.get("/evaluation/questions")
+    run_response = client.post("/evaluation/run", json={"limit": 3})
+    latest_response = client.get("/evaluation/latest")
+
+    assert questions_response.status_code == 200
+    assert questions_response.json()["case_count"] == 1
+    assert questions_response.json()["questions"][0]["expected_keywords"] == ["检索"]
+    assert run_response.status_code == 200
+    assert run_response.json()["hit_rate"] == 1.0
+    assert run_response.json()["cases"][0]["top_sources"][0]["filename"] == "demo.md"
+    assert latest_response.status_code == 200
+    assert latest_response.json()["dataset_name"] == "demo_eval"
+
+
+def test_pdf_extract_and_chunk_endpoints_reject_non_pdf_files():
+    client = TestClient(main.app)
+
+    extract_response = client.post(
+        "/documents/extract",
+        files={"file": ("notes.txt", b"hello", "text/plain")},
+    )
+    chunk_response = client.post(
+        "/documents/chunk",
+        files={"file": ("notes.txt", b"hello", "text/plain")},
+        data={"chunk_size": "800", "overlap": "100"},
+    )
+
+    assert extract_response.status_code == 400
+    assert "Only PDF files" in extract_response.json()["detail"]
+    assert chunk_response.status_code == 400
+    assert "Only PDF files" in chunk_response.json()["detail"]
 
 
 def test_build_rag_messages_requires_stable_output_format():
@@ -353,7 +472,7 @@ def test_index_document_reindex_replaces_existing_chunks(monkeypatch):
     monkeypatch.setattr(
         main,
         "extract_text_from_pdf_bytes",
-        lambda filename, content: ExtractedPdf(
+        lambda filename, content, **kwargs: ExtractedPdf(
             filename=filename,
             page_count=1,
             char_count=12,
@@ -390,6 +509,100 @@ def test_index_document_reindex_replaces_existing_chunks(monkeypatch):
     assert data["deleted_chunks"] == 3
     assert fake_store.removed_document_id == "doc-reindex"
     assert fake_store.added_kwargs["content_hash"] == content_hash
+
+
+def test_parse_pdf_index_file_passes_ocr_options(monkeypatch):
+    calls = {}
+
+    def fake_extract_text_from_pdf_bytes(filename, content, enable_ocr=False, ocr_language="chi_sim+eng"):
+        calls["filename"] = filename
+        calls["enable_ocr"] = enable_ocr
+        calls["ocr_language"] = ocr_language
+        return ExtractedPdf(
+            filename=filename,
+            page_count=1,
+            char_count=13,
+            preview="ocr text",
+            pages=[
+                ExtractedPage(
+                    page_number=1,
+                    char_count=13,
+                    preview="ocr text",
+                    text="ocr text here",
+                    extraction_method="pdf_ocr",
+                )
+            ],
+            scanned_like=False,
+            extraction_mode="ocr",
+            ocr_page_count=1,
+        )
+
+    monkeypatch.setattr(main, "extract_text_from_pdf_bytes", fake_extract_text_from_pdf_bytes)
+    monkeypatch.setattr(
+        main,
+        "split_pdf_text",
+        lambda extracted, chunk_size, overlap: [
+            TextChunk(chunk_id=1, page_number=1, char_count=13, text="ocr text here", extraction_method="pdf_ocr")
+        ],
+    )
+
+    file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = main._parse_and_split_index_file(
+        filename="scan.pdf",
+        content=b"%PDF",
+        chunk_size=800,
+        overlap=100,
+        enable_ocr=True,
+        ocr_language="eng",
+    )
+
+    assert file_type == "pdf"
+    assert page_count == 1
+    assert chunks[0].extraction_method == "pdf_ocr"
+    assert extraction_mode == "ocr"
+    assert ocr_page_count == 1
+    assert image_ocr_count == 0
+    assert extraction_methods == ["pdf_ocr"]
+    assert calls["enable_ocr"] is True
+    assert calls["ocr_language"] == "eng"
+
+
+def test_parse_non_pdf_index_file_counts_image_ocr_chunks(monkeypatch):
+    def fake_load_document_from_bytes(filename, content, enable_image_ocr=False, ocr_language="chi_sim+eng"):
+        assert enable_image_ocr is True
+        assert ocr_language == "eng"
+        return ParsedDocument(
+            filename=filename,
+            file_type="docx",
+            char_count=20,
+            preview="ImageProject OCR",
+            sections=[
+                ParsedSection(
+                    section_number=1,
+                    title="docx image 1 OCR",
+                    text="ImageProject OCR text",
+                    extraction_method="image_ocr",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(main, "load_document_from_bytes", fake_load_document_from_bytes)
+
+    file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = main._parse_and_split_index_file(
+        filename="demo.docx",
+        content=b"docx bytes",
+        chunk_size=100,
+        overlap=0,
+        enable_image_ocr=True,
+        ocr_language="eng",
+    )
+
+    assert file_type == "docx"
+    assert page_count == 1
+    assert chunks[0].extraction_method == "image_ocr"
+    assert extraction_mode is None
+    assert ocr_page_count == 0
+    assert image_ocr_count == 1
+    assert extraction_methods == ["image_ocr"]
 
 
 def test_index_document_accepts_txt_file(monkeypatch):

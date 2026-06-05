@@ -1,0 +1,13 @@
+.env
+.venv/
+.qdrant/
+.qdrant_eval/
+data/documents.json
+data/runtime_settings.json
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.git/
+docs/
+tests/
+review.md

@@ -2,8 +2,10 @@ import pytest
 from docx import Document
 from openpyxl import Workbook
 from io import BytesIO
+from PIL import Image
 
 from app.document_loaders import DocumentLoadError, load_document_from_bytes, load_text_document_from_bytes
+from app.ocr_extractor import OcrImage
 
 
 def test_load_markdown_document_splits_heading_sections():
@@ -49,8 +51,51 @@ def test_load_docx_document_extracts_paragraphs_and_tables():
     parsed = load_document_from_bytes(filename="demo.docx", content=buffer.getvalue())
 
     assert parsed.file_type == "docx"
-    assert "DocxFalcon" in parsed.sections[0].text
-    assert "Carol" in parsed.sections[0].text
+    joined_text = "\n".join(section.text for section in parsed.sections)
+    assert "DocxFalcon" in joined_text
+    assert "Carol" in joined_text
+    assert {section.extraction_method for section in parsed.sections} == {"text", "table"}
+
+
+def test_load_docx_document_extracts_image_ocr(monkeypatch):
+    image = Image.new("RGB", (80, 30), color="white")
+    image_buffer = BytesIO()
+    image.save(image_buffer, format="PNG")
+    image_buffer.seek(0)
+
+    document = Document()
+    document.add_paragraph("正文内容。")
+    document.add_picture(image_buffer)
+    docx_buffer = BytesIO()
+    document.save(docx_buffer)
+
+    def fake_extract_ocr_text_from_image_bytes(filename, image_number, content, language, preview_chars=500):
+        assert filename == "image-demo.docx"
+        assert image_number == 1
+        assert content.startswith(b"\x89PNG")
+        assert language == "eng"
+        return OcrImage(
+            image_number=image_number,
+            char_count=18,
+            preview="ImageProject",
+            text="ImageProject comes from OCR.",
+        )
+
+    monkeypatch.setattr(
+        "app.document_loaders.extract_ocr_text_from_image_bytes",
+        fake_extract_ocr_text_from_image_bytes,
+    )
+
+    parsed = load_document_from_bytes(
+        filename="image-demo.docx",
+        content=docx_buffer.getvalue(),
+        enable_image_ocr=True,
+        ocr_language="eng",
+    )
+
+    image_sections = [section for section in parsed.sections if section.extraction_method == "image_ocr"]
+    assert image_sections
+    assert "ImageProject" in image_sections[0].text
 
 
 def test_load_csv_document_converts_rows_to_text():
@@ -62,6 +107,7 @@ def test_load_csv_document_converts_rows_to_text():
     assert parsed.file_type == "csv"
     assert "name=CsvRocket" in parsed.sections[0].text
     assert "owner=Dana" in parsed.sections[0].text
+    assert parsed.sections[0].extraction_method == "table"
 
 
 def test_load_xlsx_document_converts_sheets_to_sections():
@@ -79,3 +125,4 @@ def test_load_xlsx_document_converts_sheets_to_sections():
     assert parsed.sections[0].title == "Projects"
     assert "name=XlsxComet" in parsed.sections[0].text
     assert "owner=Eve" in parsed.sections[0].text
+    assert parsed.sections[0].extraction_method == "table"
