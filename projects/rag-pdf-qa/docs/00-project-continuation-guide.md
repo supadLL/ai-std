@@ -70,6 +70,7 @@ docx 内嵌图片 OCR 入库
 RAG 检索评估脚本、API 和 Web UI 评估面板
 知识库管理增强：筛选、详情、批量删除、指定文档重建索引、限定文档检索
 运行时 LLM 设置：base_url、model、timeout、API Key 和 RAG prompt
+多模型供应商与自定义 OpenAI-compatible API 配置
 最小 pytest 回归测试骨架
 ```
 
@@ -215,7 +216,7 @@ Swagger Docs 页面必须能测试接口。
 | 接口 | 作用 |
 |---|---|
 | `GET /health` | 健康检查 |
-| `POST /chat` | 直接调用 DeepSeek |
+| `POST /chat` | 直接调用当前配置的 LLM Provider |
 | `POST /documents/extract` | 上传 PDF 并提取文本，支持可选 OCR |
 | `POST /documents/chunk` | 上传 PDF 并切分 chunk，支持 OCR 来源标记 |
 | `POST /embeddings/text` | 文本向量化 |
@@ -225,11 +226,11 @@ Swagger Docs 页面必须能测试接口。
 | `DELETE /documents/{document_id}` | 删除某个文档的 Qdrant chunks 和 metadata |
 | `DELETE /documents/batch` | 批量删除多个文档的 Qdrant chunks 和 metadata |
 | `POST /documents/{document_id}/reindex` | 为指定 document_id 上传替换文件并重新索引 |
-| `POST /documents/search` | 只做语义检索，不调用 DeepSeek，支持 document_id / file_type 过滤 |
-| `POST /rag/ask` | 检索 Qdrant，再调用 DeepSeek 生成 RAG 回答，支持限定 document_id |
+| `POST /documents/search` | 只做语义检索，不调用 LLM，支持 document_id / file_type 过滤 |
+| `POST /rag/ask` | 检索 Qdrant，再调用当前 LLM Provider 生成 RAG 回答，支持限定 document_id |
 | `POST /agent/ask` | 可解释 Agent 工具路由，支持限定 document_id，并返回 route_reason / tools_used / routing_debug |
 | `GET /evaluation/questions` | 读取本地 RAG 评估问题集 |
-| `POST /evaluation/run` | 运行本地检索评估并保存最近结果，不调用 DeepSeek |
+| `POST /evaluation/run` | 运行本地检索评估并保存最近结果，不调用 LLM |
 | `GET /evaluation/latest` | 读取最近一次 RAG 检索评估结果 |
 | `GET /` / `GET /app` | 打开本地 RAG Web UI |
 | `GET /settings` | 读取本地运行时 LLM 设置，不返回真实 API Key |
@@ -259,7 +260,8 @@ Swagger Docs 页面必须能测试接口。
 app/
   main.py              FastAPI 路由、请求响应模型、RAG 问答入口
   config.py            .env 配置读取
-  deepseek_client.py   DeepSeek Chat Completions 调用封装
+  deepseek_client.py   OpenAI-compatible Chat Completions 调用封装，保留旧类名兼容
+  llm_providers.py     可选 LLM Provider 列表和默认参数
   embedding_client.py  fastembed 本地 embedding 封装
   document_loaders.py  Markdown / txt / docx / csv / xlsx 文档解析
   pdf_extractor.py     PDF 文本提取
@@ -329,7 +331,7 @@ PdfExtractionError
 TextSplitError
 EmbeddingError
 VectorStoreError
-DeepSeekClientError
+DeepSeekClientError  # 当前兼容旧命名，实际封装 OpenAI-compatible LLM 调用
 ```
 
 FastAPI 路由层负责转成：
@@ -346,6 +348,7 @@ HTTPException
 
 ```text
 DEEPSEEK_API_KEY
+LLM_API_KEY
 完整 .env
 data/runtime_settings.json
 真实 token
@@ -491,7 +494,7 @@ GET /docs
 新接口出现在 /docs 页面
 ```
 
-如果接口会调用 DeepSeek：
+如果接口会调用 LLM Provider：
 
 ```text
 不要随便自动调用，避免消耗 token
@@ -594,16 +597,16 @@ app/main.py
 app/deepseek_client.py
 app/vector_store.py
 
-这是一个学习型本地 RAG 项目，技术栈是 FastAPI + DeepSeek API + fastembed + 本地 Qdrant。
+这是一个学习型本地 RAG 项目，技术栈是 FastAPI + OpenAI-compatible LLM Provider + fastembed + 本地 Qdrant。默认 provider 是 DeepSeek，也支持 Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax 和自定义 API。
 
 当前已经实现最小 RAG：
-PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> DeepSeek 基于 sources 回答。
+PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> 当前 LLM Provider 基于 sources 回答。
 
 后续规划已经纳入：
 PDF 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
-PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 运行时 LLM 和 prompt 设置、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引。
+PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM 和 prompt 设置、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。
@@ -621,12 +624,11 @@ PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、
 
 ## 13. 当前优先级
 
-当前 `rag-pdf-qa` 主线已经收口。后续如果继续扩展，必须先创建新的 goal 文档。
+当前 `rag-pdf-qa` 主线已经收口。后续如果继续扩展，必须先读取已有 goal；如果没有对应 goal，再创建新的 goal 文档。
 
 当前可优先从这些方向选择：
 
 ```text
-多模型供应商与自定义 API 配置
 项目演示路径整理
 README 面向新用户的快速体验说明
 简历项目描述
@@ -710,7 +712,7 @@ Web UI 背景色覆盖左侧导航、主面板、表单、卡片和回答区域
 Web UI RAG / Agent 模式切换和 Agent 路由解释展示
 Web UI 提问限定 document_id
 一键启动脚本和 Dockerfile
-/settings 运行时设置
+/settings 多供应商 LLM 运行时设置
 ```
 
 当前还没有支持：
@@ -795,7 +797,7 @@ UI 目标：
 sources 展示
 top_k / score_threshold 参数调节
 token usage 展示
-运行时 base_url / model / timeout / API Key 设置
+运行时 provider / base_url / model / timeout / API Key 设置
 RAG system prompt / answer instructions 编辑
 ```
 
@@ -806,7 +808,7 @@ RAG system prompt / answer instructions 编辑
 文件导入页：上传与文档列表
 知识问答页：聊天区 + sources / debug + RAG / Agent 模式切换 + document 限定
 检索评估页：top_k / score_threshold 评估控制 + 指标 + case 明细
-设置页：LLM 参数与 prompt
+设置页：LLM Provider 参数与 prompt
 ```
 
 UI 是后续展示项目的重要方向，后续可以继续补评估历史列表和项目演示页。

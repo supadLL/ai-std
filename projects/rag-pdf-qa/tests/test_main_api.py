@@ -68,8 +68,8 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=36.2" in app_response.text
-    assert "/web/app.js?v=36.2" in app_response.text
+    assert "/web/styles.css?v=37" in app_response.text
+    assert "/web/app.js?v=37" in app_response.text
     assert 'data-ask-mode="rag"' in app_response.text
     assert 'data-ask-mode="agent"' in app_response.text
     assert 'id="documentNameFilter"' in app_response.text
@@ -82,6 +82,8 @@ def test_web_ui_routes_are_available():
     assert 'data-theme-color="teal"' in app_response.text
     assert 'id="customColorInput"' in app_response.text
     assert 'id="backgroundColorInput"' in app_response.text
+    assert 'id="providerInput"' in app_response.text
+    assert 'id="modelOptions"' in app_response.text
     assert docs_response.status_code == 200
     assert openapi_response.status_code == 200
     assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
@@ -278,8 +280,14 @@ def test_settings_endpoint_returns_runtime_values_without_api_key(monkeypatch):
     data = response.json()
     assert data["deepseek_base_url"] == "https://runtime.example"
     assert data["deepseek_model"] == "runtime-model"
+    assert data["llm_provider"] == "deepseek"
+    assert data["llm_base_url"] == "https://runtime.example"
+    assert data["llm_model"] == "runtime-model"
     assert data["api_key_configured"] is True
     assert data["api_key_source"] == "env"
+    assert data["llm_api_key_configured"] is True
+    assert data["llm_api_key_source"] == "env"
+    assert any(option["provider"] == "ollama" for option in data["available_providers"])
     assert "env-secret" not in response.text
     assert data["rag_system_prompt"] == "runtime system"
 
@@ -304,9 +312,10 @@ def test_update_settings_persists_runtime_values_without_returning_api_key(monke
     response = client.put(
         "/settings",
         json={
-            "deepseek_api_key": "runtime-secret",
-            "deepseek_base_url": "https://runtime.example",
-            "deepseek_model": "runtime-model",
+            "llm_provider": "qwen",
+            "llm_api_key": "runtime-secret",
+            "llm_base_url": "https://runtime.example/v1",
+            "llm_model": "runtime-model",
             "request_timeout_seconds": 60,
             "rag_system_prompt": "runtime system",
             "rag_answer_instructions": "runtime answer",
@@ -317,9 +326,12 @@ def test_update_settings_persists_runtime_values_without_returning_api_key(monke
     data = response.json()
     assert data["api_key_configured"] is True
     assert data["api_key_source"] == "runtime"
+    assert data["llm_provider"] == "qwen"
+    assert data["llm_model"] == "runtime-model"
     assert data["deepseek_model"] == "runtime-model"
     assert "runtime-secret" not in response.text
-    assert saved["runtime_settings"].deepseek_api_key == "runtime-secret"
+    assert saved["runtime_settings"].llm_api_key == "runtime-secret"
+    assert saved["runtime_settings"].llm_provider == "qwen"
     assert saved["runtime_settings"].rag_answer_instructions == "runtime answer"
 
 

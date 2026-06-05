@@ -9,6 +9,7 @@ const state = {
   askMode: "rag",
   selectedDocumentIds: new Set(),
   activeDocumentId: null,
+  availableProviders: [],
   preferences: loadPreferences(),
 };
 
@@ -47,6 +48,7 @@ const els = {
   tabButtons: Array.from(document.querySelectorAll(".tab-button")),
   tabPages: Array.from(document.querySelectorAll(".tab-page")),
   settingsForm: document.querySelector("#settingsForm"),
+  providerInput: document.querySelector("#providerInput"),
   baseUrlInput: document.querySelector("#baseUrlInput"),
   modelInput: document.querySelector("#modelInput"),
   apiKeyInput: document.querySelector("#apiKeyInput"),
@@ -54,6 +56,7 @@ const els = {
   clearApiKeyInput: document.querySelector("#clearApiKeyInput"),
   systemPromptInput: document.querySelector("#systemPromptInput"),
   answerPromptInput: document.querySelector("#answerPromptInput"),
+  modelOptions: document.querySelector("#modelOptions"),
   settingsStatus: document.querySelector("#settingsStatus"),
   reloadSettings: document.querySelector("#reloadSettings"),
   languageButtons: Array.from(document.querySelectorAll("[data-language]")),
@@ -143,6 +146,7 @@ const translations = {
     "preferences.background": "背景颜色",
     "preferences.customColor": "自定义颜色",
     "preferences.resetBackground": "恢复默认",
+    "settings.provider": "模型供应商",
     "settings.baseUrl": "API Base URL",
     "settings.model": "LLM Model",
     "settings.apiKey": "API Key",
@@ -157,6 +161,7 @@ const translations = {
     "labels.reindex": "reindex",
     "labels.topK": "top_k",
     "labels.threshold": "threshold",
+    "labels.provider": "模型供应商",
     "labels.baseUrl": "API Base URL",
     "labels.model": "LLM Model",
     "labels.apiKey": "API Key",
@@ -271,6 +276,7 @@ const translations = {
     "preferences.background": "Background Color",
     "preferences.customColor": "Custom color",
     "preferences.resetBackground": "Reset",
+    "settings.provider": "Provider",
     "settings.baseUrl": "API Base URL",
     "settings.model": "LLM Model",
     "settings.apiKey": "API Key",
@@ -285,6 +291,7 @@ const translations = {
     "labels.reindex": "reindex",
     "labels.topK": "top_k",
     "labels.threshold": "threshold",
+    "labels.provider": "Provider",
     "labels.baseUrl": "API Base URL",
     "labels.model": "LLM Model",
     "labels.apiKey": "API Key",
@@ -392,14 +399,65 @@ async function loadSettings() {
 
   setSettingsStatus("loading");
   const data = await requestJson("/settings");
-  els.baseUrlInput.value = data.deepseek_base_url || "";
-  els.modelInput.value = data.deepseek_model || "";
+  state.availableProviders = data.available_providers || [];
+  const provider = data.llm_provider || "deepseek";
+  renderProviderOptions(provider);
+  els.providerInput.value = provider;
+  renderModelOptions();
+  els.baseUrlInput.value = data.llm_base_url || data.deepseek_base_url || "";
+  els.modelInput.value = data.llm_model || data.deepseek_model || "";
   els.timeoutInput.value = data.request_timeout_seconds || 30;
   els.apiKeyInput.value = "";
   els.clearApiKeyInput.checked = false;
   els.systemPromptInput.value = data.rag_system_prompt || "";
   els.answerPromptInput.value = data.rag_answer_instructions || "";
-  setSettingsStatus(data.api_key_configured ? "key" : "noKey", data.api_key_source);
+  setSettingsStatus(data.llm_api_key_configured ? "key" : "noKey", data.llm_api_key_source);
+}
+
+function renderProviderOptions(selectedProvider = "deepseek") {
+  if (!els.providerInput) {
+    return;
+  }
+  const providers = state.availableProviders.length
+    ? state.availableProviders
+    : [{ provider: selectedProvider, label: selectedProvider, default_base_url: "", default_models: [] }];
+  els.providerInput.innerHTML = providers
+    .map((provider) => {
+      const value = escapeHtml(provider.provider);
+      const label = escapeHtml(provider.label || provider.provider);
+      return `<option value="${value}">${label}</option>`;
+    })
+    .join("");
+}
+
+function getSelectedProviderOption() {
+  const selected = els.providerInput?.value || "deepseek";
+  return state.availableProviders.find((provider) => provider.provider === selected) || null;
+}
+
+function renderModelOptions() {
+  if (!els.modelOptions) {
+    return;
+  }
+  const provider = getSelectedProviderOption();
+  const models = provider?.default_models || [];
+  els.modelOptions.innerHTML = models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+}
+
+function applyProviderDefaults() {
+  const provider = getSelectedProviderOption();
+  renderModelOptions();
+  if (!provider) {
+    return;
+  }
+  if (provider.default_base_url) {
+    els.baseUrlInput.value = provider.default_base_url;
+  }
+  if (provider.default_models?.length) {
+    els.modelInput.value = provider.default_models[0];
+  } else if (provider.provider === "custom_openai_compatible") {
+    els.modelInput.value = "";
+  }
 }
 
 function renderDocuments() {
@@ -616,8 +674,9 @@ function handleDocumentListChange(event) {
 async function saveSettings(event) {
   event.preventDefault();
   const payload = {
-    deepseek_base_url: els.baseUrlInput.value.trim(),
-    deepseek_model: els.modelInput.value.trim(),
+    llm_provider: els.providerInput.value,
+    llm_base_url: els.baseUrlInput.value.trim(),
+    llm_model: els.modelInput.value.trim(),
     request_timeout_seconds: Number(els.timeoutInput.value || 30),
     clear_api_key: els.clearApiKeyInput.checked,
     rag_system_prompt: els.systemPromptInput.value,
@@ -625,7 +684,7 @@ async function saveSettings(event) {
   };
   const apiKey = els.apiKeyInput.value.trim();
   if (apiKey) {
-    payload.deepseek_api_key = apiKey;
+    payload.llm_api_key = apiKey;
   }
 
   setSettingsStatus("saving");
@@ -637,7 +696,13 @@ async function saveSettings(event) {
     });
     els.apiKeyInput.value = "";
     els.clearApiKeyInput.checked = false;
-    setSettingsStatus(data.api_key_configured ? "key" : "noKey", data.api_key_source);
+    state.availableProviders = data.available_providers || state.availableProviders;
+    renderProviderOptions(data.llm_provider || payload.llm_provider);
+    els.providerInput.value = data.llm_provider || payload.llm_provider;
+    renderModelOptions();
+    els.baseUrlInput.value = data.llm_base_url || payload.llm_base_url;
+    els.modelInput.value = data.llm_model || payload.llm_model;
+    setSettingsStatus(data.llm_api_key_configured ? "key" : "noKey", data.llm_api_key_source);
     showToast(t("toast.settingsSaved"));
   } catch (error) {
     setSettingsStatus("error");
@@ -1188,6 +1253,7 @@ els.documentList.addEventListener("click", handleDocumentListClick);
 els.documentList.addEventListener("change", handleDocumentListChange);
 els.askForm.addEventListener("submit", askQuestion);
 els.settingsForm.addEventListener("submit", saveSettings);
+els.providerInput.addEventListener("change", applyProviderDefaults);
 els.evaluationForm.addEventListener("submit", runEvaluation);
 els.reloadEvaluation.addEventListener("click", () => {
   loadLatestEvaluation().catch((error) => showToast(error.message, true));

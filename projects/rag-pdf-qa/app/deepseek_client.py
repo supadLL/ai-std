@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 
 from app.config import Settings
+from app.llm_providers import get_provider_option
 
 
 class DeepSeekClientError(RuntimeError):
@@ -32,46 +33,48 @@ class DeepSeekClient:
         max_tokens: int = 1000,
         temperature: float = 0.2,
     ) -> dict[str, Any]:
-        if not self._settings.deepseek_api_key:
-            raise DeepSeekClientError("DEEPSEEK_API_KEY is not configured")
+        provider_option = get_provider_option(self._settings.llm_provider)
+        if provider_option.api_key_required and not self._settings.llm_api_key:
+            raise DeepSeekClientError("LLM_API_KEY is not configured")
 
-        url = f"{self._settings.deepseek_base_url}/chat/completions"
+        url = f"{self._settings.llm_base_url}/chat/completions"
         payload = {
-            "model": self._settings.deepseek_model,
+            "model": self._settings.llm_model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
         headers = {
-            "Authorization": f"Bearer {self._settings.deepseek_api_key}",
             "Content-Type": "application/json",
         }
+        if self._settings.llm_api_key:
+            headers["Authorization"] = f"Bearer {self._settings.llm_api_key}"
 
         try:
             async with httpx.AsyncClient(timeout=self._settings.request_timeout_seconds) as client:
                 response = await client.post(url, json=payload, headers=headers)
                 response.raise_for_status()
         except httpx.TimeoutException as exc:
-            raise DeepSeekClientError("DeepSeek request timed out") from exc
+            raise DeepSeekClientError(f"{provider_option.label} request timed out") from exc
         except httpx.HTTPStatusError as exc:
             body = exc.response.text[:500]
             raise DeepSeekClientError(
-                f"DeepSeek returned HTTP {exc.response.status_code}: {body}"
+                f"{provider_option.label} returned HTTP {exc.response.status_code}: {body}"
             ) from exc
         except httpx.HTTPError as exc:
-            raise DeepSeekClientError(f"DeepSeek request failed: {exc}") from exc
+            raise DeepSeekClientError(f"{provider_option.label} request failed: {exc}") from exc
 
         data = response.json()
         choices = data.get("choices") or []
         if not choices:
-            raise DeepSeekClientError("DeepSeek response has no choices")
+            raise DeepSeekClientError("LLM response has no choices")
 
         content = choices[0].get("message", {}).get("content")
         if not content:
-            raise DeepSeekClientError("DeepSeek response content is empty")
+            raise DeepSeekClientError("LLM response content is empty")
 
         return {
             "reply": content,
-            "model": data.get("model", self._settings.deepseek_model),
+            "model": data.get("model", self._settings.llm_model),
             "usage": data.get("usage"),
         }

@@ -55,7 +55,7 @@ def test_agent_ask_routes_small_talk_to_chat(monkeypatch):
     data = response.json()
     assert data["route"] == "chat"
     assert data["route_reason"]
-    assert data["tools_used"] == ["deepseek_chat"]
+    assert data["tools_used"] == ["llm_chat"]
     assert data["routing_debug"]["selected_route"] == "chat"
     assert data["routing_debug"]["fallback"] is None
     assert data["reply"] == "你好，我是本地 RAG 助手。"
@@ -114,7 +114,7 @@ def test_agent_ask_routes_document_question_to_rag(monkeypatch):
     data = response.json()
     assert data["route"] == "rag"
     assert "知识库" in data["route_reason"] or "资料" in data["route_reason"]
-    assert data["tools_used"] == ["local_embedding", "qdrant_search", "deepseek_rag"]
+    assert data["tools_used"] == ["local_embedding", "qdrant_search", "llm_rag"]
     assert data["routing_debug"]["selected_route"] == "rag"
     assert data["routing_debug"]["retrieved_count"] == 1
     assert data["routing_debug"]["filtered_count"] == 1

@@ -22,6 +22,7 @@ from app.evaluation import (
     read_latest_evaluation,
     run_rag_search_evaluation,
 )
+from app.llm_providers import get_provider_options
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
 from app.runtime_settings import (
     RuntimeSettings,
@@ -357,9 +358,15 @@ class BatchDeleteDocumentsResponse(BaseModel):
 class AppSettingsResponse(BaseModel):
     deepseek_base_url: str
     deepseek_model: str
+    llm_provider: str
+    llm_base_url: str
+    llm_model: str
     request_timeout_seconds: float
     api_key_configured: bool
     api_key_source: str
+    llm_api_key_configured: bool
+    llm_api_key_source: str
+    available_providers: list[dict[str, Any]]
     embedding_model: str
     qdrant_collection: str
     rag_system_prompt: str
@@ -371,6 +378,10 @@ class UpdateAppSettingsRequest(BaseModel):
     clear_api_key: bool = False
     deepseek_base_url: str | None = Field(default=None, max_length=500)
     deepseek_model: str | None = Field(default=None, max_length=200)
+    llm_provider: str | None = Field(default=None, max_length=80)
+    llm_api_key: str | None = Field(default=None, max_length=4000)
+    llm_base_url: str | None = Field(default=None, max_length=500)
+    llm_model: str | None = Field(default=None, max_length=200)
     request_timeout_seconds: float | None = Field(default=None, ge=1, le=300)
     rag_system_prompt: str | None = Field(default=None, max_length=12000)
     rag_answer_instructions: str | None = Field(default=None, max_length=12000)
@@ -412,6 +423,10 @@ async def update_app_settings(request: UpdateAppSettingsRequest) -> AppSettingsR
         clear_api_key=request.clear_api_key,
         deepseek_base_url=request.deepseek_base_url,
         deepseek_model=request.deepseek_model,
+        llm_provider=request.llm_provider,
+        llm_api_key=request.llm_api_key,
+        llm_base_url=request.llm_base_url,
+        llm_model=request.llm_model,
         request_timeout_seconds=request.request_timeout_seconds,
         rag_system_prompt=request.rag_system_prompt,
         rag_answer_instructions=request.rag_answer_instructions,
@@ -1052,7 +1067,7 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
             question=request.question,
             route="chat",
             route_reason=route_decision.reason,
-            tools_used=["deepseek_chat"],
+            tools_used=["llm_chat"],
             routing_debug={
                 **routing_debug,
                 "retrieved_count": 0,
@@ -1144,7 +1159,7 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
         question=request.question,
         route="rag",
         route_reason=route_decision.reason,
-        tools_used=["local_embedding", "qdrant_search", "deepseek_rag"],
+        tools_used=["local_embedding", "qdrant_search", "llm_rag"],
         routing_debug={
             **retrieval_debug,
             "fallback": None,
@@ -1203,9 +1218,9 @@ def _to_app_settings_response(
     runtime_settings: RuntimeSettings,
     effective_settings: Any,
 ) -> AppSettingsResponse:
-    if runtime_settings.deepseek_api_key:
+    if runtime_settings.llm_api_key or runtime_settings.deepseek_api_key:
         api_key_source = "runtime"
-    elif base_settings.deepseek_api_key:
+    elif base_settings.llm_api_key:
         api_key_source = "env"
     else:
         api_key_source = "none"
@@ -1213,9 +1228,15 @@ def _to_app_settings_response(
     return AppSettingsResponse(
         deepseek_base_url=effective_settings.deepseek_base_url,
         deepseek_model=effective_settings.deepseek_model,
+        llm_provider=effective_settings.llm_provider,
+        llm_base_url=effective_settings.llm_base_url,
+        llm_model=effective_settings.llm_model,
         request_timeout_seconds=effective_settings.request_timeout_seconds,
-        api_key_configured=bool(effective_settings.deepseek_api_key),
+        api_key_configured=bool(effective_settings.llm_api_key),
         api_key_source=api_key_source,
+        llm_api_key_configured=bool(effective_settings.llm_api_key),
+        llm_api_key_source=api_key_source,
+        available_providers=get_provider_options(),
         embedding_model=base_settings.embedding_model,
         qdrant_collection=base_settings.qdrant_collection,
         rag_system_prompt=runtime_settings.rag_system_prompt or DEFAULT_RAG_SYSTEM_PROMPT,

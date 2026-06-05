@@ -46,6 +46,7 @@
 - [第 34 步完成总结：RAG 评估脚本与评估面板](docs/summary/34-rag-evaluation-panel-summary.md)
 - [第 35 步完成总结：Agent 工具路由增强](docs/summary/35-agent-routing-enhancement-summary.md)
 - [第 36 步完成总结：知识库管理能力增强](docs/summary/36-knowledge-base-management-enhancement-summary.md)
+- [第 37 步完成总结：多模型供应商与自定义 API 配置](docs/summary/37-multi-provider-llm-config-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -144,11 +145,16 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-然后编辑 `.env`：
+然后编辑 `.env`。新版本优先使用通用 `LLM_*` 配置：
 
 ```text
-DEEPSEEK_API_KEY=你的真实 DeepSeek API Key
+LLM_PROVIDER=deepseek
+LLM_API_KEY=你的真实模型 API Key
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-v4-flash
 ```
+
+旧的 `DEEPSEEK_*` 变量仍然兼容，但后续建议新环境统一使用 `LLM_*`。
 
 不要把真实 API Key 写进 README、docs、测试文件或提交到 GitHub。
 
@@ -294,7 +300,7 @@ Invoke-RestMethod `
 ## 当前已经实现
 
 - `GET /health`：健康检查
-- `POST /chat`：调用 DeepSeek Chat Completions
+- `POST /chat`：调用当前配置的 LLM Provider Chat Completions
 - `POST /documents/extract`：上传 PDF 并提取文本，支持 `enable_ocr=true` 对扫描型 PDF 做 OCR
 - `POST /documents/chunk`：上传 PDF 并切分文本块，支持 OCR 页面来源标记
 - `POST /embeddings/text`：把文本转换成 embedding 向量
@@ -305,13 +311,13 @@ Invoke-RestMethod `
 - `DELETE /documents/batch`：批量删除多个文档的 Qdrant chunks 和 metadata
 - `POST /documents/{document_id}/reindex`：为指定 document_id 上传替换文件并重新索引
 - `POST /documents/search`：用问题检索本地 Qdrant 里的相关 chunk，支持 `document_id` / `file_type` 过滤
-- `POST /rag/ask`：检索本地 Qdrant，并把相关 chunk 交给 DeepSeek 生成 RAG 回答，支持限定 `document_id`
+- `POST /rag/ask`：检索本地 Qdrant，并把相关 chunk 交给当前 LLM Provider 生成 RAG 回答，支持限定 `document_id`
 - `GET /` / `GET /app`：打开本地 RAG Web UI
 - `GET /settings`：读取本地运行时 LLM 设置，不返回真实 API Key
 - `PUT /settings`：保存本地运行时 LLM、API Key 和 RAG prompt 设置
 - `POST /agent/ask`：可解释 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`，支持限定 `document_id`，返回 `route_reason`、`tools_used`、`routing_debug`
 - `GET /evaluation/questions`：读取本地 RAG 评估问题集
-- `POST /evaluation/run`：运行本地检索评估并保存最近结果，不调用 DeepSeek
+- `POST /evaluation/run`：运行本地检索评估并保存最近结果，不调用 LLM
 - `GET /evaluation/latest`：读取最近一次 RAG 检索评估结果
 - `/rag/ask` 支持 `score_threshold` 低分过滤
 - `/rag/ask` 的 `sources` 已优化为 `source_id` + `preview` 结构
@@ -339,12 +345,13 @@ Invoke-RestMethod `
 - PDF 入库已支持可选 OCR：`enable_ocr=true`、`ocr_language=chi_sim+eng`
 - docx 入库已支持可选图片 OCR：`enable_image_ocr=true`
 - RAG sources 已返回 `extraction_method`，可区分 `text`、`table`、`pdf_ocr`、`image_ocr`
-- 已支持在设置页调整 DeepSeek base_url、model、timeout、API Key 和 RAG prompt
+- 已支持在设置页选择 DeepSeek、Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax 或自定义 OpenAI-compatible API
+- 已支持在设置页调整当前 LLM Provider 的 base_url、model、timeout、API Key 和 RAG prompt
 - 已新增运行时设置文件 `data/runtime_settings.json`，该文件不提交 GitHub
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
-- DeepSeek 异常转换
+- LLM 客户端异常转换
 - 返回 token usage，方便后续做成本统计
 
 ## 测试最小 RAG 问答
@@ -402,7 +409,7 @@ Invoke-RestMethod `
 
 ## 运行本地 RAG 检索评估
 
-评估脚本只调用本地 embedding 和本地 Qdrant，不调用 DeepSeek：
+评估脚本只调用本地 embedding 和本地 Qdrant，不调用 LLM：
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_rag_evaluation.py
@@ -440,5 +447,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 37 步“多模型供应商与自定义 API 配置”继续推进，再进入项目演示材料。
+后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 38 步“项目演示与简历呈现优化”继续推进。
 
