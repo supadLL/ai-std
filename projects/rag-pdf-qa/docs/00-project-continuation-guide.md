@@ -626,6 +626,7 @@ PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、
 当前可优先从这些方向选择：
 
 ```text
+多模型供应商与自定义 API 配置
 项目演示路径整理
 README 面向新用户的快速体验说明
 简历项目描述
@@ -660,7 +661,8 @@ RAG 评估历史记录列表
 | 34 | `docs/goal/34-rag-evaluation-panel-goal.md` | RAG 评估脚本与评估面板 |
 | 35 | `docs/goal/35-agent-routing-enhancement-goal.md` | Agent 工具路由增强 |
 | 36 | `docs/goal/36-knowledge-base-management-enhancement-goal.md` | 知识库管理能力增强 |
-| 37 | `docs/goal/37-project-demo-and-resume-polish-goal.md` | 项目演示与简历呈现优化 |
+| 37 | `docs/goal/37-multi-provider-llm-config-goal.md` | 多模型供应商与自定义 API 配置 |
+| 38 | `docs/goal/38-project-demo-and-resume-polish-goal.md` | 项目演示与简历呈现优化 |
 
 执行节奏保持：
 

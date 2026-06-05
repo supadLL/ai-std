@@ -155,7 +155,8 @@ rag-pdf-qa 主线已完成到第 36 步。
 | 34 | [34-rag-evaluation-panel-goal.md](34-rag-evaluation-panel-goal.md) | RAG 评估脚本与评估面板 |
 | 35 | [35-agent-routing-enhancement-goal.md](35-agent-routing-enhancement-goal.md) | Agent 工具路由增强 |
 | 36 | [36-knowledge-base-management-enhancement-goal.md](36-knowledge-base-management-enhancement-goal.md) | 知识库管理能力增强 |
-| 37 | [37-project-demo-and-resume-polish-goal.md](37-project-demo-and-resume-polish-goal.md) | 项目演示与简历呈现优化 |
+| 37 | [37-multi-provider-llm-config-goal.md](37-multi-provider-llm-config-goal.md) | 多模型供应商与自定义 API 配置 |
+| 38 | [38-project-demo-and-resume-polish-goal.md](38-project-demo-and-resume-polish-goal.md) | 项目演示与简历呈现优化 |
 
 执行时不要跳过当前步骤直接做后面的功能。
 

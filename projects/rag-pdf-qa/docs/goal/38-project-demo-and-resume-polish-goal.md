@@ -1,4 +1,4 @@
-# 第 37 步执行目标：项目演示与简历呈现优化
+# 第 38 步执行目标：项目演示与简历呈现优化
 
 这一步的目标是：
 
@@ -79,7 +79,7 @@ docs/assets/evaluation-screenshot.png
 完成后新增：
 
 ```text
-docs/summary/37-project-demo-and-resume-polish-summary.md
+docs/summary/38-project-demo-and-resume-polish-summary.md
 ```
 
 ---
@@ -138,5 +138,5 @@ docs/summary/37-project-demo-and-resume-polish-summary.md
 完成后写入：
 
 ```text
-docs/summary/37-project-demo-and-resume-polish-summary.md
+docs/summary/38-project-demo-and-resume-polish-summary.md
 ```

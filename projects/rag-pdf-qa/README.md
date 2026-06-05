@@ -75,7 +75,8 @@
 - [第 34 步执行目标：RAG 评估脚本与评估面板](docs/goal/34-rag-evaluation-panel-goal.md)
 - [第 35 步执行目标：Agent 工具路由增强](docs/goal/35-agent-routing-enhancement-goal.md)
 - [第 36 步执行目标：知识库管理能力增强](docs/goal/36-knowledge-base-management-enhancement-goal.md)
-- [第 37 步执行目标：项目演示与简历呈现优化](docs/goal/37-project-demo-and-resume-polish-goal.md)
+- [第 37 步执行目标：多模型供应商与自定义 API 配置](docs/goal/37-multi-provider-llm-config-goal.md)
+- [第 38 步执行目标：项目演示与简历呈现优化](docs/goal/38-project-demo-and-resume-polish-goal.md)
 
 ## 快速唤醒本地 RAG
 
@@ -439,5 +440,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 37 步“项目演示与简历呈现优化”继续推进。
+后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 37 步“多模型供应商与自定义 API 配置”继续推进，再进入项目演示材料。
 
