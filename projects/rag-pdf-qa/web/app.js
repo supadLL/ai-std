@@ -897,11 +897,11 @@ function renderEvaluationCase(item) {
     .join("<br />");
   return `
     <article class="evaluation-case ${item.hit ? "hit" : "miss"}">
-      <div class="source-title">
-        <span>${escapeHtml(item.case_id)} · ${escapeHtml(item.question)}</span>
-        <span class="type-pill">${statusText}</span>
+      <div class="evaluation-case-head">
+        <span class="evaluation-question">${escapeHtml(item.case_id)} · ${escapeHtml(item.question)}</span>
+        <span class="type-pill evaluation-result-pill">${statusText}</span>
       </div>
-      <div class="meta">
+      <div class="meta evaluation-case-meta">
         pages ${escapeHtml((item.top_pages || []).join(", ") || "-")} · scores ${escapeHtml(scores || "-")}<br />
         keywords ${escapeHtml((item.matched_keywords || []).join(", ") || "-")}
       </div>

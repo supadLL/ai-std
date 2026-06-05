@@ -635,6 +635,10 @@ h3 {
 .evaluation-case {
   position: relative;
   overflow: hidden;
+  display: grid;
+  gap: 8px;
+  min-height: 74px;
+  padding-left: 16px;
 }
 
 .evaluation-case::before {
@@ -656,6 +660,30 @@ h3 {
 .evaluation-case.miss .type-pill {
   color: var(--danger);
   background: rgba(255, 107, 107, 0.09);
+}
+
+.evaluation-case-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.evaluation-question {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.evaluation-result-pill {
+  flex-shrink: 0;
+  align-self: start;
+}
+
+.evaluation-case-meta {
+  line-height: 1.55;
 }
 
 .doc-title,
