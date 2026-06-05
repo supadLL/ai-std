@@ -6,7 +6,7 @@
     <title>Local RAG Agent | Knowledge QA</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" />
     <link rel="apple-touch-icon" sizes="192x192" href="/web/assets/rag-agent-icon-192.png?v=29" />
-    <link rel="stylesheet" href="/web/styles.css?v=38" />
+    <link rel="stylesheet" href="/web/styles.css?v=39" />
   </head>
   <body>
     <main class="shell">
@@ -62,14 +62,14 @@
             <form class="upload-box" id="uploadForm">
               <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.docx,.csv,.xlsx" />
               <div class="upload-meta">
-                <label for="chunkSize" data-i18n="import.chunk">chunk</label>
+                <label for="chunkSize" data-i18n="import.chunk">分块大小 chunk</label>
                 <input id="chunkSize" name="chunk_size" type="number" min="100" max="3000" value="800" />
-                <label for="overlap" data-i18n="import.overlap">overlap</label>
+                <label for="overlap" data-i18n="import.overlap">重叠长度 overlap</label>
                 <input id="overlap" name="overlap" type="number" min="0" value="100" />
               </div>
               <label class="toggle">
                 <input id="reindex" name="reindex" type="checkbox" />
-                <span data-i18n="import.reindex">reindex</span>
+                <span data-i18n="import.reindex">重新索引 reindex</span>
               </label>
               <button class="primary-button" type="submit" data-i18n="import.submit">上传索引</button>
             </form>
@@ -122,11 +122,11 @@
               <textarea id="questionInput" rows="2" placeholder="输入问题" data-i18n-placeholder="ask.placeholder"></textarea>
               <div class="controls">
                 <label>
-                  <span data-i18n="ask.topK">top_k</span>
+                  <span data-i18n="ask.topK">检索数量 top_k</span>
                   <input id="topK" type="number" min="1" max="10" value="5" />
                 </label>
                 <label>
-                  <span data-i18n="ask.threshold">threshold</span>
+                  <span data-i18n="ask.threshold">分数阈值 threshold</span>
                   <input id="scoreThreshold" type="number" min="0" max="1" step="0.05" placeholder="auto" />
                 </label>
                 <label>
@@ -164,11 +164,11 @@
 
             <form class="evaluation-controls" id="evaluationForm">
               <label>
-                <span data-i18n="evaluation.topK">top_k</span>
+                <span data-i18n="evaluation.topK">检索数量 top_k</span>
                 <input id="evaluationTopK" type="number" min="1" max="20" value="5" />
               </label>
               <label>
-                <span data-i18n="evaluation.threshold">threshold</span>
+                <span data-i18n="evaluation.threshold">分数阈值 threshold</span>
                 <input id="evaluationThreshold" type="number" min="0" max="1" step="0.05" placeholder="auto" />
               </label>
               <button class="primary-button" type="submit" data-i18n="evaluation.run">运行评估</button>
@@ -235,11 +235,11 @@
                   <table class="profile-table">
                     <thead>
                       <tr>
-                        <th data-i18n="settings.profileProvider">供应商</th>
-                        <th data-i18n="settings.profileKey">API Key</th>
-                        <th data-i18n="settings.profileModel">模型</th>
-                        <th data-i18n="settings.profileEnabled">是否启用</th>
-                        <th data-i18n="settings.profileActions">操作</th>
+                        <th data-i18n="settings.profileProvider">供应商 Provider</th>
+                        <th data-i18n="settings.profileKey">密钥 API Key</th>
+                        <th data-i18n="settings.profileModel">模型 Model</th>
+                        <th data-i18n="settings.profileEnabled">启用状态 Active</th>
+                        <th data-i18n="settings.profileActions">操作 Actions</th>
                       </tr>
                     </thead>
                     <tbody id="profileTableBody"></tbody>
@@ -249,17 +249,17 @@
 
               <div class="settings-grid single">
                 <label>
-                  <span data-i18n="settings.timeout">Timeout</span>
+                  <span data-i18n="settings.timeout">超时时间 Timeout</span>
                   <input id="timeoutInput" type="number" min="1" max="300" step="1" />
                 </label>
               </div>
 
               <label>
-                <span data-i18n="settings.systemPrompt">RAG System Prompt</span>
+                <span data-i18n="settings.systemPrompt">RAG 系统提示词 RAG System Prompt</span>
                 <textarea id="systemPromptInput" rows="7"></textarea>
               </label>
               <label>
-                <span data-i18n="settings.answerPrompt">RAG Answer Instructions</span>
+                <span data-i18n="settings.answerPrompt">RAG 回答指令 RAG Answer Instructions</span>
                 <textarea id="answerPromptInput" rows="10"></textarea>
               </label>
 
@@ -289,20 +289,20 @@
             <input id="profileNameInput" type="text" placeholder="DeepSeek Pro" />
           </label>
           <label>
-            <span data-i18n="settings.provider">模型供应商</span>
+            <span data-i18n="settings.provider">模型供应商 Provider</span>
             <select id="providerInput"></select>
           </label>
           <label>
-            <span data-i18n="settings.baseUrl">API Base URL</span>
+            <span data-i18n="settings.baseUrl">接口地址 API Base URL</span>
             <input id="baseUrlInput" type="url" placeholder="https://api.deepseek.com" />
           </label>
           <label>
-            <span data-i18n="settings.model">LLM Model</span>
+            <span data-i18n="settings.model">模型名称 LLM Model</span>
             <input id="modelInput" type="text" placeholder="deepseek-v4-flash" list="modelOptions" />
             <datalist id="modelOptions"></datalist>
           </label>
           <label>
-            <span data-i18n="settings.apiKey">API Key</span>
+            <span data-i18n="settings.apiKey">接口密钥 API Key</span>
             <input id="apiKeyInput" type="password" placeholder="留空则不修改已配置密钥" data-i18n-placeholder="settings.apiKeyPlaceholder" autocomplete="off" />
           </label>
           <label class="toggle modal-toggle">
@@ -321,6 +321,6 @@
       </form>
     </div>
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js?v=38"></script>
+    <script src="/web/app.js?v=39"></script>
   </body>
 </html>

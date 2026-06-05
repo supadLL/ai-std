@@ -68,8 +68,14 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=38" in app_response.text
-    assert "/web/app.js?v=38" in app_response.text
+    assert "/web/styles.css?v=39" in app_response.text
+    assert "/web/app.js?v=39" in app_response.text
+    assert "分块大小 chunk" in app_response.text
+    assert "重叠长度 overlap" in app_response.text
+    assert "重新索引 reindex" in app_response.text
+    assert "检索数量 top_k" in app_response.text
+    assert "分数阈值 threshold" in app_response.text
+    assert "接口地址 API Base URL" in app_response.text
     assert 'data-ask-mode="rag"' in app_response.text
     assert 'data-ask-mode="agent"' in app_response.text
     assert 'id="documentNameFilter"' in app_response.text

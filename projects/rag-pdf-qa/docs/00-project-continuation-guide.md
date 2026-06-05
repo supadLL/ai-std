@@ -61,6 +61,7 @@ Web UI 分页：文件导入 / 知识问答 / 设置
 Web UI Tab 布局混排修复
 Web UI 回答轻量 Markdown 渲染
 Web UI 中文 / English 切换和系统色偏好
+Web UI 中文模式技术标签“中文含义 + 英文术语”展示
 Web UI 背景颜色偏好
 Web UI 科技感项目图标和浏览器 Tab 标题优化
 Web UI 背景色覆盖整体 UI 面板
@@ -670,7 +671,8 @@ RAG 评估历史记录列表
 | 36 | `docs/goal/36-knowledge-base-management-enhancement-goal.md` | 知识库管理能力增强 |
 | 37 | `docs/goal/37-multi-provider-llm-config-goal.md` | 多模型供应商与自定义 API 配置 |
 | 38 | `docs/goal/38-llm-profile-management-goal.md` | LLM API 配置档案管理 |
-| 39 | `docs/goal/39-project-demo-and-resume-polish-goal.md` | 项目演示与简历呈现优化 |
+| 39 | `docs/goal/39-zh-technical-labels-goal.md` | 中文模式技术标签可读性优化 |
+| 40 | `docs/goal/40-project-demo-and-resume-polish-goal.md` | 项目演示与简历呈现优化 |
 
 执行节奏保持：
 
@@ -712,6 +714,7 @@ Web UI 分页
 Web UI Tab 页面隔离和垂直导航
 Web UI 回答 Markdown 展示
 Web UI 语言和系统色偏好
+Web UI 中文技术标签说明
 Web UI 背景颜色偏好
 Web UI 项目图标和 Tab 标题
 Web UI 背景色覆盖左侧导航、主面板、表单、卡片和回答区域

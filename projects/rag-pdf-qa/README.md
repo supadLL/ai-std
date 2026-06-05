@@ -48,6 +48,7 @@
 - [第 36 步完成总结：知识库管理能力增强](docs/summary/36-knowledge-base-management-enhancement-summary.md)
 - [第 37 步完成总结：多模型供应商与自定义 API 配置](docs/summary/37-multi-provider-llm-config-summary.md)
 - [第 38 步完成总结：LLM API 配置档案管理](docs/summary/38-llm-profile-management-summary.md)
+- [第 39 步完成总结：中文模式技术标签可读性优化](docs/summary/39-zh-technical-labels-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -79,7 +80,8 @@
 - [第 36 步执行目标：知识库管理能力增强](docs/goal/36-knowledge-base-management-enhancement-goal.md)
 - [第 37 步执行目标：多模型供应商与自定义 API 配置](docs/goal/37-multi-provider-llm-config-goal.md)
 - [第 38 步执行目标：LLM API 配置档案管理](docs/goal/38-llm-profile-management-goal.md)
-- [第 39 步执行目标：项目演示与简历呈现优化](docs/goal/39-project-demo-and-resume-polish-goal.md)
+- [第 39 步执行目标：中文模式技术标签可读性优化](docs/goal/39-zh-technical-labels-goal.md)
+- [第 40 步执行目标：项目演示与简历呈现优化](docs/goal/40-project-demo-and-resume-polish-goal.md)
 
 ## 快速唤醒本地 RAG
 
@@ -339,6 +341,7 @@ Invoke-RestMethod `
 - Web UI 已修复 Tab 混排问题，当前左侧为明确的垂直功能导航
 - Web UI 已支持轻量 Markdown 回答渲染，避免直接显示 `**` 和代码围栏
 - Web UI 已支持中文 / English 切换和系统色偏好设置
+- Web UI 中文模式已支持技术标签“中文含义 + 英文术语”展示
 - Web UI 已支持背景颜色偏好设置
 - Web UI 背景颜色已覆盖左侧导航、主面板、表单、卡片和回答区域
 - Web UI 已新增科技感项目图标和浏览器 Tab 标题优化
@@ -450,5 +453,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 39 步“项目演示与简历呈现优化”继续推进。
+后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 40 步“项目演示与简历呈现优化”继续推进。
 
