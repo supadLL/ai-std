@@ -22,13 +22,16 @@ from app.evaluation import (
     read_latest_evaluation,
     run_rag_search_evaluation,
 )
-from app.llm_providers import get_provider_options
+from app.llm_providers import get_provider_options, normalize_provider
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
 from app.runtime_settings import (
+    DEFAULT_LLM_PROFILE_ID,
+    LlmRuntimeProfile,
     RuntimeSettings,
     apply_runtime_settings,
     load_runtime_settings,
     merge_runtime_settings,
+    replace_llm_profiles,
     save_runtime_settings,
 )
 from app.text_splitter import TextChunk, TextSplitError, split_parsed_document, split_pdf_text
@@ -355,6 +358,18 @@ class BatchDeleteDocumentsResponse(BaseModel):
     missing_document_ids: list[str] = Field(default_factory=list)
 
 
+class LlmProfileResponse(BaseModel):
+    profile_id: str
+    name: str
+    provider: str
+    base_url: str
+    model: str
+    enabled: bool
+    api_key_configured: bool
+    api_key_source: str
+    api_key_label: str
+
+
 class AppSettingsResponse(BaseModel):
     deepseek_base_url: str
     deepseek_model: str
@@ -366,6 +381,8 @@ class AppSettingsResponse(BaseModel):
     api_key_source: str
     llm_api_key_configured: bool
     llm_api_key_source: str
+    active_llm_profile_id: str
+    llm_profiles: list[LlmProfileResponse]
     available_providers: list[dict[str, Any]]
     embedding_model: str
     qdrant_collection: str
@@ -385,6 +402,16 @@ class UpdateAppSettingsRequest(BaseModel):
     request_timeout_seconds: float | None = Field(default=None, ge=1, le=300)
     rag_system_prompt: str | None = Field(default=None, max_length=12000)
     rag_answer_instructions: str | None = Field(default=None, max_length=12000)
+
+
+class LlmProfileRequest(BaseModel):
+    name: str | None = Field(default=None, max_length=120)
+    provider: str = Field(max_length=80)
+    api_key: str | None = Field(default=None, max_length=4000)
+    clear_api_key: bool = False
+    base_url: str = Field(min_length=1, max_length=500)
+    model: str = Field(min_length=1, max_length=200)
+    activate: bool = False
 
 
 @app.get("/health")
@@ -443,6 +470,118 @@ async def update_app_settings(request: UpdateAppSettingsRequest) -> AppSettingsR
         runtime_settings=next_runtime_settings,
         effective_settings=effective_settings,
     )
+
+
+@app.post("/settings/llm-profiles", response_model=AppSettingsResponse)
+async def create_llm_profile(request: LlmProfileRequest) -> AppSettingsResponse:
+    base_settings = get_settings()
+    current_runtime_settings = _load_runtime_settings_or_422()
+    effective_settings = apply_runtime_settings(base_settings, current_runtime_settings)
+    profiles, active_profile_id = _materialize_llm_profiles(
+        base_settings=base_settings,
+        runtime_settings=current_runtime_settings,
+        effective_settings=effective_settings,
+    )
+    provider = normalize_provider(request.provider)
+    profile = LlmRuntimeProfile(
+        profile_id=uuid4().hex[:12],
+        name=(request.name or f"{provider} / {request.model}").strip(),
+        provider=provider,
+        base_url=request.base_url.strip().rstrip("/"),
+        model=request.model.strip(),
+        api_key=_optional_secret(request.api_key),
+    )
+    next_active_profile_id = profile.profile_id if request.activate else active_profile_id
+    next_runtime_settings = replace_llm_profiles(
+        current_runtime_settings,
+        profiles=(*profiles, profile),
+        active_profile_id=next_active_profile_id,
+    )
+    return _save_and_render_settings(base_settings, next_runtime_settings)
+
+
+@app.put("/settings/llm-profiles/{profile_id}", response_model=AppSettingsResponse)
+async def update_llm_profile(profile_id: str, request: LlmProfileRequest) -> AppSettingsResponse:
+    base_settings = get_settings()
+    current_runtime_settings = _load_runtime_settings_or_422()
+    effective_settings = apply_runtime_settings(base_settings, current_runtime_settings)
+    profiles, active_profile_id = _materialize_llm_profiles(
+        base_settings=base_settings,
+        runtime_settings=current_runtime_settings,
+        effective_settings=effective_settings,
+    )
+    next_profiles: list[LlmRuntimeProfile] = []
+    found = False
+    for profile in profiles:
+        if profile.profile_id != profile_id:
+            next_profiles.append(profile)
+            continue
+        found = True
+        provider = normalize_provider(request.provider)
+        next_profiles.append(
+            LlmRuntimeProfile(
+                profile_id=profile.profile_id,
+                name=(request.name or f"{provider} / {request.model}").strip(),
+                provider=provider,
+                base_url=request.base_url.strip().rstrip("/"),
+                model=request.model.strip(),
+                api_key=None
+                if request.clear_api_key
+                else _optional_secret(request.api_key) or profile.api_key,
+            )
+        )
+    if not found:
+        raise HTTPException(status_code=404, detail="LLM profile not found")
+
+    next_runtime_settings = replace_llm_profiles(
+        current_runtime_settings,
+        profiles=tuple(next_profiles),
+        active_profile_id=profile_id if request.activate else active_profile_id,
+    )
+    return _save_and_render_settings(base_settings, next_runtime_settings)
+
+
+@app.post("/settings/llm-profiles/{profile_id}/activate", response_model=AppSettingsResponse)
+async def activate_llm_profile(profile_id: str) -> AppSettingsResponse:
+    base_settings = get_settings()
+    current_runtime_settings = _load_runtime_settings_or_422()
+    effective_settings = apply_runtime_settings(base_settings, current_runtime_settings)
+    profiles, _active_profile_id = _materialize_llm_profiles(
+        base_settings=base_settings,
+        runtime_settings=current_runtime_settings,
+        effective_settings=effective_settings,
+    )
+    if not any(profile.profile_id == profile_id for profile in profiles):
+        raise HTTPException(status_code=404, detail="LLM profile not found")
+    next_runtime_settings = replace_llm_profiles(
+        current_runtime_settings,
+        profiles=profiles,
+        active_profile_id=profile_id,
+    )
+    return _save_and_render_settings(base_settings, next_runtime_settings)
+
+
+@app.delete("/settings/llm-profiles/{profile_id}", response_model=AppSettingsResponse)
+async def delete_llm_profile(profile_id: str) -> AppSettingsResponse:
+    base_settings = get_settings()
+    current_runtime_settings = _load_runtime_settings_or_422()
+    effective_settings = apply_runtime_settings(base_settings, current_runtime_settings)
+    profiles, active_profile_id = _materialize_llm_profiles(
+        base_settings=base_settings,
+        runtime_settings=current_runtime_settings,
+        effective_settings=effective_settings,
+    )
+    if profile_id == active_profile_id:
+        raise HTTPException(status_code=400, detail="Cannot delete active LLM profile")
+    next_profiles = tuple(profile for profile in profiles if profile.profile_id != profile_id)
+    if len(next_profiles) == len(profiles):
+        raise HTTPException(status_code=404, detail="LLM profile not found")
+    next_runtime_settings = replace_llm_profiles(
+        current_runtime_settings,
+        profiles=next_profiles,
+        active_profile_id=active_profile_id,
+    )
+    return _save_and_render_settings(base_settings, next_runtime_settings)
 
 
 @app.get("/evaluation/questions", response_model=EvaluationQuestionsResponse)
@@ -1212,18 +1351,86 @@ def _get_effective_settings() -> Any:
     return apply_runtime_settings(base_settings, runtime_settings)
 
 
+def _save_and_render_settings(base_settings: Any, runtime_settings: RuntimeSettings) -> AppSettingsResponse:
+    try:
+        saved_runtime_settings = save_runtime_settings(runtime_settings)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    effective_settings = apply_runtime_settings(base_settings, saved_runtime_settings)
+    return _to_app_settings_response(
+        base_settings=base_settings,
+        runtime_settings=saved_runtime_settings,
+        effective_settings=effective_settings,
+    )
+
+
+def _materialize_llm_profiles(
+    *,
+    base_settings: Any,
+    runtime_settings: RuntimeSettings,
+    effective_settings: Any,
+) -> tuple[tuple[LlmRuntimeProfile, ...], str]:
+    if runtime_settings.llm_profiles:
+        active_profile_id = runtime_settings.active_llm_profile_id or runtime_settings.llm_profiles[0].profile_id
+        return runtime_settings.llm_profiles, active_profile_id
+
+    profile = LlmRuntimeProfile(
+        profile_id=DEFAULT_LLM_PROFILE_ID,
+        name=f"{effective_settings.llm_provider} / {effective_settings.llm_model}",
+        provider=effective_settings.llm_provider,
+        base_url=effective_settings.llm_base_url,
+        model=effective_settings.llm_model,
+        api_key=runtime_settings.llm_api_key or runtime_settings.deepseek_api_key,
+    )
+    return (profile,), DEFAULT_LLM_PROFILE_ID
+
+
+def _to_llm_profile_response(
+    profile: LlmRuntimeProfile,
+    *,
+    active_profile_id: str,
+    base_settings: Any,
+) -> LlmProfileResponse:
+    api_key_source = "runtime" if profile.api_key else "env" if base_settings.llm_api_key else "none"
+    api_key_configured = api_key_source != "none"
+    return LlmProfileResponse(
+        profile_id=profile.profile_id,
+        name=profile.name,
+        provider=profile.provider,
+        base_url=profile.base_url,
+        model=profile.model,
+        enabled=profile.profile_id == active_profile_id,
+        api_key_configured=api_key_configured,
+        api_key_source=api_key_source,
+        api_key_label="SK-********" if api_key_configured else "",
+    )
+
+
 def _to_app_settings_response(
     *,
     base_settings: Any,
     runtime_settings: RuntimeSettings,
     effective_settings: Any,
 ) -> AppSettingsResponse:
-    if runtime_settings.llm_api_key or runtime_settings.deepseek_api_key:
+    active_profile = next(
+        (profile for profile in runtime_settings.llm_profiles if profile.profile_id == runtime_settings.active_llm_profile_id),
+        None,
+    )
+    if active_profile and active_profile.api_key:
+        api_key_source = "runtime"
+    elif runtime_settings.llm_api_key or runtime_settings.deepseek_api_key:
         api_key_source = "runtime"
     elif base_settings.llm_api_key:
         api_key_source = "env"
     else:
         api_key_source = "none"
+
+    profiles, active_profile_id = _materialize_llm_profiles(
+        base_settings=base_settings,
+        runtime_settings=runtime_settings,
+        effective_settings=effective_settings,
+    )
 
     return AppSettingsResponse(
         deepseek_base_url=effective_settings.deepseek_base_url,
@@ -1236,12 +1443,28 @@ def _to_app_settings_response(
         api_key_source=api_key_source,
         llm_api_key_configured=bool(effective_settings.llm_api_key),
         llm_api_key_source=api_key_source,
+        active_llm_profile_id=active_profile_id,
+        llm_profiles=[
+            _to_llm_profile_response(
+                profile,
+                active_profile_id=active_profile_id,
+                base_settings=base_settings,
+            )
+            for profile in profiles
+        ],
         available_providers=get_provider_options(),
         embedding_model=base_settings.embedding_model,
         qdrant_collection=base_settings.qdrant_collection,
         rag_system_prompt=runtime_settings.rag_system_prompt or DEFAULT_RAG_SYSTEM_PROMPT,
         rag_answer_instructions=runtime_settings.rag_answer_instructions or DEFAULT_RAG_ANSWER_INSTRUCTIONS,
     )
+
+
+def _optional_secret(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
 
 
 def _to_search_result_response(result: SearchResult) -> SearchResultResponse:

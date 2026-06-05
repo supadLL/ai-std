@@ -71,6 +71,7 @@ RAG 检索评估脚本、API 和 Web UI 评估面板
 知识库管理增强：筛选、详情、批量删除、指定文档重建索引、限定文档检索
 运行时 LLM 设置：base_url、model、timeout、API Key 和 RAG prompt
 多模型供应商与自定义 OpenAI-compatible API 配置
+LLM API 配置档案管理：新增、编辑、删除和一键启用
 最小 pytest 回归测试骨架
 ```
 
@@ -235,6 +236,10 @@ Swagger Docs 页面必须能测试接口。
 | `GET /` / `GET /app` | 打开本地 RAG Web UI |
 | `GET /settings` | 读取本地运行时 LLM 设置，不返回真实 API Key |
 | `PUT /settings` | 保存本地运行时 LLM、API Key 和 RAG prompt 设置 |
+| `POST /settings/llm-profiles` | 新增 LLM API 配置档案，不返回真实 API Key |
+| `PUT /settings/llm-profiles/{profile_id}` | 编辑 LLM API 配置档案 |
+| `POST /settings/llm-profiles/{profile_id}/activate` | 启用某个 LLM API 配置档案 |
+| `DELETE /settings/llm-profiles/{profile_id}` | 删除未启用的 LLM API 配置档案 |
 
 测试顺序建议：
 
@@ -606,7 +611,7 @@ PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> 当前 LLM Pr
 PDF 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
-PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM 和 prompt 设置、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引。
+PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。
@@ -664,7 +669,8 @@ RAG 评估历史记录列表
 | 35 | `docs/goal/35-agent-routing-enhancement-goal.md` | Agent 工具路由增强 |
 | 36 | `docs/goal/36-knowledge-base-management-enhancement-goal.md` | 知识库管理能力增强 |
 | 37 | `docs/goal/37-multi-provider-llm-config-goal.md` | 多模型供应商与自定义 API 配置 |
-| 38 | `docs/goal/38-project-demo-and-resume-polish-goal.md` | 项目演示与简历呈现优化 |
+| 38 | `docs/goal/38-llm-profile-management-goal.md` | LLM API 配置档案管理 |
+| 39 | `docs/goal/39-project-demo-and-resume-polish-goal.md` | 项目演示与简历呈现优化 |
 
 执行节奏保持：
 
@@ -713,6 +719,7 @@ Web UI RAG / Agent 模式切换和 Agent 路由解释展示
 Web UI 提问限定 document_id
 一键启动脚本和 Dockerfile
 /settings 多供应商 LLM 运行时设置
+/settings LLM API 配置档案管理
 ```
 
 当前还没有支持：
@@ -776,7 +783,7 @@ http://127.0.0.1:8000/docs
 设置
 ```
 
-`设置`页已经支持配置 LLM 接入参数和 RAG prompt。
+`设置`页已经支持管理多个 LLM API 配置档案，并配置 RAG prompt。
 
 UI 目标：
 

@@ -122,7 +122,7 @@ docs/00-project-continuation-guide.md
 当前状态：
 
 ```text
-rag-pdf-qa 主线已完成到第 37 步。
+rag-pdf-qa 主线已完成到第 38 步。
 ```
 
 后续如果继续扩展，先读取当前 goal 文档，再写代码。
@@ -156,7 +156,8 @@ rag-pdf-qa 主线已完成到第 37 步。
 | 35 | [35-agent-routing-enhancement-goal.md](35-agent-routing-enhancement-goal.md) | Agent 工具路由增强 |
 | 36 | [36-knowledge-base-management-enhancement-goal.md](36-knowledge-base-management-enhancement-goal.md) | 知识库管理能力增强 |
 | 37 | [37-multi-provider-llm-config-goal.md](37-multi-provider-llm-config-goal.md) | 多模型供应商与自定义 API 配置 |
-| 38 | [38-project-demo-and-resume-polish-goal.md](38-project-demo-and-resume-polish-goal.md) | 项目演示与简历呈现优化 |
+| 38 | [38-llm-profile-management-goal.md](38-llm-profile-management-goal.md) | LLM API 配置档案管理 |
+| 39 | [39-project-demo-and-resume-polish-goal.md](39-project-demo-and-resume-polish-goal.md) | 项目演示与简历呈现优化 |
 
 执行时不要跳过当前步骤直接做后面的功能。
 

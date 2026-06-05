@@ -68,8 +68,8 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=37" in app_response.text
-    assert "/web/app.js?v=37" in app_response.text
+    assert "/web/styles.css?v=38" in app_response.text
+    assert "/web/app.js?v=38" in app_response.text
     assert 'data-ask-mode="rag"' in app_response.text
     assert 'data-ask-mode="agent"' in app_response.text
     assert 'id="documentNameFilter"' in app_response.text
@@ -84,6 +84,9 @@ def test_web_ui_routes_are_available():
     assert 'id="backgroundColorInput"' in app_response.text
     assert 'id="providerInput"' in app_response.text
     assert 'id="modelOptions"' in app_response.text
+    assert 'id="profileTableBody"' in app_response.text
+    assert 'id="profileModal"' in app_response.text
+    assert 'id="addProfileButton"' in app_response.text
     assert docs_response.status_code == 200
     assert openapi_response.status_code == 200
     assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
@@ -287,6 +290,10 @@ def test_settings_endpoint_returns_runtime_values_without_api_key(monkeypatch):
     assert data["api_key_source"] == "env"
     assert data["llm_api_key_configured"] is True
     assert data["llm_api_key_source"] == "env"
+    assert data["active_llm_profile_id"] == "default"
+    assert data["llm_profiles"][0]["profile_id"] == "default"
+    assert data["llm_profiles"][0]["enabled"] is True
+    assert data["llm_profiles"][0]["api_key_configured"] is True
     assert any(option["provider"] == "ollama" for option in data["available_providers"])
     assert "env-secret" not in response.text
     assert data["rag_system_prompt"] == "runtime system"
@@ -333,6 +340,59 @@ def test_update_settings_persists_runtime_values_without_returning_api_key(monke
     assert saved["runtime_settings"].llm_api_key == "runtime-secret"
     assert saved["runtime_settings"].llm_provider == "qwen"
     assert saved["runtime_settings"].rag_answer_instructions == "runtime answer"
+
+
+def test_llm_profile_management_endpoints_do_not_return_api_key(monkeypatch):
+    store = {"runtime_settings": RuntimeSettings()}
+
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(llm_api_key="", llm_model="env-model"),
+    )
+    monkeypatch.setattr(main, "load_runtime_settings", lambda: store["runtime_settings"])
+
+    def fake_save_runtime_settings(runtime_settings):
+        store["runtime_settings"] = runtime_settings
+        return runtime_settings
+
+    monkeypatch.setattr(main, "save_runtime_settings", fake_save_runtime_settings)
+
+    client = TestClient(main.app)
+    create_response = client.post(
+        "/settings/llm-profiles",
+        json={
+            "name": "Qwen Plus",
+            "provider": "qwen",
+            "api_key": "profile-secret",
+            "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "model": "qwen-plus",
+        },
+    )
+
+    assert create_response.status_code == 200
+    create_data = create_response.json()
+    assert "profile-secret" not in create_response.text
+    assert len(create_data["llm_profiles"]) == 2
+    qwen_profile = next(profile for profile in create_data["llm_profiles"] if profile["provider"] == "qwen")
+    assert qwen_profile["api_key_configured"] is True
+    assert qwen_profile["enabled"] is False
+
+    activate_response = client.post(f"/settings/llm-profiles/{qwen_profile['profile_id']}/activate")
+
+    assert activate_response.status_code == 200
+    activate_data = activate_response.json()
+    assert activate_data["active_llm_profile_id"] == qwen_profile["profile_id"]
+    assert activate_data["llm_provider"] == "qwen"
+    assert activate_data["llm_model"] == "qwen-plus"
+    assert "profile-secret" not in activate_response.text
+
+    delete_active_response = client.delete(f"/settings/llm-profiles/{qwen_profile['profile_id']}")
+    assert delete_active_response.status_code == 400
+
+    default_delete_response = client.delete("/settings/llm-profiles/default")
+    assert default_delete_response.status_code == 200
+    assert all(profile["profile_id"] != "default" for profile in default_delete_response.json()["llm_profiles"])
 
 
 def test_document_management_endpoints(monkeypatch):

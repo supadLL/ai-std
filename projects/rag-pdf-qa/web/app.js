@@ -10,6 +10,8 @@ const state = {
   selectedDocumentIds: new Set(),
   activeDocumentId: null,
   availableProviders: [],
+  llmProfiles: [],
+  activeProfileId: "",
   preferences: loadPreferences(),
 };
 
@@ -48,12 +50,22 @@ const els = {
   tabButtons: Array.from(document.querySelectorAll(".tab-button")),
   tabPages: Array.from(document.querySelectorAll(".tab-page")),
   settingsForm: document.querySelector("#settingsForm"),
+  profileTableBody: document.querySelector("#profileTableBody"),
+  addProfileButton: document.querySelector("#addProfileButton"),
+  profileModal: document.querySelector("#profileModal"),
+  profileForm: document.querySelector("#profileForm"),
+  profileModalTitle: document.querySelector("#profileModalTitle"),
+  closeProfileModal: document.querySelector("#closeProfileModal"),
+  cancelProfileModal: document.querySelector("#cancelProfileModal"),
+  profileIdInput: document.querySelector("#profileIdInput"),
+  profileNameInput: document.querySelector("#profileNameInput"),
   providerInput: document.querySelector("#providerInput"),
   baseUrlInput: document.querySelector("#baseUrlInput"),
   modelInput: document.querySelector("#modelInput"),
   apiKeyInput: document.querySelector("#apiKeyInput"),
   timeoutInput: document.querySelector("#timeoutInput"),
   clearApiKeyInput: document.querySelector("#clearApiKeyInput"),
+  activateProfileInput: document.querySelector("#activateProfileInput"),
   systemPromptInput: document.querySelector("#systemPromptInput"),
   answerPromptInput: document.querySelector("#answerPromptInput"),
   modelOptions: document.querySelector("#modelOptions"),
@@ -146,6 +158,26 @@ const translations = {
     "preferences.background": "背景颜色",
     "preferences.customColor": "自定义颜色",
     "preferences.resetBackground": "恢复默认",
+    "settings.profileEyebrow": "LLM Profiles",
+    "settings.profileTitle": "模型 API 配置",
+    "settings.addProfile": "+ 新增 API",
+    "settings.profileProvider": "供应商",
+    "settings.profileKey": "API Key",
+    "settings.profileModel": "模型",
+    "settings.profileEnabled": "是否启用",
+    "settings.profileActions": "操作",
+    "settings.profileModalEyebrow": "Model API",
+    "settings.profileCreateTitle": "新增 API 配置",
+    "settings.profileEditTitle": "编辑 API 配置",
+    "settings.profileName": "名称",
+    "settings.activateAfterSave": "保存后启用此配置",
+    "settings.saveProfile": "保存配置",
+    "settings.cancel": "取消",
+    "settings.enabled": "启用中",
+    "settings.enable": "启用",
+    "settings.edit": "编辑",
+    "settings.delete": "删除",
+    "settings.noProfiles": "暂无模型配置",
     "settings.provider": "模型供应商",
     "settings.baseUrl": "API Base URL",
     "settings.model": "LLM Model",
@@ -188,6 +220,10 @@ const translations = {
     "toast.indexDone": "索引完成",
     "toast.enterQuestion": "请输入问题",
     "toast.settingsSaved": "设置已保存",
+    "toast.profileSaved": "模型配置已保存",
+    "toast.profileActivated": "模型配置已启用",
+    "toast.profileDeleted": "模型配置已删除",
+    "toast.cannotDeleteActive": "启用中的配置不能删除",
     "toast.languageChanged": "语言已切换",
     "toast.colorChanged": "系统色已更新",
     "toast.backgroundChanged": "背景色已更新",
@@ -276,6 +312,26 @@ const translations = {
     "preferences.background": "Background Color",
     "preferences.customColor": "Custom color",
     "preferences.resetBackground": "Reset",
+    "settings.profileEyebrow": "LLM Profiles",
+    "settings.profileTitle": "Model API Profiles",
+    "settings.addProfile": "+ Add API",
+    "settings.profileProvider": "Provider",
+    "settings.profileKey": "API Key",
+    "settings.profileModel": "Model",
+    "settings.profileEnabled": "Active",
+    "settings.profileActions": "Actions",
+    "settings.profileModalEyebrow": "Model API",
+    "settings.profileCreateTitle": "Add API Profile",
+    "settings.profileEditTitle": "Edit API Profile",
+    "settings.profileName": "Name",
+    "settings.activateAfterSave": "Activate after saving",
+    "settings.saveProfile": "Save Profile",
+    "settings.cancel": "Cancel",
+    "settings.enabled": "Active",
+    "settings.enable": "Enable",
+    "settings.edit": "Edit",
+    "settings.delete": "Delete",
+    "settings.noProfiles": "No model profiles",
     "settings.provider": "Provider",
     "settings.baseUrl": "API Base URL",
     "settings.model": "LLM Model",
@@ -318,6 +374,10 @@ const translations = {
     "toast.indexDone": "Indexing complete",
     "toast.enterQuestion": "Enter a question",
     "toast.settingsSaved": "Settings saved",
+    "toast.profileSaved": "Model profile saved",
+    "toast.profileActivated": "Model profile activated",
+    "toast.profileDeleted": "Model profile deleted",
+    "toast.cannotDeleteActive": "Active profile cannot be deleted",
     "toast.languageChanged": "Language changed",
     "toast.colorChanged": "System color updated",
     "toast.backgroundChanged": "Background color updated",
@@ -399,18 +459,27 @@ async function loadSettings() {
 
   setSettingsStatus("loading");
   const data = await requestJson("/settings");
+  applySettingsData(data);
+}
+
+function applySettingsData(data) {
   state.availableProviders = data.available_providers || [];
+  state.llmProfiles = data.llm_profiles || [];
+  state.activeProfileId = data.active_llm_profile_id || "";
   const provider = data.llm_provider || "deepseek";
   renderProviderOptions(provider);
   els.providerInput.value = provider;
   renderModelOptions();
   els.baseUrlInput.value = data.llm_base_url || data.deepseek_base_url || "";
   els.modelInput.value = data.llm_model || data.deepseek_model || "";
+  els.profileNameInput.value = "";
   els.timeoutInput.value = data.request_timeout_seconds || 30;
   els.apiKeyInput.value = "";
   els.clearApiKeyInput.checked = false;
+  els.activateProfileInput.checked = false;
   els.systemPromptInput.value = data.rag_system_prompt || "";
   els.answerPromptInput.value = data.rag_answer_instructions || "";
+  renderProfileTable();
   setSettingsStatus(data.llm_api_key_configured ? "key" : "noKey", data.llm_api_key_source);
 }
 
@@ -457,6 +526,170 @@ function applyProviderDefaults() {
     els.modelInput.value = provider.default_models[0];
   } else if (provider.provider === "custom_openai_compatible") {
     els.modelInput.value = "";
+  }
+}
+
+function providerLabel(providerId) {
+  const provider = state.availableProviders.find((item) => item.provider === providerId);
+  return provider?.label || providerId;
+}
+
+function renderProfileTable() {
+  if (!els.profileTableBody) {
+    return;
+  }
+  if (!state.llmProfiles.length) {
+    els.profileTableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="profile-empty">${t("settings.noProfiles")}</td>
+      </tr>
+    `;
+    return;
+  }
+  els.profileTableBody.innerHTML = state.llmProfiles
+    .map((profile) => {
+      const enabled = profile.enabled || profile.profile_id === state.activeProfileId;
+      return `
+        <tr class="${enabled ? "active-profile" : ""}">
+          <td>
+            <b>${escapeHtml(profile.name || providerLabel(profile.provider))}</b>
+            <span>${escapeHtml(providerLabel(profile.provider))}</span>
+          </td>
+          <td>
+            <span class="key-chip ${profile.api_key_configured ? "configured" : ""}">
+              ${profile.api_key_configured ? escapeHtml(profile.api_key_label || "SK-********") : "none"}
+            </span>
+          </td>
+          <td>
+            <b>${escapeHtml(profile.model)}</b>
+            <span>${escapeHtml(profile.base_url)}</span>
+          </td>
+          <td>
+            ${
+              enabled
+                ? `<span class="active-chip">${t("settings.enabled")}</span>`
+                : `<button class="mini-button" type="button" data-profile-activate="${escapeHtml(profile.profile_id)}">${t("settings.enable")}</button>`
+            }
+          </td>
+          <td>
+            <div class="profile-actions">
+              <button class="mini-button" type="button" data-profile-edit="${escapeHtml(profile.profile_id)}">${t("settings.edit")}</button>
+              <button class="mini-button danger-button" type="button" data-profile-delete="${escapeHtml(profile.profile_id)}" ${enabled ? "disabled" : ""}>${t("settings.delete")}</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function openProfileModal(profile = null) {
+  renderProviderOptions(profile?.provider || "deepseek");
+  els.profileIdInput.value = profile?.profile_id || "";
+  els.profileNameInput.value = profile?.name || "";
+  els.providerInput.value = profile?.provider || "deepseek";
+  renderModelOptions();
+  if (profile) {
+    els.baseUrlInput.value = profile.base_url || "";
+    els.modelInput.value = profile.model || "";
+  } else {
+    applyProviderDefaults();
+  }
+  els.apiKeyInput.value = "";
+  els.clearApiKeyInput.checked = false;
+  els.activateProfileInput.checked = Boolean(profile?.enabled);
+  els.profileModalTitle.textContent = t(profile ? "settings.profileEditTitle" : "settings.profileCreateTitle");
+  els.profileModal.hidden = false;
+  els.profileNameInput.focus();
+}
+
+function closeProfileModal() {
+  els.profileModal.hidden = true;
+  els.profileForm.reset();
+  els.profileIdInput.value = "";
+}
+
+async function saveProfile(event) {
+  event.preventDefault();
+  const profileId = els.profileIdInput.value;
+  const payload = {
+    name: els.profileNameInput.value.trim(),
+    provider: els.providerInput.value,
+    base_url: els.baseUrlInput.value.trim(),
+    model: els.modelInput.value.trim(),
+    clear_api_key: els.clearApiKeyInput.checked,
+    activate: els.activateProfileInput.checked,
+  };
+  const apiKey = els.apiKeyInput.value.trim();
+  if (apiKey) {
+    payload.api_key = apiKey;
+  }
+
+  try {
+    const data = await requestJson(profileId ? `/settings/llm-profiles/${encodeURIComponent(profileId)}` : "/settings/llm-profiles", {
+      method: profileId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    applySettingsData(data);
+    closeProfileModal();
+    showToast(t("toast.profileSaved"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+async function activateProfile(profileId) {
+  try {
+    const data = await requestJson(`/settings/llm-profiles/${encodeURIComponent(profileId)}/activate`, {
+      method: "POST",
+    });
+    applySettingsData(data);
+    showToast(t("toast.profileActivated"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+async function deleteProfile(profileId) {
+  const profile = state.llmProfiles.find((item) => item.profile_id === profileId);
+  if (profile?.enabled) {
+    showToast(t("toast.cannotDeleteActive"), true);
+    return;
+  }
+  if (!window.confirm(t("library.confirmDelete"))) {
+    return;
+  }
+  try {
+    const data = await requestJson(`/settings/llm-profiles/${encodeURIComponent(profileId)}`, {
+      method: "DELETE",
+    });
+    applySettingsData(data);
+    showToast(t("toast.profileDeleted"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+function handleProfileTableClick(event) {
+  const editButton = event.target.closest("[data-profile-edit]");
+  if (editButton) {
+    const profile = state.llmProfiles.find((item) => item.profile_id === editButton.dataset.profileEdit);
+    if (profile) {
+      openProfileModal(profile);
+    }
+    return;
+  }
+
+  const activateButton = event.target.closest("[data-profile-activate]");
+  if (activateButton) {
+    activateProfile(activateButton.dataset.profileActivate);
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-profile-delete]");
+  if (deleteButton) {
+    deleteProfile(deleteButton.dataset.profileDelete);
   }
 }
 
@@ -674,18 +907,10 @@ function handleDocumentListChange(event) {
 async function saveSettings(event) {
   event.preventDefault();
   const payload = {
-    llm_provider: els.providerInput.value,
-    llm_base_url: els.baseUrlInput.value.trim(),
-    llm_model: els.modelInput.value.trim(),
     request_timeout_seconds: Number(els.timeoutInput.value || 30),
-    clear_api_key: els.clearApiKeyInput.checked,
     rag_system_prompt: els.systemPromptInput.value,
     rag_answer_instructions: els.answerPromptInput.value,
   };
-  const apiKey = els.apiKeyInput.value.trim();
-  if (apiKey) {
-    payload.llm_api_key = apiKey;
-  }
 
   setSettingsStatus("saving");
   try {
@@ -694,15 +919,7 @@ async function saveSettings(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    els.apiKeyInput.value = "";
-    els.clearApiKeyInput.checked = false;
-    state.availableProviders = data.available_providers || state.availableProviders;
-    renderProviderOptions(data.llm_provider || payload.llm_provider);
-    els.providerInput.value = data.llm_provider || payload.llm_provider;
-    renderModelOptions();
-    els.baseUrlInput.value = data.llm_base_url || payload.llm_base_url;
-    els.modelInput.value = data.llm_model || payload.llm_model;
-    setSettingsStatus(data.llm_api_key_configured ? "key" : "noKey", data.llm_api_key_source);
+    applySettingsData(data);
     showToast(t("toast.settingsSaved"));
   } catch (error) {
     setSettingsStatus("error");
@@ -1047,6 +1264,7 @@ function applyLanguage() {
   setSettingsStatus(els.settingsStatus.dataset.status || "noKey", els.settingsStatus.dataset.source || "");
   renderDocumentControls();
   renderDocuments();
+  renderProfileTable();
   renderMessages();
   if (state.lastAnswer) {
     renderSources(state.lastAnswer.sources || []);
@@ -1253,6 +1471,16 @@ els.documentList.addEventListener("click", handleDocumentListClick);
 els.documentList.addEventListener("change", handleDocumentListChange);
 els.askForm.addEventListener("submit", askQuestion);
 els.settingsForm.addEventListener("submit", saveSettings);
+els.profileForm.addEventListener("submit", saveProfile);
+els.profileTableBody.addEventListener("click", handleProfileTableClick);
+els.addProfileButton.addEventListener("click", () => openProfileModal());
+els.closeProfileModal.addEventListener("click", closeProfileModal);
+els.cancelProfileModal.addEventListener("click", closeProfileModal);
+els.profileModal.addEventListener("click", (event) => {
+  if (event.target === els.profileModal) {
+    closeProfileModal();
+  }
+});
 els.providerInput.addEventListener("change", applyProviderDefaults);
 els.evaluationForm.addEventListener("submit", runEvaluation);
 els.reloadEvaluation.addEventListener("click", () => {

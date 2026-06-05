@@ -6,7 +6,7 @@
     <title>Local RAG Agent | Knowledge QA</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" />
     <link rel="apple-touch-icon" sizes="192x192" href="/web/assets/rag-agent-icon-192.png?v=29" />
-    <link rel="stylesheet" href="/web/styles.css?v=37" />
+    <link rel="stylesheet" href="/web/styles.css?v=38" />
   </head>
   <body>
     <main class="shell">
@@ -223,34 +223,36 @@
                 </div>
               </section>
 
-              <div class="settings-grid">
-                <label>
-                  <span data-i18n="settings.provider">Provider</span>
-                  <select id="providerInput"></select>
-                </label>
-                <label>
-                  <span data-i18n="settings.baseUrl">API Base URL</span>
-                  <input id="baseUrlInput" type="url" placeholder="https://api.deepseek.com" />
-                </label>
-                <label>
-                  <span data-i18n="settings.model">LLM Model</span>
-                  <input id="modelInput" type="text" placeholder="deepseek-v4-flash" list="modelOptions" />
-                  <datalist id="modelOptions"></datalist>
-                </label>
-                <label>
-                  <span data-i18n="settings.apiKey">API Key</span>
-                  <input id="apiKeyInput" type="password" placeholder="留空则不修改已配置密钥" data-i18n-placeholder="settings.apiKeyPlaceholder" autocomplete="off" />
-                </label>
+              <section class="llm-profile-section">
+                <div class="section-title-row">
+                  <div>
+                    <p class="eyebrow" data-i18n="settings.profileEyebrow">LLM Profiles</p>
+                    <h3 data-i18n="settings.profileTitle">模型 API 配置</h3>
+                  </div>
+                  <button class="primary-button compact" id="addProfileButton" type="button" data-i18n="settings.addProfile">新增 API</button>
+                </div>
+                <div class="profile-table-wrap">
+                  <table class="profile-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="settings.profileProvider">供应商</th>
+                        <th data-i18n="settings.profileKey">API Key</th>
+                        <th data-i18n="settings.profileModel">模型</th>
+                        <th data-i18n="settings.profileEnabled">是否启用</th>
+                        <th data-i18n="settings.profileActions">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="profileTableBody"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <div class="settings-grid single">
                 <label>
                   <span data-i18n="settings.timeout">Timeout</span>
                   <input id="timeoutInput" type="number" min="1" max="300" step="1" />
                 </label>
               </div>
-
-              <label class="toggle">
-                <input id="clearApiKeyInput" type="checkbox" />
-                <span data-i18n="settings.clearApiKey">清除本地运行时 API Key</span>
-              </label>
 
               <label>
                 <span data-i18n="settings.systemPrompt">RAG System Prompt</span>
@@ -271,7 +273,54 @@
       </section>
     </main>
 
+    <div class="modal-backdrop" id="profileModal" hidden>
+      <form class="modal-card" id="profileForm">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow" data-i18n="settings.profileModalEyebrow">Model API</p>
+            <h2 id="profileModalTitle" data-i18n="settings.profileCreateTitle">新增 API 配置</h2>
+          </div>
+          <button class="icon-button" id="closeProfileModal" type="button" aria-label="Close">×</button>
+        </div>
+        <input id="profileIdInput" type="hidden" />
+        <div class="settings-grid">
+          <label>
+            <span data-i18n="settings.profileName">名称</span>
+            <input id="profileNameInput" type="text" placeholder="DeepSeek Pro" />
+          </label>
+          <label>
+            <span data-i18n="settings.provider">模型供应商</span>
+            <select id="providerInput"></select>
+          </label>
+          <label>
+            <span data-i18n="settings.baseUrl">API Base URL</span>
+            <input id="baseUrlInput" type="url" placeholder="https://api.deepseek.com" />
+          </label>
+          <label>
+            <span data-i18n="settings.model">LLM Model</span>
+            <input id="modelInput" type="text" placeholder="deepseek-v4-flash" list="modelOptions" />
+            <datalist id="modelOptions"></datalist>
+          </label>
+          <label>
+            <span data-i18n="settings.apiKey">API Key</span>
+            <input id="apiKeyInput" type="password" placeholder="留空则不修改已配置密钥" data-i18n-placeholder="settings.apiKeyPlaceholder" autocomplete="off" />
+          </label>
+          <label class="toggle modal-toggle">
+            <input id="clearApiKeyInput" type="checkbox" />
+            <span data-i18n="settings.clearApiKey">清除本地运行时 API Key</span>
+          </label>
+        </div>
+        <label class="toggle">
+          <input id="activateProfileInput" type="checkbox" />
+          <span data-i18n="settings.activateAfterSave">保存后启用此配置</span>
+        </label>
+        <div class="settings-actions">
+          <button class="primary-button" type="submit" data-i18n="settings.saveProfile">保存配置</button>
+          <button class="ghost-button" id="cancelProfileModal" type="button" data-i18n="settings.cancel">取消</button>
+        </div>
+      </form>
+    </div>
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js?v=37"></script>
+    <script src="/web/app.js?v=38"></script>
   </body>
 </html>

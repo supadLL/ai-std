@@ -47,6 +47,7 @@
 - [第 35 步完成总结：Agent 工具路由增强](docs/summary/35-agent-routing-enhancement-summary.md)
 - [第 36 步完成总结：知识库管理能力增强](docs/summary/36-knowledge-base-management-enhancement-summary.md)
 - [第 37 步完成总结：多模型供应商与自定义 API 配置](docs/summary/37-multi-provider-llm-config-summary.md)
+- [第 38 步完成总结：LLM API 配置档案管理](docs/summary/38-llm-profile-management-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -77,7 +78,8 @@
 - [第 35 步执行目标：Agent 工具路由增强](docs/goal/35-agent-routing-enhancement-goal.md)
 - [第 36 步执行目标：知识库管理能力增强](docs/goal/36-knowledge-base-management-enhancement-goal.md)
 - [第 37 步执行目标：多模型供应商与自定义 API 配置](docs/goal/37-multi-provider-llm-config-goal.md)
-- [第 38 步执行目标：项目演示与简历呈现优化](docs/goal/38-project-demo-and-resume-polish-goal.md)
+- [第 38 步执行目标：LLM API 配置档案管理](docs/goal/38-llm-profile-management-goal.md)
+- [第 39 步执行目标：项目演示与简历呈现优化](docs/goal/39-project-demo-and-resume-polish-goal.md)
 
 ## 快速唤醒本地 RAG
 
@@ -347,6 +349,7 @@ Invoke-RestMethod `
 - RAG sources 已返回 `extraction_method`，可区分 `text`、`table`、`pdf_ocr`、`image_ocr`
 - 已支持在设置页选择 DeepSeek、Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax 或自定义 OpenAI-compatible API
 - 已支持在设置页调整当前 LLM Provider 的 base_url、model、timeout、API Key 和 RAG prompt
+- 已支持多个 LLM API 配置档案，支持新增、编辑、删除和一键启用
 - 已新增运行时设置文件 `data/runtime_settings.json`，该文件不提交 GitHub
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
@@ -447,5 +450,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 38 步“项目演示与简历呈现优化”继续推进。
+后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 39 步“项目演示与简历呈现优化”继续推进。
 

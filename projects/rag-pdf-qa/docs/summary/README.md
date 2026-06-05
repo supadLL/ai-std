@@ -65,6 +65,7 @@ docs/summary/34-rag-evaluation-panel-summary.md
 docs/summary/35-agent-routing-enhancement-summary.md
 docs/summary/36-knowledge-base-management-enhancement-summary.md
 docs/summary/37-multi-provider-llm-config-summary.md
+docs/summary/38-llm-profile-management-summary.md
 ```
 
 格式：
