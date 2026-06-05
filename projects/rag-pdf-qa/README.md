@@ -2,6 +2,8 @@
 
 当前目标：把本地多格式知识库 RAG 闭环，逐步升级成可管理、可评估、可交互的个人项目级 RAG Agent 工具。
 
+> 企业级改造分支说明：如果当前分支是 `enterprise-rag-platform`，企业级改造执行目标从 [enterprise-goal 企业级规划](docs/enterprise-goal/README.md) 开始阅读。
+
 ## 项目速览
 
 这是一个本地知识库 RAG Agent 学习项目，核心目标是自己打通：
@@ -140,6 +142,7 @@ flowchart TD
 
 - [项目续接规范：新对话 / 新开发者先读](docs/00-project-continuation-guide.md)
 - [goal 执行文档规范：开工前先读](docs/goal/README.md)
+- [enterprise-goal 企业级改造规划](docs/enterprise-goal/README.md)
 - [summary 总结文档规范：完成后记录](docs/summary/README.md)
 - [项目演示检查清单](docs/summary/project-demo-checklist.md)
 - [项目演示脚本](docs/summary/project-demo-script.md)

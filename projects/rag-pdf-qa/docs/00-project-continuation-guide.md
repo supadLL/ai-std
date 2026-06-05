@@ -10,6 +10,7 @@
 README.md
 docs/00-project-continuation-guide.md
 docs/goal/README.md
+docs/enterprise-goal/README.md
 docs/summary/README.md
 docs/summary/08-rag-agent-advanced-roadmap.md
 app/main.py
@@ -84,10 +85,24 @@ LLM API 配置档案管理：新增、编辑、删除和一键启用
 
 当前主线已经完成一次项目级收口。
 
+如果当前分支是：
+
+```text
+enterprise-rag-platform
+```
+
+说明正在进入企业级改造规划和实现阶段。企业级执行文档入口是：
+
+```text
+docs/enterprise-goal/README.md
+docs/enterprise-goal/00-enterprise-roadmap.md
+```
+
 后续优化路线见：
 
 ```text
 docs/goal/README.md
+docs/enterprise-goal/README.md
 docs/summary/08-rag-agent-advanced-roadmap.md
 ```
 
@@ -132,10 +147,11 @@ app/pdf_extractor.py
 后续新增重要步骤时，必须按这个顺序：
 
 ```text
-1. 先在 docs/goal/ 写执行目标文档
-2. 再根据 goal 修改代码
-3. 最后在 docs/summary/ 写完成总结
-4. 同步更新 README 和 00 号续接规范
+1. 普通学习主线先在 docs/goal/ 写执行目标文档
+2. 企业级改造分支先在 docs/enterprise-goal/ 写执行目标文档
+3. 再根据 goal 修改代码
+4. 最后写完成总结
+5. 同步更新 README 和 00 号续接规范
 ```
 
 不要再只采用“先写代码，后补说明”的方式。
@@ -620,8 +636,8 @@ PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、
 3. Swagger Docs 页面必须能测试接口。
 4. 不要过早引入 LangChain、多 Agent、Graph 工作流。
 5. 每次项目阶段变化，都要同步更新 docs/00-project-continuation-guide.md。
-6. 后续重要步骤必须先写 docs/goal/*.md，再写代码，完成后写 docs/summary/*.md。
-7. 后续优化先按 docs/goal/README.md 和当前 goal 文件执行，再参考 docs/summary/08-rag-agent-advanced-roadmap.md。
+6. 后续重要步骤必须先写 goal，再写代码，完成后写 summary。
+7. 普通主线按 docs/goal/README.md 执行；企业级分支按 docs/enterprise-goal/README.md 执行。
 
 在修改代码前，请先说明你读到了当前哪些模块和当前项目处于什么阶段。
 ```
