@@ -968,7 +968,7 @@ async function askQuestion(event) {
   const pendingId = `pending-${Date.now()}`;
   state.messages.push({ role: "user", content: question });
   state.messages.push({ id: pendingId, role: "assistant", pending: true });
-  renderMessages();
+  renderMessages({ scroll: "bottom" });
   els.questionInput.value = "";
   els.sourceList.innerHTML = "";
   try {
@@ -984,7 +984,7 @@ async function askQuestion(event) {
       role: "assistant",
       content: data.reply || "",
       meta: `${routeMeta}${data.model || t("debug.model")} · ${t("debug.sources")} ${data.source_count}`,
-    });
+    }, { scroll: "latestAssistantTop" });
     renderSources(data.sources || []);
     renderDebug(data);
     setStatus("done");
@@ -993,20 +993,20 @@ async function askQuestion(event) {
       role: "assistant",
       content: `${t("message.requestFailed")}：${error.message}`,
       error: true,
-    });
+    }, { scroll: "latestAssistantTop" });
     els.debugGrid.innerHTML = "";
     setStatus("error");
   }
 }
 
-function renderMessages() {
+function renderMessages(options = {}) {
   if (!state.messages.length) {
     els.answerOutput.innerHTML = `<p class="empty-state">${t("ask.empty")}</p>`;
     return;
   }
 
   els.answerOutput.innerHTML = state.messages.map(renderMessage).join("");
-  els.answerOutput.scrollTop = els.answerOutput.scrollHeight;
+  scrollAnswerOutput(options.scroll || "none");
 }
 
 function renderMessage(message) {
@@ -1044,14 +1044,27 @@ function renderMessage(message) {
   `;
 }
 
-function replacePendingMessage(id, nextMessage) {
+function replacePendingMessage(id, nextMessage, options = {}) {
   const index = state.messages.findIndex((message) => message.id === id);
   if (index >= 0) {
     state.messages[index] = nextMessage;
   } else {
     state.messages.push(nextMessage);
   }
-  renderMessages();
+  renderMessages(options);
+}
+
+function scrollAnswerOutput(mode) {
+  if (mode === "bottom") {
+    els.answerOutput.scrollTop = els.answerOutput.scrollHeight;
+    return;
+  }
+  if (mode === "latestAssistantTop") {
+    const latestAssistant = [...els.answerOutput.querySelectorAll(".chat-message.assistant")].at(-1);
+    if (latestAssistant) {
+      els.answerOutput.scrollTop = Math.max(0, latestAssistant.offsetTop - els.answerOutput.offsetTop);
+    }
+  }
 }
 
 function switchTab(tabName) {

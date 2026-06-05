@@ -69,7 +69,7 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
     assert "/web/styles.css?v=40" in app_response.text
-    assert "/web/app.js?v=40" in app_response.text
+    assert "/web/app.js?v=41" in app_response.text
     assert "分块大小 chunk" in app_response.text
     assert "重叠长度 overlap" in app_response.text
     assert "重新索引 reindex" in app_response.text
