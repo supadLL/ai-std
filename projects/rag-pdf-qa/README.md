@@ -45,6 +45,7 @@
 - [第 33 步完成总结：多格式文档图片内容抽取与 OCR 统一链路](docs/summary/33-multiformat-image-ocr-loader-summary.md)
 - [第 34 步完成总结：RAG 评估脚本与评估面板](docs/summary/34-rag-evaluation-panel-summary.md)
 - [第 35 步完成总结：Agent 工具路由增强](docs/summary/35-agent-routing-enhancement-summary.md)
+- [第 36 步完成总结：知识库管理能力增强](docs/summary/36-knowledge-base-management-enhancement-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -300,12 +301,14 @@ Invoke-RestMethod `
 - `GET /documents`：查看本地知识库文档列表
 - `GET /documents/{document_id}`：查看单个文档 metadata
 - `DELETE /documents/{document_id}`：删除某个文档在 Qdrant 中的 chunks 和 metadata
-- `POST /documents/search`：用问题检索本地 Qdrant 里的相关 chunk
-- `POST /rag/ask`：检索本地 Qdrant，并把相关 chunk 交给 DeepSeek 生成 RAG 回答
+- `DELETE /documents/batch`：批量删除多个文档的 Qdrant chunks 和 metadata
+- `POST /documents/{document_id}/reindex`：为指定 document_id 上传替换文件并重新索引
+- `POST /documents/search`：用问题检索本地 Qdrant 里的相关 chunk，支持 `document_id` / `file_type` 过滤
+- `POST /rag/ask`：检索本地 Qdrant，并把相关 chunk 交给 DeepSeek 生成 RAG 回答，支持限定 `document_id`
 - `GET /` / `GET /app`：打开本地 RAG Web UI
 - `GET /settings`：读取本地运行时 LLM 设置，不返回真实 API Key
 - `PUT /settings`：保存本地运行时 LLM、API Key 和 RAG prompt 设置
-- `POST /agent/ask`：可解释 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`，返回 `route_reason`、`tools_used`、`routing_debug`
+- `POST /agent/ask`：可解释 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`，支持限定 `document_id`，返回 `route_reason`、`tools_used`、`routing_debug`
 - `GET /evaluation/questions`：读取本地 RAG 评估问题集
 - `POST /evaluation/run`：运行本地检索评估并保存最近结果，不调用 DeepSeek
 - `GET /evaluation/latest`：读取最近一次 RAG 检索评估结果
@@ -314,7 +317,7 @@ Invoke-RestMethod `
 - `/rag/ask` 的 `reply` 已通过 prompt 约束为“答案 / 依据 / 资料不足之处”三段式格式
 - 已建立 15 条 RAG 评估问题和 baseline 检索记录
 - 已完成 chunk/top_k 参数评估，当前推荐 `chunk_size=800`、`overlap=100`、`top_k=5`
-- 已新增最小知识库文档管理能力，支持 `document_id`、列表、详情和删除
+- 已增强知识库文档管理能力，支持 `document_id`、列表、详情、删除、批量删除和指定文档重建索引
 - 已新增 `content_hash` 去重和 `reindex=true` 重建索引策略
 - 已支持 Markdown 和 txt 文档入库
 - 已支持 docx、csv、xlsx 文档入库
@@ -322,6 +325,7 @@ Invoke-RestMethod `
 - 已增强 RAG Agent 工具路由接口 `/agent/ask`，可返回路由理由、工具使用和调试信息
 - 已新增 RAG 检索评估脚本、API 和 Web UI 评估面板
 - Web UI 知识问答页已支持 RAG / Agent 模式切换，并展示 Agent 路由理由和工具使用情况
+- Web UI 知识库管理区已支持文件名/类型筛选、详情查看、批量删除、单文档重新索引和提问限定文档
 - Web UI 已拆分为“文件导入 / 知识问答 / 设置”三个页签
 - Web UI 已修复 Tab 混排问题，当前左侧为明确的垂直功能导航
 - Web UI 已支持轻量 Markdown 回答渲染，避免直接显示 `**` 和代码围栏
@@ -435,5 +439,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 36 步“知识库管理能力增强”继续推进，再进入项目演示材料。
+后续如果继续扩展，不要直接堆复杂多 Agent。当前建议从第 37 步“项目演示与简历呈现优化”继续推进。
 

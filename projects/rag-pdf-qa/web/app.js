@@ -7,6 +7,8 @@ const state = {
   messages: [],
   evaluation: null,
   askMode: "rag",
+  selectedDocumentIds: new Set(),
+  activeDocumentId: null,
   preferences: loadPreferences(),
 };
 
@@ -18,11 +20,17 @@ const els = {
   reindex: document.querySelector("#reindex"),
   documentList: document.querySelector("#documentList"),
   refreshDocuments: document.querySelector("#refreshDocuments"),
+  documentNameFilter: document.querySelector("#documentNameFilter"),
+  documentTypeFilter: document.querySelector("#documentTypeFilter"),
+  clearDocumentFilters: document.querySelector("#clearDocumentFilters"),
+  batchDeleteDocuments: document.querySelector("#batchDeleteDocuments"),
+  documentDetail: document.querySelector("#documentDetail"),
   askForm: document.querySelector("#askForm"),
   askModeButtons: Array.from(document.querySelectorAll("[data-ask-mode]")),
   questionInput: document.querySelector("#questionInput"),
   topK: document.querySelector("#topK"),
   scoreThreshold: document.querySelector("#scoreThreshold"),
+  askDocumentFilter: document.querySelector("#askDocumentFilter"),
   answerOutput: document.querySelector("#answerOutput"),
   sourceList: document.querySelector("#sourceList"),
   debugGrid: document.querySelector("#debugGrid"),
@@ -83,6 +91,18 @@ const translations = {
     "import.overlap": "overlap",
     "import.reindex": "reindex",
     "import.submit": "上传索引",
+    "library.filenameFilter": "文件名",
+    "library.typeFilter": "类型",
+    "library.allTypes": "全部",
+    "library.clearFilters": "清除筛选",
+    "library.batchDelete": "批量删除",
+    "library.detail": "详情",
+    "library.reindex": "重新索引",
+    "library.selected": "selected",
+    "library.noMatch": "没有匹配文档",
+    "library.confirmDelete": "确认删除选中的文档？",
+    "library.deleted": "批量删除完成",
+    "library.reindexed": "重建索引完成",
     "ask.eyebrow": "Retrieve",
     "ask.title": "知识问答",
     "ask.empty": "等待问题",
@@ -92,6 +112,8 @@ const translations = {
     "ask.agentMode": "Agent",
     "ask.topK": "top_k",
     "ask.threshold": "threshold",
+    "ask.document": "document",
+    "ask.allDocuments": "all",
     "ask.submit": "提问",
     "sources.eyebrow": "Sources",
     "sources.title": "检索来源",
@@ -196,6 +218,18 @@ const translations = {
     "import.overlap": "overlap",
     "import.reindex": "reindex",
     "import.submit": "Upload & Index",
+    "library.filenameFilter": "Filename",
+    "library.typeFilter": "Type",
+    "library.allTypes": "All",
+    "library.clearFilters": "Clear filters",
+    "library.batchDelete": "Batch delete",
+    "library.detail": "Details",
+    "library.reindex": "Reindex",
+    "library.selected": "selected",
+    "library.noMatch": "No matching documents",
+    "library.confirmDelete": "Delete selected documents?",
+    "library.deleted": "Batch delete complete",
+    "library.reindexed": "Reindex complete",
     "ask.eyebrow": "Retrieve",
     "ask.title": "Knowledge Q&A",
     "ask.empty": "Waiting for a question",
@@ -205,6 +239,8 @@ const translations = {
     "ask.agentMode": "Agent",
     "ask.topK": "top_k",
     "ask.threshold": "threshold",
+    "ask.document": "document",
+    "ask.allDocuments": "all",
     "ask.submit": "Ask",
     "sources.eyebrow": "Sources",
     "sources.title": "Retrieved Sources",
@@ -335,6 +371,13 @@ async function loadDocuments() {
   setStatus("loading");
   const data = await requestJson("/documents");
   state.documents = data.documents || [];
+  state.selectedDocumentIds = new Set(
+    [...state.selectedDocumentIds].filter((documentId) => state.documents.some((doc) => doc.document_id === documentId)),
+  );
+  if (state.activeDocumentId && !state.documents.some((doc) => doc.document_id === state.activeDocumentId)) {
+    state.activeDocumentId = null;
+  }
+  renderDocumentControls();
   renderDocuments();
   setStatus("idle");
 }
@@ -357,27 +400,94 @@ async function loadSettings() {
 }
 
 function renderDocuments() {
+  const documents = getFilteredDocuments();
   if (!state.documents.length) {
     els.documentList.innerHTML = `<p class="empty-state">${t("documents.empty")}</p>`;
+    renderDocumentDetail();
     return;
   }
 
-  els.documentList.innerHTML = state.documents
+  if (!documents.length) {
+    els.documentList.innerHTML = `<p class="empty-state">${t("library.noMatch")}</p>`;
+    renderDocumentDetail();
+    return;
+  }
+
+  els.documentList.innerHTML = documents
     .map(
       (doc) => `
         <article class="doc-item">
           <div class="doc-title">
-            <span>${escapeHtml(doc.filename)}</span>
+            <label class="doc-select">
+              <input type="checkbox" data-select-doc="${escapeHtml(doc.document_id)}" ${state.selectedDocumentIds.has(doc.document_id) ? "checked" : ""} />
+              <span>${escapeHtml(doc.filename)}</span>
+            </label>
             <span class="type-pill">${escapeHtml(doc.file_type)}</span>
           </div>
           <div class="meta">
-            ${t("documents.chunks")} ${doc.chunk_count} · ${doc.content_hash_prefix || t("documents.noHash")}<br />
-            ${escapeHtml(doc.embedding_model)}
+            ${t("documents.chunks")} ${doc.chunk_count} · ${doc.content_hash_prefix || t("documents.noHash")} · ${escapeHtml(doc.indexed_at || doc.created_at)}<br />
+            ${escapeHtml(doc.document_id)} · ${escapeHtml(doc.embedding_model)}
+          </div>
+          <div class="doc-actions">
+            <button class="mini-button" type="button" data-doc-detail="${escapeHtml(doc.document_id)}">${t("library.detail")}</button>
+            <button class="mini-button" type="button" data-doc-reindex="${escapeHtml(doc.document_id)}">${t("library.reindex")}</button>
+            <input class="reindex-file" type="file" accept=".pdf,.md,.markdown,.txt,.docx,.csv,.xlsx" data-reindex-file="${escapeHtml(doc.document_id)}" hidden />
           </div>
         </article>
       `,
     )
     .join("");
+  renderDocumentDetail();
+}
+
+function getFilteredDocuments() {
+  const nameFilter = (els.documentNameFilter?.value || "").trim().toLowerCase();
+  const typeFilter = els.documentTypeFilter?.value || "";
+  return state.documents.filter((doc) => {
+    const matchesName = !nameFilter || doc.filename.toLowerCase().includes(nameFilter);
+    const matchesType = !typeFilter || doc.file_type === typeFilter;
+    return matchesName && matchesType;
+  });
+}
+
+function renderDocumentControls() {
+  const fileTypes = [...new Set(state.documents.map((doc) => doc.file_type).filter(Boolean))].sort();
+  const currentType = els.documentTypeFilter?.value || "";
+  if (els.documentTypeFilter) {
+    els.documentTypeFilter.innerHTML = [
+      `<option value="">${t("library.allTypes")}</option>`,
+      ...fileTypes.map((fileType) => `<option value="${escapeHtml(fileType)}">${escapeHtml(fileType)}</option>`),
+    ].join("");
+    els.documentTypeFilter.value = fileTypes.includes(currentType) ? currentType : "";
+  }
+  if (els.askDocumentFilter) {
+    const currentDocumentId = els.askDocumentFilter.value || "";
+    els.askDocumentFilter.innerHTML = [
+      `<option value="">${t("ask.allDocuments")}</option>`,
+      ...state.documents.map((doc) => `<option value="${escapeHtml(doc.document_id)}">${escapeHtml(doc.filename)}</option>`),
+    ].join("");
+    els.askDocumentFilter.value = state.documents.some((doc) => doc.document_id === currentDocumentId) ? currentDocumentId : "";
+  }
+}
+
+function renderDocumentDetail() {
+  if (!els.documentDetail) {
+    return;
+  }
+  const doc = state.documents.find((item) => item.document_id === state.activeDocumentId);
+  if (!doc) {
+    els.documentDetail.classList.remove("active");
+    els.documentDetail.innerHTML = "";
+    return;
+  }
+  els.documentDetail.classList.add("active");
+  els.documentDetail.innerHTML = `
+    <b>${escapeHtml(doc.filename)}</b><br />
+    document_id ${escapeHtml(doc.document_id)}<br />
+    type ${escapeHtml(doc.file_type)} · chunks ${doc.chunk_count} · pages ${doc.page_count}<br />
+    hash ${escapeHtml(doc.content_hash)}<br />
+    created ${escapeHtml(doc.created_at)} · indexed ${escapeHtml(doc.indexed_at)}
+  `;
 }
 
 async function uploadDocument(event) {
@@ -405,6 +515,85 @@ async function uploadDocument(event) {
   } catch (error) {
     showToast(error.message, true);
     setStatus("error");
+  }
+}
+
+async function batchDeleteDocuments() {
+  const documentIds = [...state.selectedDocumentIds];
+  if (!documentIds.length) {
+    return;
+  }
+  if (!window.confirm(t("library.confirmDelete"))) {
+    return;
+  }
+
+  setStatus("loading");
+  try {
+    await requestJson("/documents/batch", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ document_ids: documentIds }),
+    });
+    state.selectedDocumentIds.clear();
+    state.activeDocumentId = null;
+    showToast(t("library.deleted"));
+    await loadDocuments();
+  } catch (error) {
+    showToast(error.message, true);
+    setStatus("error");
+  }
+}
+
+async function reindexDocument(documentId, file) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("chunk_size", els.chunkSize.value || "800");
+  form.append("overlap", els.overlap.value || "100");
+
+  setStatus("indexing");
+  try {
+    await requestJson(`/documents/${encodeURIComponent(documentId)}/reindex`, {
+      method: "POST",
+      body: form,
+    });
+    showToast(t("library.reindexed"));
+    await loadDocuments();
+  } catch (error) {
+    showToast(error.message, true);
+    setStatus("error");
+  }
+}
+
+function handleDocumentListClick(event) {
+  const detailButton = event.target.closest("[data-doc-detail]");
+  if (detailButton) {
+    state.activeDocumentId = detailButton.dataset.docDetail;
+    renderDocumentDetail();
+    return;
+  }
+
+  const reindexButton = event.target.closest("[data-doc-reindex]");
+  if (reindexButton) {
+    const input = els.documentList.querySelector(`[data-reindex-file="${CSS.escape(reindexButton.dataset.docReindex)}"]`);
+    input?.click();
+  }
+}
+
+function handleDocumentListChange(event) {
+  const selectInput = event.target.closest("[data-select-doc]");
+  if (selectInput) {
+    if (selectInput.checked) {
+      state.selectedDocumentIds.add(selectInput.dataset.selectDoc);
+    } else {
+      state.selectedDocumentIds.delete(selectInput.dataset.selectDoc);
+    }
+    return;
+  }
+
+  const reindexInput = event.target.closest("[data-reindex-file]");
+  if (reindexInput?.files?.[0]) {
+    reindexDocument(reindexInput.dataset.reindexFile, reindexInput.files[0]);
+    reindexInput.value = "";
   }
 }
 
@@ -454,6 +643,9 @@ async function askQuestion(event) {
   };
   if (els.scoreThreshold.value !== "") {
     payload.score_threshold = Number(els.scoreThreshold.value);
+  }
+  if (els.askDocumentFilter.value) {
+    payload.document_id = els.askDocumentFilter.value;
   }
 
   setStatus("asking");
@@ -772,6 +964,7 @@ function applyLanguage() {
   });
   setStatus(els.statusPill.dataset.status || "idle");
   setSettingsStatus(els.settingsStatus.dataset.status || "noKey", els.settingsStatus.dataset.source || "");
+  renderDocumentControls();
   renderDocuments();
   renderMessages();
   if (state.lastAnswer) {
@@ -967,6 +1160,16 @@ function escapeHtml(value) {
 }
 
 els.uploadForm.addEventListener("submit", uploadDocument);
+els.documentNameFilter.addEventListener("input", renderDocuments);
+els.documentTypeFilter.addEventListener("change", renderDocuments);
+els.clearDocumentFilters.addEventListener("click", () => {
+  els.documentNameFilter.value = "";
+  els.documentTypeFilter.value = "";
+  renderDocuments();
+});
+els.batchDeleteDocuments.addEventListener("click", batchDeleteDocuments);
+els.documentList.addEventListener("click", handleDocumentListClick);
+els.documentList.addEventListener("change", handleDocumentListChange);
 els.askForm.addEventListener("submit", askQuestion);
 els.settingsForm.addEventListener("submit", saveSettings);
 els.evaluationForm.addEventListener("submit", runEvaluation);

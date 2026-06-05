@@ -131,6 +131,8 @@ def search_chunks(
     collection_name: str,
     query_vector: list[float],
     limit: int = 5,
+    document_id: str | None = None,
+    file_type: str | None = None,
 ) -> list[SearchResult]:
     if not client.collection_exists(collection_name):
         raise VectorStoreError(f"Collection {collection_name!r} does not exist. Index a document first.")
@@ -139,6 +141,7 @@ def search_chunks(
         collection_name=collection_name,
         query=query_vector,
         limit=limit,
+        query_filter=_search_filter(document_id=document_id, file_type=file_type),
         with_payload=True,
         with_vectors=False,
     )
@@ -171,6 +174,27 @@ def _document_id_filter(document_id: str) -> models.Filter:
             )
         ]
     )
+
+
+def _search_filter(document_id: str | None = None, file_type: str | None = None) -> models.Filter | None:
+    conditions = []
+    if document_id:
+        conditions.append(
+            models.FieldCondition(
+                key="document_id",
+                match=models.MatchValue(value=document_id),
+            )
+        )
+    if file_type:
+        conditions.append(
+            models.FieldCondition(
+                key="file_type",
+                match=models.MatchValue(value=file_type),
+            )
+        )
+    if not conditions:
+        return None
+    return models.Filter(must=conditions)
 
 
 def _optional_str(value: object) -> str | None:

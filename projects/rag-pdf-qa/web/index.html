@@ -6,7 +6,7 @@
     <title>Local RAG Agent | Knowledge QA</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" />
     <link rel="apple-touch-icon" sizes="192x192" href="/web/assets/rag-agent-icon-192.png?v=29" />
-    <link rel="stylesheet" href="/web/styles.css?v=35" />
+    <link rel="stylesheet" href="/web/styles.css?v=36" />
   </head>
   <body>
     <main class="shell">
@@ -74,6 +74,24 @@
               <button class="primary-button" type="submit" data-i18n="import.submit">上传索引</button>
             </form>
 
+            <section class="library-tools">
+              <div class="library-filter-grid">
+                <label>
+                  <span data-i18n="library.filenameFilter">文件名</span>
+                  <input id="documentNameFilter" type="search" placeholder="filter" />
+                </label>
+                <label>
+                  <span data-i18n="library.typeFilter">类型</span>
+                  <select id="documentTypeFilter">
+                    <option value="" data-i18n="library.allTypes">全部</option>
+                  </select>
+                </label>
+                <button class="ghost-button" id="clearDocumentFilters" type="button" data-i18n="library.clearFilters">清除筛选</button>
+                <button class="ghost-button danger-action" id="batchDeleteDocuments" type="button" data-i18n="library.batchDelete">批量删除</button>
+              </div>
+              <div class="library-detail" id="documentDetail"></div>
+            </section>
+
             <div class="document-list" id="documentList"></div>
           </div>
         </section>
@@ -109,6 +127,12 @@
                 <label>
                   <span data-i18n="ask.threshold">threshold</span>
                   <input id="scoreThreshold" type="number" min="0" max="1" step="0.05" placeholder="auto" />
+                </label>
+                <label>
+                  <span data-i18n="ask.document">document</span>
+                  <select id="askDocumentFilter">
+                    <option value="" data-i18n="ask.allDocuments">all</option>
+                  </select>
                 </label>
                 <button class="primary-button ask-button" type="submit" data-i18n="ask.submit">提问</button>
               </div>
@@ -242,6 +266,6 @@
     </main>
 
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js?v=35"></script>
+    <script src="/web/app.js?v=36"></script>
   </body>
 </html>

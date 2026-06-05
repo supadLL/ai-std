@@ -63,6 +63,7 @@ docs/summary/32-scanned-pdf-ocr-summary.md
 docs/summary/33-multiformat-image-ocr-loader-summary.md
 docs/summary/34-rag-evaluation-panel-summary.md
 docs/summary/35-agent-routing-enhancement-summary.md
+docs/summary/36-knowledge-base-management-enhancement-summary.md
 ```
 
 格式：

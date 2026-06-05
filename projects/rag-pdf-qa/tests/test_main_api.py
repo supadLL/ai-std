@@ -14,8 +14,10 @@ def test_search_documents_returns_retrieved_results(monkeypatch):
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
     monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
 
-    def fake_search_chunks(client, collection_name, query_vector, limit):
+    def fake_search_chunks(client, collection_name, query_vector, limit, document_id=None, file_type=None):
         assert limit == 2
+        assert document_id == "doc-1"
+        assert file_type == "pdf"
         return [
             SearchResult(
                 point_id="point-1",
@@ -32,12 +34,17 @@ def test_search_documents_returns_retrieved_results(monkeypatch):
     monkeypatch.setattr(main, "search_chunks", fake_search_chunks)
 
     client = TestClient(main.app)
-    response = client.post("/documents/search", json={"query": "GUI Agent flow", "limit": 2})
+    response = client.post(
+        "/documents/search",
+        json={"query": "GUI Agent flow", "limit": 2, "document_id": "doc-1", "file_type": "pdf"},
+    )
 
     assert response.status_code == 200
     data = response.json()
     assert data["query"] == "GUI Agent flow"
     assert data["limit"] == 2
+    assert data["document_id"] == "doc-1"
+    assert data["file_type"] == "pdf"
     assert data["results"][0]["filename"] == "demo.pdf"
     assert data["results"][0]["document_id"] == "doc-1"
     assert data["results"][0]["chunk_id"] == 7
@@ -61,10 +68,14 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=35" in app_response.text
-    assert "/web/app.js?v=35" in app_response.text
+    assert "/web/styles.css?v=36" in app_response.text
+    assert "/web/app.js?v=36" in app_response.text
     assert 'data-ask-mode="rag"' in app_response.text
     assert 'data-ask-mode="agent"' in app_response.text
+    assert 'id="documentNameFilter"' in app_response.text
+    assert 'id="documentTypeFilter"' in app_response.text
+    assert 'id="batchDeleteDocuments"' in app_response.text
+    assert 'id="askDocumentFilter"' in app_response.text
     assert 'data-language="zh"' in app_response.text
     assert 'data-language="en"' in app_response.text
     assert 'data-theme-color="teal"' in app_response.text
@@ -369,6 +380,162 @@ def test_document_management_endpoints(monkeypatch):
 
     missing_response = client.get("/documents/doc-1")
     assert missing_response.status_code == 404
+
+
+def test_batch_delete_documents_removes_chunks_and_metadata(monkeypatch):
+    records = {
+        "doc-1": DocumentRecord(
+            document_id="doc-1",
+            filename="one.pdf",
+            file_type="pdf",
+            content_hash="a" * 64,
+            content_hash_prefix="a" * 12,
+            chunk_count=2,
+            created_at="2026-06-03T00:00:00+00:00",
+            indexed_at="2026-06-03T00:00:00+00:00",
+            source_file_size=120,
+            collection="rag_chunks",
+            chunk_size=800,
+            overlap=100,
+            embedding_model="BAAI/bge-small-zh-v1.5",
+            page_count=1,
+            indexed_count=2,
+        ),
+        "doc-2": DocumentRecord(
+            document_id="doc-2",
+            filename="two.md",
+            file_type="markdown",
+            content_hash="b" * 64,
+            content_hash_prefix="b" * 12,
+            chunk_count=1,
+            created_at="2026-06-03T00:00:00+00:00",
+            indexed_at="2026-06-03T00:00:00+00:00",
+            source_file_size=80,
+            collection="rag_chunks",
+            chunk_size=800,
+            overlap=100,
+            embedding_model="BAAI/bge-small-zh-v1.5",
+            page_count=1,
+            indexed_count=1,
+        ),
+    }
+
+    class FakeDocumentStore:
+        def get_document(self, document_id):
+            return records.get(document_id)
+
+        def remove_document(self, document_id):
+            return records.pop(document_id, None)
+
+    deleted_ids = []
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="", document_metadata_path="unused.json"),
+    )
+    monkeypatch.setattr(main, "get_document_store", lambda metadata_path: FakeDocumentStore())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+
+    def fake_delete_document_chunks(client, collection_name, document_id):
+        deleted_ids.append(document_id)
+        return 2
+
+    monkeypatch.setattr(main, "delete_document_chunks", fake_delete_document_chunks)
+
+    client = TestClient(main.app)
+    response = client.request(
+        "DELETE",
+        "/documents/batch",
+        json={"document_ids": ["doc-1", "doc-missing", "doc-2", "doc-1"]},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["deleted_count"] == 2
+    assert data["missing_document_ids"] == ["doc-missing"]
+    assert deleted_ids == ["doc-1", "doc-2"]
+    assert records == {}
+
+
+def test_reindex_document_replaces_existing_document_with_uploaded_file(monkeypatch):
+    existing = DocumentRecord(
+        document_id="doc-1",
+        filename="old.md",
+        file_type="markdown",
+        content_hash="a" * 64,
+        content_hash_prefix="a" * 12,
+        chunk_count=1,
+        created_at="2026-06-03T00:00:00+00:00",
+        indexed_at="2026-06-03T00:00:00+00:00",
+        source_file_size=80,
+        collection="rag_chunks",
+        chunk_size=800,
+        overlap=100,
+        embedding_model="BAAI/bge-small-zh-v1.5",
+        page_count=1,
+        indexed_count=1,
+    )
+
+    class FakeDocumentStore:
+        def __init__(self):
+            self.record = existing
+            self.removed_document_id = None
+            self.added_kwargs = None
+
+        def get_document(self, document_id):
+            return self.record if document_id == "doc-1" else None
+
+        def remove_document(self, document_id):
+            self.removed_document_id = document_id
+            self.record = None
+            return existing
+
+        def add_document(self, **kwargs):
+            self.added_kwargs = kwargs
+            return existing
+
+    fake_store = FakeDocumentStore()
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="", document_metadata_path="unused.json"),
+    )
+    monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
+    monkeypatch.setattr(
+        main,
+        "_parse_and_split_index_file",
+        lambda **kwargs: (
+            "markdown",
+            1,
+            [TextChunk(chunk_id=1, page_number=1, char_count=18, text="new document text")],
+            None,
+            0,
+            0,
+            ["text"],
+        ),
+    )
+    monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
+    monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id: 1)
+    monkeypatch.setattr(main, "upsert_chunks", lambda **kwargs: len(kwargs["chunks"]))
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/documents/doc-1/reindex",
+        files={"file": ("new.md", "new document text".encode("utf-8"), "text/markdown")},
+        data={"chunk_size": "100", "overlap": "0"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["document_id"] == "doc-1"
+    assert data["filename"] == "new.md"
+    assert data["deleted_chunks"] == 1
+    assert data["indexed_count"] == 1
+    assert fake_store.removed_document_id == "doc-1"
+    assert fake_store.added_kwargs["document_id"] == "doc-1"
+    assert fake_store.added_kwargs["filename"] == "new.md"
 
 
 def test_index_document_duplicate_content_reuses_existing_record(monkeypatch):

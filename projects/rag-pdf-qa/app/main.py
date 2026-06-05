@@ -170,6 +170,8 @@ class DocumentIndexResponse(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     limit: int = Field(default=5, ge=1, le=20)
+    document_id: str | None = Field(default=None, max_length=120)
+    file_type: str | None = Field(default=None, max_length=40)
 
 
 class SearchResultResponse(BaseModel):
@@ -187,6 +189,8 @@ class SearchResponse(BaseModel):
     query: str
     collection: str
     limit: int
+    document_id: str | None = None
+    file_type: str | None = None
     results: list[SearchResultResponse]
 
 
@@ -194,6 +198,7 @@ class RagAskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     limit: int = Field(default=5, ge=1, le=10)
     score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    document_id: str | None = Field(default=None, max_length=120)
 
 
 class RagSourceResponse(BaseModel):
@@ -224,6 +229,7 @@ class AgentAskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     limit: int = Field(default=5, ge=1, le=10)
     score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    document_id: str | None = Field(default=None, max_length=120)
 
 
 class AgentAskResponse(BaseModel):
@@ -336,6 +342,16 @@ class DeleteDocumentResponse(BaseModel):
     document_id: str
     deleted_chunks: int
     deleted_metadata: bool
+
+
+class BatchDeleteDocumentsRequest(BaseModel):
+    document_ids: list[str] = Field(min_length=1, max_length=100)
+
+
+class BatchDeleteDocumentsResponse(BaseModel):
+    deleted_count: int
+    deleted: list[DeleteDocumentResponse]
+    missing_document_ids: list[str] = Field(default_factory=list)
 
 
 class AppSettingsResponse(BaseModel):
@@ -745,6 +761,49 @@ async def get_document(document_id: str) -> DocumentRecordResponse:
     return _to_document_record_response(record)
 
 
+@app.delete("/documents/batch", response_model=BatchDeleteDocumentsResponse)
+async def batch_delete_documents(request: BatchDeleteDocumentsRequest) -> BatchDeleteDocumentsResponse:
+    settings = get_settings()
+    document_store = get_document_store(settings.document_metadata_path)
+    client = get_qdrant_client(settings.qdrant_local_path)
+    deleted: list[DeleteDocumentResponse] = []
+    missing_document_ids: list[str] = []
+
+    for document_id in dict.fromkeys(request.document_ids):
+        try:
+            record = document_store.get_document(document_id)
+        except DocumentStoreError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        if record is None:
+            missing_document_ids.append(document_id)
+            continue
+
+        try:
+            deleted_chunks = delete_document_chunks(
+                client=client,
+                collection_name=record.collection,
+                document_id=document_id,
+            )
+            removed_record = document_store.remove_document(document_id)
+        except (VectorStoreError, DocumentStoreError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        deleted.append(
+            DeleteDocumentResponse(
+                document_id=document_id,
+                deleted_chunks=deleted_chunks,
+                deleted_metadata=removed_record is not None,
+            )
+        )
+
+    return BatchDeleteDocumentsResponse(
+        deleted_count=len(deleted),
+        deleted=deleted,
+        missing_document_ids=missing_document_ids,
+    )
+
+
 @app.delete("/documents/{document_id}", response_model=DeleteDocumentResponse)
 async def delete_document(document_id: str) -> DeleteDocumentResponse:
     settings = get_settings()
@@ -776,6 +835,110 @@ async def delete_document(document_id: str) -> DeleteDocumentResponse:
     )
 
 
+@app.post("/documents/{document_id}/reindex", response_model=DocumentIndexResponse)
+async def reindex_document(
+    document_id: str,
+    file: UploadFile = File(...),
+    chunk_size: int = Form(800),
+    overlap: int = Form(100),
+    enable_ocr: bool = Form(False),
+    enable_image_ocr: bool = Form(False),
+    ocr_language: str = Form("chi_sim+eng"),
+) -> DocumentIndexResponse:
+    filename = file.filename or "uploaded.pdf"
+    if not _is_supported_index_file(filename):
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
+
+    content = await file.read()
+    max_size = 10 * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="File is too large; max size is 10 MB")
+
+    settings = get_settings()
+    document_store = get_document_store(settings.document_metadata_path)
+    try:
+        existing_record = document_store.get_document(document_id)
+    except DocumentStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if existing_record is None:
+        raise HTTPException(status_code=404, detail=f"Document {document_id!r} not found")
+
+    content_hash = _calculate_content_hash(content)
+    try:
+        file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = _parse_and_split_index_file(
+            filename=filename,
+            content=content,
+            chunk_size=chunk_size,
+            overlap=overlap,
+            enable_ocr=enable_ocr,
+            enable_image_ocr=enable_image_ocr,
+            ocr_language=ocr_language,
+        )
+        if not chunks:
+            raise VectorStoreError("No text chunks to index")
+
+        vectors = await run_in_threadpool(
+            lambda: [embed_text(chunk.text, settings.embedding_model) for chunk in chunks]
+        )
+        dimension = len(vectors[0])
+        client = get_qdrant_client(settings.qdrant_local_path)
+        ensure_collection(client, settings.qdrant_collection, dimension)
+        deleted_chunks = delete_document_chunks(
+            client=client,
+            collection_name=existing_record.collection,
+            document_id=document_id,
+        )
+        document_store.remove_document(document_id)
+        indexed_count = upsert_chunks(
+            client=client,
+            collection_name=settings.qdrant_collection,
+            filename=filename,
+            chunks=chunks,
+            vectors=vectors,
+            document_id=document_id,
+            content_hash=content_hash,
+            file_type=file_type,
+        )
+        document_store.add_document(
+            document_id=document_id,
+            filename=filename,
+            file_type=file_type,
+            content_hash=content_hash,
+            chunk_count=len(chunks),
+            collection=settings.qdrant_collection,
+            chunk_size=chunk_size,
+            overlap=overlap,
+            embedding_model=settings.embedding_model,
+            page_count=page_count,
+            indexed_count=indexed_count,
+            source_file_size=len(content),
+        )
+    except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return DocumentIndexResponse(
+        document_id=document_id,
+        filename=filename,
+        file_type=file_type,
+        content_hash=content_hash,
+        content_hash_prefix=content_hash[:12],
+        is_duplicate=False,
+        indexed=True,
+        message="Document reindexed successfully.",
+        collection=settings.qdrant_collection,
+        page_count=page_count,
+        chunk_count=len(chunks),
+        indexed_count=indexed_count,
+        deleted_chunks=deleted_chunks,
+        dimension=dimension,
+        local_path=settings.qdrant_local_path,
+        extraction_mode=extraction_mode,
+        ocr_page_count=ocr_page_count,
+        image_ocr_count=image_ocr_count,
+        extraction_methods=extraction_methods,
+    )
+
+
 @app.post("/documents/search", response_model=SearchResponse)
 async def search_documents(request: SearchRequest) -> SearchResponse:
     settings = get_settings()
@@ -784,6 +947,8 @@ async def search_documents(request: SearchRequest) -> SearchResponse:
             settings=settings,
             query=request.query,
             limit=request.limit,
+            document_id=request.document_id,
+            file_type=request.file_type,
         )
     except (EmbeddingError, VectorStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -792,6 +957,8 @@ async def search_documents(request: SearchRequest) -> SearchResponse:
         query=request.query,
         collection=settings.qdrant_collection,
         limit=request.limit,
+        document_id=request.document_id,
+        file_type=request.file_type,
         results=[
             _to_search_result_response(result)
             for result in retrieved_results
@@ -810,6 +977,7 @@ async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
             settings=settings,
             query=request.question,
             limit=request.limit,
+            document_id=request.document_id,
         )
     except (EmbeddingError, VectorStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -870,6 +1038,7 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
         "normalized_question": route_decision.normalized_question,
         "requested_limit": request.limit,
         "score_threshold": request.score_threshold,
+        "document_id": request.document_id,
     }
 
     if selected_route == "chat":
@@ -902,6 +1071,7 @@ async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
             settings=settings,
             query=request.question,
             limit=request.limit,
+            document_id=request.document_id,
         )
     except (EmbeddingError, VectorStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -995,6 +1165,8 @@ async def _search_local_chunks(
     settings: Any,
     query: str,
     limit: int,
+    document_id: str | None = None,
+    file_type: str | None = None,
 ) -> list[SearchResult]:
     query_vector = await run_in_threadpool(
         embed_text,
@@ -1007,6 +1179,8 @@ async def _search_local_chunks(
         collection_name=settings.qdrant_collection,
         query_vector=query_vector,
         limit=limit,
+        document_id=document_id,
+        file_type=file_type,
     )
 
 

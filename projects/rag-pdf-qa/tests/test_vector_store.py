@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.text_splitter import TextChunk
-from app.vector_store import VectorStoreError, _document_id_filter, ensure_collection, upsert_chunks
+from app.vector_store import VectorStoreError, _document_id_filter, _search_filter, ensure_collection, search_chunks, upsert_chunks
 
 
 class FakeClient:
@@ -35,6 +35,43 @@ def test_document_id_filter_targets_document_payload():
 
     assert filter_model.must[0].key == "document_id"
     assert filter_model.must[0].match.value == "doc-1"
+
+
+def test_search_filter_can_target_document_and_file_type():
+    filter_model = _search_filter(document_id="doc-1", file_type="pdf")
+
+    assert filter_model is not None
+    assert filter_model.must[0].key == "document_id"
+    assert filter_model.must[0].match.value == "doc-1"
+    assert filter_model.must[1].key == "file_type"
+    assert filter_model.must[1].match.value == "pdf"
+
+
+def test_search_chunks_passes_optional_payload_filters():
+    captured = {}
+
+    class FakeSearchClient:
+        def collection_exists(self, collection_name):
+            return True
+
+        def query_points(self, **kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(points=[])
+
+    results = search_chunks(
+        client=FakeSearchClient(),
+        collection_name="rag_chunks",
+        query_vector=[0.1, 0.2, 0.3],
+        limit=3,
+        document_id="doc-1",
+        file_type="pdf",
+    )
+
+    assert results == []
+    assert captured["collection_name"] == "rag_chunks"
+    assert captured["limit"] == 3
+    assert captured["query_filter"].must[0].match.value == "doc-1"
+    assert captured["query_filter"].must[1].match.value == "pdf"
 
 
 def test_upsert_chunks_stores_extraction_method_payload():

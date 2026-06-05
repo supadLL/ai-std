@@ -49,6 +49,7 @@ body::before {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -292,6 +293,7 @@ h2 {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -302,6 +304,11 @@ textarea {
 }
 
 input {
+  height: 38px;
+  padding: 0 10px;
+}
+
+select {
   height: 38px;
   padding: 0 10px;
 }
@@ -327,7 +334,7 @@ textarea {
 }
 
 .controls {
-  grid-template-columns: 90px 120px minmax(110px, auto);
+  grid-template-columns: 90px 120px minmax(150px, 1fr) minmax(110px, auto);
   align-items: end;
 }
 
@@ -479,6 +486,60 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.library-tools {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.library-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 130px minmax(110px, auto) minmax(110px, auto);
+  gap: 10px;
+  align-items: end;
+}
+
+.library-detail {
+  display: none;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  background: var(--field);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.library-detail.active {
+  display: block;
+}
+
+.doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.doc-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.doc-select input {
+  width: 18px;
+  height: 18px;
+}
+
+.danger-action {
+  color: var(--danger);
 }
 
 .ask-mode-row {
@@ -842,11 +903,12 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .controls,
+.controls,
   .upload-meta,
   .settings-grid,
   .evaluation-controls,
-  .evaluation-metrics {
+  .evaluation-metrics,
+  .library-filter-grid {
     grid-template-columns: 1fr;
   }
 }
