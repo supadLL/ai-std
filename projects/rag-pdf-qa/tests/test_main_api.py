@@ -119,6 +119,8 @@ def test_web_ui_routes_are_available():
     assert "/knowledge-bases" in openapi_response.json()["paths"]
     assert "/knowledge-bases/{knowledge_base_id}/documents" in openapi_response.json()["paths"]
     assert "/settings/vector-store/status" in openapi_response.json()["paths"]
+    assert "/audit-logs" in openapi_response.json()["paths"]
+    assert "/metrics" in openapi_response.json()["paths"]
     assert "/evaluation/questions" in openapi_response.json()["paths"]
     assert "/evaluation/latest" in openapi_response.json()["paths"]
     assert "/evaluation/run" in openapi_response.json()["paths"]

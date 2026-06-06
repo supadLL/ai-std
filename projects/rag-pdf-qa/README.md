@@ -213,6 +213,7 @@ flowchart TD
 - [企业级第 03 步完成总结：多租户和权限隔离](docs/enterprise-summary/03-tenant-and-permission-isolation-summary.md)
 - [企业级第 04 步完成总结：异步索引任务](docs/enterprise-summary/04-async-indexing-job-summary.md)
 - [企业级第 05 步完成总结：服务化 Qdrant 和索引状态检查](docs/enterprise-summary/05-enterprise-vector-store-summary.md)
+- [企业级第 06 步完成总结：审计日志与基础观测](docs/enterprise-summary/06-audit-and-observability-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -514,6 +515,8 @@ Invoke-RestMethod `
 - `GET /` / `GET /app`：打开本地 RAG Web UI
 - `GET /settings`：读取本地运行时 LLM 设置，不返回真实 API Key
 - `GET /settings/vector-store/status`：读取 Qdrant 模式、collection、点数和 metadata 一致性状态，不返回真实 API Key
+- `GET /audit-logs`：查看最近审计事件，包含 request_id、user_id、action、resource、duration 和 usage 摘要
+- `GET /metrics`：查看文档数、索引任务状态、审计事件数和审计失败数等基础指标
 - `PUT /settings`：保存本地运行时 LLM、API Key 和 RAG prompt 设置
 - `POST /agent/ask`：可解释 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`，支持限定 `document_id`，返回 `route_reason`、`tools_used`、`routing_debug`
 - `GET /evaluation/questions`：读取本地 RAG 评估问题集
@@ -554,6 +557,7 @@ Invoke-RestMethod `
 - 企业级分支已新增最小多租户隔离：`knowledge_bases`、membership、文档归属字段和 Qdrant `knowledge_base_id` payload 过滤
 - 企业级分支已新增异步索引任务：`index_jobs`、后台入库、状态查询、失败原因和 retry
 - 企业级分支已支持 Qdrant local/server 模式切换、collection prefix 配置、Qdrant Compose 服务和 `/settings/vector-store/status` 状态检查
+- 企业级分支已新增审计与基础观测：`audit_logs`、`X-Request-ID`、结构化请求日志、`/audit-logs`、`/metrics`，并记录 RAG/Agent 检索耗时、LLM 耗时、provider/model 和 token usage
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
@@ -662,5 +666,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续企业级改造，建议进入第 06 步：审计日志与基础观测。不要直接跳到质量治理、复杂 Agent 或完整部署编排。
+后续如果继续企业级改造，建议进入第 07 步：企业级评估和质量治理。不要直接跳到复杂 Agent 或完整部署编排。
 

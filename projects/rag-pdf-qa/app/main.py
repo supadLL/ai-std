@@ -1,18 +1,27 @@
 from dataclasses import asdict
 from datetime import timedelta
 from hashlib import sha256
+import logging
 from pathlib import Path
 import re
+import time
 from typing import Any
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from app.agent import explain_agent_route
+from app.audit import (
+    AUDIT_STATUS_FAILURE,
+    AUDIT_STATUS_SUCCESS,
+    AuditLogError,
+    AuditLogRecord,
+    AuditLogStore,
+)
 from app.auth import AuthenticatedUser, get_current_user, get_user_store
 from app.config import get_settings
 from app.deepseek_client import DeepSeekClient, DeepSeekClientError
@@ -33,6 +42,13 @@ from app.index_jobs import (
     RETRYABLE_JOB_STATUSES,
 )
 from app.llm_providers import get_provider_options, normalize_provider
+from app.logging_config import (
+    configure_logging,
+    create_request_id,
+    get_request_id,
+    reset_request_id,
+    set_request_id,
+)
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
 from app.permissions import (
     KnowledgeBaseAccess,
@@ -64,6 +80,10 @@ from app.vector_store import (
 )
 
 
+configure_logging()
+logger = logging.getLogger(__name__)
+
+
 class UTF8JSONResponse(JSONResponse):
     media_type = "application/json; charset=utf-8"
 
@@ -77,6 +97,41 @@ app = FastAPI(
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 if WEB_DIR.exists():
     app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
+
+
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or create_request_id()
+    token = set_request_id(request_id)
+    started_at = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = _elapsed_ms(started_at)
+        logger.exception(
+            "request failed",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "duration_ms": duration_ms,
+            },
+        )
+        reset_request_id(token)
+        raise
+
+    duration_ms = _elapsed_ms(started_at)
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "request completed",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
+    reset_request_id(token)
+    return response
 
 
 DEFAULT_RAG_SYSTEM_PROMPT = (
@@ -489,6 +544,43 @@ class VectorStoreStatusResponse(BaseModel):
     metadata_error: str | None = None
 
 
+class AuditLogResponse(BaseModel):
+    audit_log_id: str
+    created_at: str
+    request_id: str | None = None
+    user_id: str | None = None
+    username: str | None = None
+    organization_id: str | None = None
+    workspace_id: str | None = None
+    knowledge_base_id: str | None = None
+    action: str
+    resource_type: str | None = None
+    resource_id: str | None = None
+    status: str
+    duration_ms: int | None = None
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    usage: dict[str, Any] | None = None
+    details: dict[str, Any] | None = None
+    error_message: str | None = None
+
+
+class AuditLogListResponse(BaseModel):
+    logs: list[AuditLogResponse]
+
+
+class MetricsResponse(BaseModel):
+    status: str
+    request_id: str | None = None
+    qdrant_mode: str
+    qdrant_collection: str
+    document_count: int
+    index_job_counts: dict[str, int]
+    audit_log_count: int
+    audit_failure_count: int
+    audit_action_counts: dict[str, int]
+
+
 class UpdateAppSettingsRequest(BaseModel):
     deepseek_api_key: str | None = Field(default=None, max_length=4000)
     clear_api_key: bool = False
@@ -584,6 +676,14 @@ async def login(request: AuthCredentialsRequest) -> AuthTokenResponse:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     if user is None:
+        _record_audit_event(
+            settings=settings,
+            action="auth.login",
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="user",
+            details={"username": request.username},
+            error_message="Invalid username or password",
+        )
         raise HTTPException(status_code=401, detail="Invalid username or password")
     try:
         get_permission_store().ensure_default_access(
@@ -593,6 +693,14 @@ async def login(request: AuthCredentialsRequest) -> AuthTokenResponse:
         )
     except PermissionStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    _record_audit_event(
+        settings=settings,
+        action="auth.login",
+        current_user=AuthenticatedUser(user_id=user.user_id, username=user.username, role=user.role),
+        resource_type="user",
+        resource_id=user.user_id,
+        details={"role": user.role},
+    )
     return _to_auth_token_response(user)
 
 
@@ -699,10 +807,40 @@ async def read_vector_store_status(
     )
 
 
+@app.get("/audit-logs", response_model=AuditLogListResponse)
+async def list_audit_logs(
+    limit: int = 50,
+    action: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AuditLogListResponse:
+    settings = get_settings()
+    user_id = None if current_user.role == "admin" else current_user.user_id
+    try:
+        logs = AuditLogStore(settings.database_url).list_logs(
+            limit=max(1, min(limit, 200)),
+            user_id=user_id,
+            action=action,
+        )
+    except AuditLogError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return AuditLogListResponse(logs=[_to_audit_log_response(log) for log in logs])
+
+
+@app.get("/metrics", response_model=MetricsResponse)
+async def read_metrics(
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> MetricsResponse:
+    settings = get_settings()
+    try:
+        return _read_metrics(settings)
+    except (AuditLogError, DocumentStoreError, IndexJobStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @app.put("/settings", response_model=AppSettingsResponse)
 async def update_app_settings(
     request: UpdateAppSettingsRequest,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
@@ -727,6 +865,17 @@ async def update_app_settings(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     effective_settings = apply_runtime_settings(base_settings, next_runtime_settings)
+    _record_audit_event(
+        settings=base_settings,
+        action="settings.update",
+        current_user=current_user,
+        resource_type="settings",
+        details={
+            "llm_provider": effective_settings.llm_provider,
+            "llm_model": effective_settings.llm_model,
+            "api_key_changed": bool(request.llm_api_key or request.deepseek_api_key or request.clear_api_key),
+        },
+    )
     return _to_app_settings_response(
         base_settings=base_settings,
         runtime_settings=next_runtime_settings,
@@ -737,7 +886,7 @@ async def update_app_settings(
 @app.post("/settings/llm-profiles", response_model=AppSettingsResponse)
 async def create_llm_profile(
     request: LlmProfileRequest,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
@@ -762,14 +911,23 @@ async def create_llm_profile(
         profiles=(*profiles, profile),
         active_profile_id=next_active_profile_id,
     )
-    return _save_and_render_settings(base_settings, next_runtime_settings)
+    response = _save_and_render_settings(base_settings, next_runtime_settings)
+    _record_audit_event(
+        settings=base_settings,
+        action="llm_profile.create",
+        current_user=current_user,
+        resource_type="llm_profile",
+        resource_id=profile.profile_id,
+        details={"provider": profile.provider, "model": profile.model, "activated": request.activate},
+    )
+    return response
 
 
 @app.put("/settings/llm-profiles/{profile_id}", response_model=AppSettingsResponse)
 async def update_llm_profile(
     profile_id: str,
     request: LlmProfileRequest,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
@@ -807,13 +965,22 @@ async def update_llm_profile(
         profiles=tuple(next_profiles),
         active_profile_id=profile_id if request.activate else active_profile_id,
     )
-    return _save_and_render_settings(base_settings, next_runtime_settings)
+    response = _save_and_render_settings(base_settings, next_runtime_settings)
+    _record_audit_event(
+        settings=base_settings,
+        action="llm_profile.update",
+        current_user=current_user,
+        resource_type="llm_profile",
+        resource_id=profile_id,
+        details={"provider": normalize_provider(request.provider), "model": request.model.strip(), "activated": request.activate},
+    )
+    return response
 
 
 @app.post("/settings/llm-profiles/{profile_id}/activate", response_model=AppSettingsResponse)
 async def activate_llm_profile(
     profile_id: str,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
@@ -830,13 +997,23 @@ async def activate_llm_profile(
         profiles=profiles,
         active_profile_id=profile_id,
     )
-    return _save_and_render_settings(base_settings, next_runtime_settings)
+    response = _save_and_render_settings(base_settings, next_runtime_settings)
+    activated_profile = next(profile for profile in profiles if profile.profile_id == profile_id)
+    _record_audit_event(
+        settings=base_settings,
+        action="llm_profile.activate",
+        current_user=current_user,
+        resource_type="llm_profile",
+        resource_id=profile_id,
+        details={"provider": activated_profile.provider, "model": activated_profile.model},
+    )
+    return response
 
 
 @app.delete("/settings/llm-profiles/{profile_id}", response_model=AppSettingsResponse)
 async def delete_llm_profile(
     profile_id: str,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
@@ -856,7 +1033,15 @@ async def delete_llm_profile(
         profiles=next_profiles,
         active_profile_id=active_profile_id,
     )
-    return _save_and_render_settings(base_settings, next_runtime_settings)
+    response = _save_and_render_settings(base_settings, next_runtime_settings)
+    _record_audit_event(
+        settings=base_settings,
+        action="llm_profile.delete",
+        current_user=current_user,
+        resource_type="llm_profile",
+        resource_id=profile_id,
+    )
+    return response
 
 
 @app.get("/evaluation/questions", response_model=EvaluationQuestionsResponse)
@@ -1085,8 +1270,9 @@ async def index_document(
         current_user,
         _select_knowledge_base_id(knowledge_base_id, knowledge_base_id_form),
     )
+    started_at = time.perf_counter()
     try:
-        return await run_in_threadpool(
+        result = await run_in_threadpool(
             _index_document_content,
             settings=settings,
             access=access,
@@ -1101,7 +1287,37 @@ async def index_document(
             ocr_language=ocr_language,
         )
     except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
+        _record_audit_event(
+            settings=settings,
+            action="document.index",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="document",
+            duration_ms=_elapsed_ms(started_at),
+            details={"filename": filename, "reindex": reindex},
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    _record_audit_event(
+        settings=settings,
+        action="document.index",
+        current_user=current_user,
+        access=access,
+        resource_type="document",
+        resource_id=result.document_id,
+        duration_ms=_elapsed_ms(started_at),
+        details={
+            "filename": result.filename,
+            "file_type": result.file_type,
+            "indexed": result.indexed,
+            "is_duplicate": result.is_duplicate,
+            "chunk_count": result.chunk_count,
+            "indexed_count": result.indexed_count,
+            "collection": result.collection,
+        },
+    )
+    return result
 
 
 @app.post("/knowledge-bases/{knowledge_base_id}/documents/index-jobs", response_model=IndexJobResponse)
@@ -1161,6 +1377,21 @@ async def create_index_job(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     background_tasks.add_task(_run_index_job_task, job.job_id)
+    _record_audit_event(
+        settings=settings,
+        action="document.index_job.create",
+        current_user=current_user,
+        access=access,
+        resource_type="index_job",
+        resource_id=job.job_id,
+        details={
+            "filename": filename,
+            "source_file_size": len(content),
+            "reindex": reindex,
+            "enable_ocr": enable_ocr,
+            "enable_image_ocr": enable_image_ocr,
+        },
+    )
     return _to_index_job_response(job)
 
 
@@ -1303,6 +1534,20 @@ async def batch_delete_documents(
                 deleted_metadata=removed_record is not None,
             )
         )
+        _record_audit_event(
+            settings=settings,
+            action="document.delete",
+            current_user=current_user,
+            access=access,
+            resource_type="document",
+            resource_id=document_id,
+            details={
+                "filename": record.filename,
+                "deleted_chunks": deleted_chunks,
+                "deleted_metadata": removed_record is not None,
+                "batch": True,
+            },
+        )
 
     return BatchDeleteDocumentsResponse(
         deleted_count=len(deleted),
@@ -1349,6 +1594,19 @@ async def delete_document(
     except (VectorStoreError, DocumentStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    _record_audit_event(
+        settings=settings,
+        action="document.delete",
+        current_user=current_user,
+        access=access,
+        resource_type="document",
+        resource_id=document_id,
+        details={
+            "filename": record.filename,
+            "deleted_chunks": deleted_chunks,
+            "deleted_metadata": removed_record is not None,
+        },
+    )
     return DeleteDocumentResponse(
         document_id=document_id,
         deleted_chunks=deleted_chunks,
@@ -1392,6 +1650,7 @@ async def reindex_document(
         raise HTTPException(status_code=404, detail=f"Document {document_id!r} not found")
 
     content_hash = _calculate_content_hash(content)
+    started_at = time.perf_counter()
     try:
         file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = _parse_and_split_index_file(
             filename=filename,
@@ -1451,9 +1710,21 @@ async def reindex_document(
             source_file_size=len(content),
         )
     except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
+        _record_audit_event(
+            settings=settings,
+            action="document.reindex",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="document",
+            resource_id=document_id,
+            duration_ms=_elapsed_ms(started_at),
+            details={"filename": filename, "previous_filename": existing_record.filename},
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    return DocumentIndexResponse(
+    response = DocumentIndexResponse(
         document_id=document_id,
         knowledge_base_id=access.knowledge_base_id,
         filename=filename,
@@ -1475,6 +1746,23 @@ async def reindex_document(
         image_ocr_count=image_ocr_count,
         extraction_methods=extraction_methods,
     )
+    _record_audit_event(
+        settings=settings,
+        action="document.reindex",
+        current_user=current_user,
+        access=access,
+        resource_type="document",
+        resource_id=document_id,
+        duration_ms=_elapsed_ms(started_at),
+        details={
+            "filename": filename,
+            "previous_filename": existing_record.filename,
+            "deleted_chunks": deleted_chunks,
+            "indexed_count": indexed_count,
+            "chunk_count": len(chunks),
+        },
+    )
+    return response
 
 
 @app.post("/knowledge-bases/{knowledge_base_id}/documents/search", response_model=SearchResponse)
@@ -1543,6 +1831,8 @@ async def ask_with_rag(
     runtime_settings = _load_runtime_settings_or_422()
     llm_settings = apply_runtime_settings(settings, runtime_settings)
 
+    total_started_at = time.perf_counter()
+    retrieval_started_at = time.perf_counter()
     try:
         retrieved_results = await _search_local_chunks(
             settings=settings,
@@ -1553,14 +1843,60 @@ async def ask_with_rag(
             tenant_id=access.organization_id,
         )
     except (EmbeddingError, VectorStoreError) as exc:
+        _record_audit_event(
+            settings=settings,
+            action="rag.ask",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="rag_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            details={"limit": request.limit, "document_id": request.document_id},
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    retrieval_ms = _elapsed_ms(retrieval_started_at)
 
     results = _filter_results_by_score(retrieved_results, request.score_threshold)
 
     if not retrieved_results:
+        _record_audit_event(
+            settings=settings,
+            action="rag.ask",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="rag_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            details={
+                "limit": request.limit,
+                "document_id": request.document_id,
+                "retrieved_count": 0,
+                "retrieval_ms": retrieval_ms,
+            },
+            error_message="No related document chunks found",
+        )
         raise HTTPException(status_code=404, detail="No related document chunks found. Index a document first.")
 
     if not results:
+        _record_audit_event(
+            settings=settings,
+            action="rag.ask",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="rag_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            details={
+                "limit": request.limit,
+                "document_id": request.document_id,
+                "retrieved_count": len(retrieved_results),
+                "source_count": 0,
+                "score_threshold": request.score_threshold,
+                "retrieval_ms": retrieval_ms,
+            },
+            error_message="No document chunks met score_threshold",
+        )
         raise HTTPException(
             status_code=404,
             detail="No document chunks met score_threshold. Lower score_threshold or try another question.",
@@ -1573,6 +1909,7 @@ async def ask_with_rag(
         runtime_settings=runtime_settings,
     )
 
+    llm_started_at = time.perf_counter()
     try:
         answer = await deepseek_client.chat_messages(
             messages=messages,
@@ -1580,9 +1917,31 @@ async def ask_with_rag(
             temperature=0.1,
         )
     except DeepSeekClientError as exc:
+        _record_audit_event(
+            settings=settings,
+            action="rag.ask",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="rag_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            llm_provider=llm_settings.llm_provider,
+            llm_model=llm_settings.llm_model,
+            details={
+                "limit": request.limit,
+                "document_id": request.document_id,
+                "retrieved_count": len(retrieved_results),
+                "source_count": len(results),
+                "score_threshold": request.score_threshold,
+                "retrieval_ms": retrieval_ms,
+                "llm_ms": _elapsed_ms(llm_started_at),
+            },
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    llm_ms = _elapsed_ms(llm_started_at)
 
-    return RagAskResponse(
+    response = RagAskResponse(
         question=request.question,
         reply=answer["reply"],
         model=answer["model"],
@@ -1597,6 +1956,27 @@ async def ask_with_rag(
         ],
         usage=answer.get("usage"),
     )
+    _record_audit_event(
+        settings=settings,
+        action="rag.ask",
+        current_user=current_user,
+        access=access,
+        resource_type="rag_query",
+        duration_ms=_elapsed_ms(total_started_at),
+        llm_provider=llm_settings.llm_provider,
+        llm_model=answer["model"],
+        usage=answer.get("usage"),
+        details={
+            "limit": request.limit,
+            "document_id": request.document_id,
+            "retrieved_count": len(retrieved_results),
+            "source_count": len(results),
+            "score_threshold": request.score_threshold,
+            "retrieval_ms": retrieval_ms,
+            "llm_ms": llm_ms,
+        },
+    )
+    return response
 
 
 @app.post("/knowledge-bases/{knowledge_base_id}/agent/ask", response_model=AgentAskResponse)
@@ -1631,14 +2011,29 @@ async def ask_with_agent(
         "knowledge_base_id": access.knowledge_base_id,
     }
 
+    total_started_at = time.perf_counter()
     if selected_route == "chat":
         deepseek_client = DeepSeekClient(llm_settings)
+        llm_started_at = time.perf_counter()
         try:
             answer = await deepseek_client.chat(request.question)
         except DeepSeekClientError as exc:
+            _record_audit_event(
+                settings=settings,
+                action="agent.ask",
+                current_user=current_user,
+                access=access,
+                status=AUDIT_STATUS_FAILURE,
+                resource_type="agent_query",
+                duration_ms=_elapsed_ms(total_started_at),
+                llm_provider=llm_settings.llm_provider,
+                llm_model=llm_settings.llm_model,
+                details={"route": "chat", "llm_ms": _elapsed_ms(llm_started_at)},
+                error_message=str(exc),
+            )
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-        return AgentAskResponse(
+        response = AgentAskResponse(
             question=request.question,
             route="chat",
             route_reason=route_decision.reason,
@@ -1656,7 +2051,21 @@ async def ask_with_agent(
             score_threshold=request.score_threshold,
             usage=answer.get("usage"),
         )
+        _record_audit_event(
+            settings=settings,
+            action="agent.ask",
+            current_user=current_user,
+            access=access,
+            resource_type="agent_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            llm_provider=llm_settings.llm_provider,
+            llm_model=answer["model"],
+            usage=answer.get("usage"),
+            details={"route": "chat", "llm_ms": _elapsed_ms(llm_started_at)},
+        )
+        return response
 
+    retrieval_started_at = time.perf_counter()
     try:
         retrieved_results = await _search_local_chunks(
             settings=settings,
@@ -1667,7 +2076,24 @@ async def ask_with_agent(
             tenant_id=access.organization_id,
         )
     except (EmbeddingError, VectorStoreError) as exc:
+        _record_audit_event(
+            settings=settings,
+            action="agent.ask",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="agent_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            details={
+                "route": selected_route,
+                "limit": request.limit,
+                "document_id": request.document_id,
+                "retrieval_ms": _elapsed_ms(retrieval_started_at),
+            },
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    retrieval_ms = _elapsed_ms(retrieval_started_at)
 
     results = _filter_results_by_score(retrieved_results, request.score_threshold)
     sources = [
@@ -1682,6 +2108,23 @@ async def ask_with_agent(
     }
 
     if not retrieved_results:
+        _record_audit_event(
+            settings=settings,
+            action="agent.ask",
+            current_user=current_user,
+            access=access,
+            resource_type="agent_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            details={
+                "route": "insufficient_context",
+                "fallback": "no_retrieved_chunks",
+                "limit": request.limit,
+                "document_id": request.document_id,
+                "retrieved_count": 0,
+                "source_count": 0,
+                "retrieval_ms": retrieval_ms,
+            },
+        )
         return AgentAskResponse(
             question=request.question,
             route="insufficient_context",
@@ -1701,6 +2144,24 @@ async def ask_with_agent(
         )
 
     if not results:
+        _record_audit_event(
+            settings=settings,
+            action="agent.ask",
+            current_user=current_user,
+            access=access,
+            resource_type="agent_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            details={
+                "route": "insufficient_context",
+                "fallback": "score_threshold_filtered_all",
+                "limit": request.limit,
+                "document_id": request.document_id,
+                "retrieved_count": len(retrieved_results),
+                "source_count": 0,
+                "score_threshold": request.score_threshold,
+                "retrieval_ms": retrieval_ms,
+            },
+        )
         return AgentAskResponse(
             question=request.question,
             route="insufficient_context",
@@ -1726,6 +2187,7 @@ async def ask_with_agent(
         runtime_settings=runtime_settings,
     )
 
+    llm_started_at = time.perf_counter()
     try:
         answer = await deepseek_client.chat_messages(
             messages=messages,
@@ -1733,9 +2195,32 @@ async def ask_with_agent(
             temperature=0.1,
         )
     except DeepSeekClientError as exc:
+        _record_audit_event(
+            settings=settings,
+            action="agent.ask",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="agent_query",
+            duration_ms=_elapsed_ms(total_started_at),
+            llm_provider=llm_settings.llm_provider,
+            llm_model=llm_settings.llm_model,
+            details={
+                "route": "rag",
+                "limit": request.limit,
+                "document_id": request.document_id,
+                "retrieved_count": len(retrieved_results),
+                "source_count": len(results),
+                "score_threshold": request.score_threshold,
+                "retrieval_ms": retrieval_ms,
+                "llm_ms": _elapsed_ms(llm_started_at),
+            },
+            error_message=str(exc),
+        )
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    llm_ms = _elapsed_ms(llm_started_at)
 
-    return AgentAskResponse(
+    response = AgentAskResponse(
         question=request.question,
         route="rag",
         route_reason=route_decision.reason,
@@ -1754,6 +2239,28 @@ async def ask_with_agent(
         sources=sources,
         usage=answer.get("usage"),
     )
+    _record_audit_event(
+        settings=settings,
+        action="agent.ask",
+        current_user=current_user,
+        access=access,
+        resource_type="agent_query",
+        duration_ms=_elapsed_ms(total_started_at),
+        llm_provider=llm_settings.llm_provider,
+        llm_model=answer["model"],
+        usage=answer.get("usage"),
+        details={
+            "route": "rag",
+            "limit": request.limit,
+            "document_id": request.document_id,
+            "retrieved_count": len(retrieved_results),
+            "source_count": len(results),
+            "score_threshold": request.score_threshold,
+            "retrieval_ms": retrieval_ms,
+            "llm_ms": llm_ms,
+        },
+    )
+    return response
 
 
 async def _search_local_chunks(
@@ -1784,12 +2291,80 @@ async def _search_local_chunks(
     )
 
 
+def _elapsed_ms(started_at: float) -> int:
+    return int((time.perf_counter() - started_at) * 1000)
+
+
 def _get_qdrant_client_from_settings(settings: Any) -> Any:
     return get_qdrant_client(
         settings.qdrant_local_path,
         mode=settings.qdrant_mode,
         url=settings.qdrant_url,
         api_key=settings.qdrant_api_key,
+    )
+
+
+def _record_audit_event(
+    *,
+    settings: Any,
+    action: str,
+    current_user: AuthenticatedUser | None = None,
+    access: KnowledgeBaseAccess | None = None,
+    status: str = AUDIT_STATUS_SUCCESS,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    duration_ms: int | None = None,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
+    usage: dict[str, Any] | None = None,
+    details: dict[str, Any] | None = None,
+    error_message: str | None = None,
+) -> AuditLogRecord | None:
+    try:
+        return AuditLogStore(settings.database_url).record(
+            action=action,
+            status=status,
+            request_id=get_request_id(),
+            user_id=current_user.user_id if current_user else None,
+            username=current_user.username if current_user else None,
+            organization_id=access.organization_id if access else None,
+            workspace_id=access.workspace_id if access else None,
+            knowledge_base_id=access.knowledge_base_id if access else None,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            duration_ms=duration_ms,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            usage=usage,
+            details=details,
+            error_message=error_message,
+        )
+    except AuditLogError:
+        logger.warning("audit log write failed", exc_info=True)
+        return None
+
+
+def _to_audit_log_response(log: AuditLogRecord) -> AuditLogResponse:
+    return AuditLogResponse(**asdict(log))
+
+
+def _read_metrics(settings: Any) -> MetricsResponse:
+    documents = get_document_store(settings.document_metadata_path).list_documents()
+    index_jobs = IndexJobStore(settings.database_url).list_jobs(limit=10000)
+    index_job_counts: dict[str, int] = {}
+    for job in index_jobs:
+        index_job_counts[job.status] = index_job_counts.get(job.status, 0) + 1
+    audit_metrics = AuditLogStore(settings.database_url).summarize()
+    return MetricsResponse(
+        status="ok",
+        request_id=get_request_id(),
+        qdrant_mode=settings.qdrant_mode,
+        qdrant_collection=settings.qdrant_collection,
+        document_count=len(documents),
+        index_job_counts=index_job_counts,
+        audit_log_count=audit_metrics.audit_log_count,
+        audit_failure_count=audit_metrics.failure_count,
+        audit_action_counts=audit_metrics.action_counts,
     )
 
 
@@ -2285,6 +2860,23 @@ def _index_document_content(
         image_ocr_count=image_ocr_count,
         extraction_methods=extraction_methods,
     )
+    _record_audit_event(
+        settings=settings,
+        action="document.reindex",
+        current_user=current_user,
+        access=access,
+        resource_type="document",
+        resource_id=document_id,
+        duration_ms=_elapsed_ms(started_at),
+        details={
+            "filename": filename,
+            "previous_filename": existing_record.filename,
+            "deleted_chunks": deleted_chunks,
+            "indexed_count": indexed_count,
+            "chunk_count": len(chunks),
+        },
+    )
+    return response
 
 
 def _calculate_content_hash(content: bytes) -> str:

@@ -120,6 +120,29 @@ class IndexJobModel(Base):
     finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
+class AuditLogModel(Base):
+    __tablename__ = "audit_logs"
+
+    audit_log_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    created_at: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    user_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    username: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    organization_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    workspace_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    knowledge_base_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    action: Mapped[str] = mapped_column(String(120), index=True, nullable=False)
+    resource_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    resource_id: Mapped[str | None] = mapped_column(String(160), index=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    llm_provider: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    llm_model: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    usage_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class RuntimeSettingModel(Base):
     __tablename__ = "runtime_settings"
 

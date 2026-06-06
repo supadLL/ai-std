@@ -79,13 +79,14 @@ LLM API 配置档案管理：新增、编辑、删除和一键启用
 企业级第 03 步：最小多租户和权限隔离，支持 knowledge base membership、文档归属和 Qdrant payload 过滤
 企业级第 04 步：异步索引任务，支持 index_jobs、后台入库、状态查询、失败原因和 retry
 企业级第 05 步：Qdrant local/server 模式切换、collection prefix、Compose Qdrant 服务和向量库状态检查
+企业级第 06 步：audit_logs、X-Request-ID、结构化请求日志、/audit-logs、/metrics 和 RAG/Agent 耗时 usage 记录
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05 步
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -271,6 +272,8 @@ Swagger Docs 页面必须能测试接口。
 | `POST /agent/ask` | 可解释 Agent 工具路由，支持限定 document_id，并返回 route_reason / tools_used / routing_debug |
 | `POST /knowledge-bases/{knowledge_base_id}/agent/ask` | 在指定知识库中执行 Agent 问答 |
 | `GET /settings/vector-store/status` | 查看 Qdrant 模式、collection、点数和 metadata 一致性，不返回真实 API Key |
+| `GET /audit-logs` | 查看最近审计事件 |
+| `GET /metrics` | 查看基础运行指标 |
 | `GET /evaluation/questions` | 读取本地 RAG 评估问题集 |
 | `POST /evaluation/run` | 运行本地检索评估并保存最近结果，不调用 LLM |
 | `GET /evaluation/latest` | 读取最近一次 RAG 检索评估结果 |
@@ -653,7 +656,7 @@ PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> 当前 LLM Pr
 PDF 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
-PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/settings/vector-store/status 向量库状态检查、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引，以及企业级分支上的 index_jobs 异步索引任务和 Qdrant local/server 模式切换。
+PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/settings/vector-store/status 向量库状态检查、/audit-logs 审计日志、/metrics 基础指标、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引，以及企业级分支上的 index_jobs 异步索引任务和 Qdrant local/server 模式切换。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。
