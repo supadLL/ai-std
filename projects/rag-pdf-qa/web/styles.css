@@ -192,7 +192,7 @@ textarea {
 
 .evaluation-panel {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   padding: 18px;
@@ -808,7 +808,7 @@ h3 {
 
 .evaluation-controls {
   display: grid;
-  grid-template-columns: 110px 140px minmax(140px, auto) minmax(140px, auto);
+  grid-template-columns: 110px 140px minmax(120px, auto) minmax(120px, auto) minmax(120px, auto);
   gap: 10px;
   align-items: end;
   padding: 14px;
@@ -817,6 +817,46 @@ h3 {
   background:
     linear-gradient(135deg, rgba(var(--accent-rgb), 0.08), transparent),
     var(--surface);
+}
+
+.evaluation-history {
+  margin-top: 12px;
+}
+
+.evaluation-history-head {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.evaluation-run-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.evaluation-run {
+  display: grid;
+  gap: 3px;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  text-align: left;
+}
+
+.evaluation-run b {
+  font-size: 18px;
+}
+
+.evaluation-run span,
+.evaluation-run small {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .evaluation-summary {
@@ -915,6 +955,12 @@ h3 {
 
 .evaluation-case-meta {
   line-height: 1.55;
+}
+
+.feedback-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .doc-title,
@@ -1237,6 +1283,7 @@ h3 {
   .settings-grid,
   .evaluation-controls,
   .evaluation-metrics,
+  .evaluation-run-list,
   .library-filter-grid {
     grid-template-columns: 1fr;
   }

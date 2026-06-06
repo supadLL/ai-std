@@ -143,6 +143,69 @@ class AuditLogModel(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class EvaluationCaseModel(Base):
+    __tablename__ = "evaluation_cases"
+    __table_args__ = (
+        UniqueConstraint(
+            "dataset_name",
+            "dataset_version",
+            "knowledge_base_id",
+            "case_id",
+            name="uq_evaluation_cases_dataset_kb_case",
+        ),
+    )
+
+    evaluation_case_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    dataset_name: Mapped[str] = mapped_column(String(160), index=True, nullable=False)
+    dataset_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    knowledge_base_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    case_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    question_type: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    expected_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    updated_at: Mapped[str] = mapped_column(String(40), nullable=False)
+
+
+class EvaluationRunModel(Base):
+    __tablename__ = "evaluation_runs"
+
+    run_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    generated_at: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    dataset_name: Mapped[str] = mapped_column(String(160), index=True, nullable=False)
+    dataset_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    knowledge_base_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    collection: Mapped[str] = mapped_column(String(120), nullable=False)
+    embedding_model: Mapped[str] = mapped_column(String(240), nullable=False)
+    llm_provider: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    llm_model: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    score_threshold: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    hit_rate: Mapped[str] = mapped_column(String(40), nullable=False)
+    page_hit_rate: Mapped[str] = mapped_column(String(40), nullable=False)
+    keyword_hit_rate: Mapped[str] = mapped_column(String(40), nullable=False)
+    quality_status: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    result_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class AnswerFeedbackModel(Base):
+    __tablename__ = "answer_feedback"
+
+    feedback_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    created_at: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    username: Mapped[str] = mapped_column(String(120), nullable=False)
+    organization_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    workspace_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    knowledge_base_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    rating: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
+    route: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    answer_preview: Mapped[str] = mapped_column(Text, nullable=False)
+    details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class RuntimeSettingModel(Base):
     __tablename__ = "runtime_settings"
 

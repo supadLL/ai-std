@@ -29,11 +29,15 @@ from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
 from app.document_loaders import DocumentLoadError, is_supported_document, load_document_from_bytes
 from app.embedding_client import EmbeddingError, embed_text
 from app.evaluation import (
+    EvaluationRunSummary,
     EvaluationError,
+    list_evaluation_runs,
     load_evaluation_dataset,
+    read_evaluation_run,
     read_latest_evaluation,
     run_rag_search_evaluation,
 )
+from app.feedback import AnswerFeedbackRecord, AnswerFeedbackStore, FeedbackError
 from app.index_jobs import (
     JOB_STATUS_FAILED,
     IndexJobRecord,
@@ -384,11 +388,14 @@ class EvaluationCaseResultResponse(BaseModel):
 
 
 class EvaluationRunResponse(BaseModel):
+    run_id: str | None = None
     dataset_name: str
     dataset_version: str
     generated_at: str
     collection: str
     embedding_model: str
+    llm_provider: str | None = None
+    llm_model: str | None = None
     knowledge_base_id: str | None = None
     limit: int
     score_threshold: float | None = None
@@ -402,7 +409,48 @@ class EvaluationRunResponse(BaseModel):
     keyword_hit_count: int
     keyword_hit_rate: float
     low_score_result_count: int
+    quality_gate: dict[str, Any] | None = None
     cases: list[EvaluationCaseResultResponse]
+
+
+class EvaluationRunSummaryResponse(BaseModel):
+    run_id: str
+    generated_at: str
+    dataset_name: str
+    dataset_version: str
+    knowledge_base_id: str | None = None
+    collection: str
+    embedding_model: str
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    limit: int
+    score_threshold: float | None = None
+    hit_rate: float
+    page_hit_rate: float
+    keyword_hit_rate: float
+    quality_status: str
+
+
+class EvaluationRunListResponse(BaseModel):
+    runs: list[EvaluationRunSummaryResponse]
+
+
+class AnswerFeedbackRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+    answer: str = Field(min_length=1, max_length=12000)
+    rating: str = Field(min_length=2, max_length=10)
+    route: str | None = Field(default=None, max_length=80)
+    knowledge_base_id: str | None = Field(default=None, max_length=120)
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnswerFeedbackResponse(BaseModel):
+    feedback_id: str
+    created_at: str
+    request_id: str | None = None
+    knowledge_base_id: str
+    rating: str
+    route: str | None = None
 
 
 class DocumentRecordResponse(BaseModel):
@@ -1079,6 +1127,42 @@ async def read_latest_rag_evaluation(
         result = await run_in_threadpool(read_latest_evaluation)
     except EvaluationError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return EvaluationRunResponse(**result)
+
+
+@app.get("/evaluation/runs", response_model=EvaluationRunListResponse)
+async def list_rag_evaluation_runs(
+    knowledge_base_id: str | None = None,
+    limit: int = 20,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> EvaluationRunListResponse:
+    settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    try:
+        runs = await run_in_threadpool(
+            list_evaluation_runs,
+            settings=settings,
+            knowledge_base_id=access.knowledge_base_id,
+            limit=max(1, min(limit, 100)),
+        )
+    except EvaluationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return EvaluationRunListResponse(runs=[_to_evaluation_run_summary_response(run) for run in runs])
+
+
+@app.get("/evaluation/runs/{run_id}", response_model=EvaluationRunResponse)
+async def read_rag_evaluation_run(
+    run_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> EvaluationRunResponse:
+    settings = get_settings()
+    try:
+        result = await run_in_threadpool(read_evaluation_run, settings=settings, run_id=run_id)
+    except EvaluationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    result_knowledge_base_id = result.get("knowledge_base_id")
+    if result_knowledge_base_id:
+        _resolve_knowledge_base_context(current_user, str(result_knowledge_base_id))
     return EvaluationRunResponse(**result)
 
 
@@ -2263,6 +2347,42 @@ async def ask_with_agent(
     return response
 
 
+@app.post("/feedback/answers", response_model=AnswerFeedbackResponse)
+async def create_answer_feedback(
+    request: AnswerFeedbackRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AnswerFeedbackResponse:
+    settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, request.knowledge_base_id)
+    try:
+        feedback = AnswerFeedbackStore(settings.database_url).record(
+            request_id=get_request_id(),
+            user_id=current_user.user_id,
+            username=current_user.username,
+            organization_id=access.organization_id,
+            workspace_id=access.workspace_id,
+            knowledge_base_id=access.knowledge_base_id,
+            rating=request.rating,
+            question=request.question,
+            answer=request.answer,
+            route=request.route,
+            details=request.details,
+        )
+    except FeedbackError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _record_audit_event(
+        settings=settings,
+        action="feedback.answer",
+        current_user=current_user,
+        access=access,
+        resource_type="answer_feedback",
+        resource_id=feedback.feedback_id,
+        details={"rating": feedback.rating, "route": feedback.route},
+    )
+    return _to_answer_feedback_response(feedback)
+
+
 async def _search_local_chunks(
     *,
     settings: Any,
@@ -2346,6 +2466,21 @@ def _record_audit_event(
 
 def _to_audit_log_response(log: AuditLogRecord) -> AuditLogResponse:
     return AuditLogResponse(**asdict(log))
+
+
+def _to_evaluation_run_summary_response(run: EvaluationRunSummary) -> EvaluationRunSummaryResponse:
+    return EvaluationRunSummaryResponse(**asdict(run))
+
+
+def _to_answer_feedback_response(feedback: AnswerFeedbackRecord) -> AnswerFeedbackResponse:
+    return AnswerFeedbackResponse(
+        feedback_id=feedback.feedback_id,
+        created_at=feedback.created_at,
+        request_id=feedback.request_id,
+        knowledge_base_id=feedback.knowledge_base_id,
+        rating=feedback.rating,
+        route=feedback.route,
+    )
 
 
 def _read_metrics(settings: Any) -> MetricsResponse:

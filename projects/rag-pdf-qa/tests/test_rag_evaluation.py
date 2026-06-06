@@ -76,12 +76,17 @@ def test_run_rag_search_evaluation_saves_json_and_markdown(tmp_path, monkeypatch
 
     monkeypatch.setattr(evaluation, "search_chunks", fake_search_chunks)
 
+    settings = SimpleNamespace(
+        qdrant_local_path=str(tmp_path / ".qdrant"),
+        qdrant_collection="rag_chunks",
+        embedding_model="BAAI/bge-small-zh-v1.5",
+        llm_provider="deepseek",
+        llm_model="deepseek-v4-flash",
+        database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}",
+    )
+
     result = evaluation.run_rag_search_evaluation(
-        settings=SimpleNamespace(
-            qdrant_local_path=str(tmp_path / ".qdrant"),
-            qdrant_collection="rag_chunks",
-            embedding_model="BAAI/bge-small-zh-v1.5",
-        ),
+        settings=settings,
         dataset_path=dataset_path,
         output_json_path=output_json_path,
         output_md_path=output_md_path,
@@ -96,9 +101,15 @@ def test_run_rag_search_evaluation_saves_json_and_markdown(tmp_path, monkeypatch
     assert result["keyword_hit_rate"] == 1.0
     assert result["low_score_result_count"] == 1
     assert result["knowledge_base_id"] == "kb-default"
+    assert result["run_id"].startswith("eval_")
+    assert result["quality_gate"]["status"] == "pass"
     assert result["cases"][0]["top_sources"][0]["filename"] == "runbook.md"
     assert result["cases"][0]["top_sources"][0]["extraction_method"] == "text"
     assert output_json_path.exists()
     assert output_md_path.exists()
     assert json.loads(output_json_path.read_text(encoding="utf-8"))["dataset_name"] == "demo_eval"
+    runs = evaluation.list_evaluation_runs(settings=settings, knowledge_base_id="kb-default")
+    assert runs[0].run_id == result["run_id"]
+    assert runs[0].quality_status == "pass"
+    assert evaluation.read_evaluation_run(settings=settings, run_id=result["run_id"])["run_id"] == result["run_id"]
     assert "RAG 检索评估结果" in output_md_path.read_text(encoding="utf-8")

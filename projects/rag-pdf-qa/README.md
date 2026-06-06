@@ -214,6 +214,7 @@ flowchart TD
 - [企业级第 04 步完成总结：异步索引任务](docs/enterprise-summary/04-async-indexing-job-summary.md)
 - [企业级第 05 步完成总结：服务化 Qdrant 和索引状态检查](docs/enterprise-summary/05-enterprise-vector-store-summary.md)
 - [企业级第 06 步完成总结：审计日志与基础观测](docs/enterprise-summary/06-audit-and-observability-summary.md)
+- [企业级第 07 步完成总结：评估历史和质量治理](docs/enterprise-summary/07-evaluation-and-quality-governance-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -522,6 +523,9 @@ Invoke-RestMethod `
 - `GET /evaluation/questions`：读取本地 RAG 评估问题集
 - `POST /evaluation/run`：运行本地检索评估并保存最近结果，不调用 LLM
 - `GET /evaluation/latest`：读取最近一次 RAG 检索评估结果
+- `GET /evaluation/runs`：查看评估历史 run，可按知识库筛选
+- `GET /evaluation/runs/{run_id}`：查看单次评估完整结果
+- `POST /feedback/answers`：提交用户对回答的 up/down 反馈
 - `/rag/ask` 支持 `score_threshold` 低分过滤
 - `/rag/ask` 的 `sources` 已优化为 `source_id` + `preview` 结构
 - `/rag/ask` 的 `reply` 已通过 prompt 约束为“答案 / 依据 / 资料不足之处”三段式格式
@@ -558,6 +562,7 @@ Invoke-RestMethod `
 - 企业级分支已新增异步索引任务：`index_jobs`、后台入库、状态查询、失败原因和 retry
 - 企业级分支已支持 Qdrant local/server 模式切换、collection prefix 配置、Qdrant Compose 服务和 `/settings/vector-store/status` 状态检查
 - 企业级分支已新增审计与基础观测：`audit_logs`、`X-Request-ID`、结构化请求日志、`/audit-logs`、`/metrics`，并记录 RAG/Agent 检索耗时、LLM 耗时、provider/model 和 token usage
+- 企业级分支已新增评估质量治理：`evaluation_runs`、`evaluation_cases` 知识库归属、评估历史 API、quality_gate、答案反馈 `/feedback/answers` 和 Web UI 评估历史
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
@@ -666,5 +671,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续企业级改造，建议进入第 07 步：企业级评估和质量治理。不要直接跳到复杂 Agent 或完整部署编排。
+后续如果继续企业级改造，建议进入第 08 步：部署、环境和密钥治理。不要直接跳到复杂 Agent 或商业化 SaaS 功能。
 

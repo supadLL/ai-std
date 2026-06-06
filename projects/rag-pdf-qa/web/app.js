@@ -14,6 +14,7 @@ const state = {
   lastAnswer: null,
   messages: [],
   evaluation: null,
+  evaluationRuns: [],
   askMode: "rag",
   selectedDocumentIds: new Set(),
   activeDocumentId: null,
@@ -54,8 +55,10 @@ const els = {
   evaluationThreshold: document.querySelector("#evaluationThreshold"),
   evaluationStatus: document.querySelector("#evaluationStatus"),
   evaluationSummary: document.querySelector("#evaluationSummary"),
+  evaluationHistory: document.querySelector("#evaluationHistory"),
   evaluationCases: document.querySelector("#evaluationCases"),
   reloadEvaluation: document.querySelector("#reloadEvaluation"),
+  reloadEvaluationRuns: document.querySelector("#reloadEvaluationRuns"),
   toast: document.querySelector("#toast"),
   tabButtons: Array.from(document.querySelectorAll(".tab-button")),
   tabPages: Array.from(document.querySelectorAll(".tab-page")),
@@ -171,6 +174,9 @@ const translations = {
     "evaluation.threshold": "分数阈值 threshold",
     "evaluation.run": "运行评估",
     "evaluation.reload": "读取最近结果",
+    "evaluation.reloadHistory": "刷新历史",
+    "evaluation.history": "评估历史",
+    "evaluation.quality": "质量门禁",
     "evaluation.empty": "暂无评估结果",
     "evaluation.dataset": "数据集 dataset",
     "evaluation.cases": "用例 cases",
@@ -256,6 +262,7 @@ const translations = {
     "toast.profileDeleted": "模型配置已删除",
     "toast.cannotDeleteActive": "启用中的配置不能删除",
     "toast.languageChanged": "语言已切换",
+    "toast.feedbackSaved": "反馈已记录",
     "toast.colorChanged": "系统色已更新",
     "toast.backgroundChanged": "背景色已更新",
     "status.idle": "idle",
@@ -335,6 +342,9 @@ const translations = {
     "evaluation.threshold": "threshold",
     "evaluation.run": "Run Evaluation",
     "evaluation.reload": "Load Latest",
+    "evaluation.reloadHistory": "Refresh History",
+    "evaluation.history": "Evaluation History",
+    "evaluation.quality": "quality",
     "evaluation.empty": "No evaluation result",
     "evaluation.dataset": "Dataset",
     "evaluation.cases": "cases",
@@ -420,6 +430,7 @@ const translations = {
     "toast.profileDeleted": "Model profile deleted",
     "toast.cannotDeleteActive": "Active profile cannot be deleted",
     "toast.languageChanged": "Language changed",
+    "toast.feedbackSaved": "Feedback recorded",
     "toast.colorChanged": "System color updated",
     "toast.backgroundChanged": "Background color updated",
     "status.idle": "idle",
@@ -630,6 +641,7 @@ async function changeKnowledgeBase() {
   state.selectedDocumentIds.clear();
   state.activeDocumentId = null;
   state.evaluation = null;
+  state.evaluationRuns = [];
   state.indexJobs = [];
   state.hadActiveIndexJobs = false;
   stopIndexJobPolling();
@@ -1288,6 +1300,14 @@ async function askQuestion(event) {
       role: "assistant",
       content: data.reply || "",
       meta: `${routeMeta}${data.model || t("debug.model")} · ${t("debug.sources")} ${data.source_count}`,
+      feedback: {
+        question,
+        answer: data.reply || "",
+        rating: "",
+        route: data.route || state.askMode,
+        knowledge_base_id: data.knowledge_base_id || state.activeKnowledgeBaseId || "",
+        source_count: data.source_count || 0,
+      },
     });
     renderSources(data.sources || []);
     renderDebug(data);
@@ -1309,11 +1329,11 @@ function renderMessages() {
     return;
   }
 
-  els.answerOutput.innerHTML = state.messages.map(renderMessage).join("");
+  els.answerOutput.innerHTML = state.messages.map((message, index) => renderMessage(message, index)).join("");
   els.answerOutput.scrollTop = els.answerOutput.scrollHeight;
 }
 
-function renderMessage(message) {
+function renderMessage(message, index = 0) {
   const classes = ["chat-message", message.role];
   if (message.error) {
     classes.push("error");
@@ -1337,12 +1357,21 @@ function renderMessage(message) {
     ? markdownLite(message.content || "")
     : escapeHtml(message.content || "").replace(/\n/g, "<br />");
   const meta = message.meta ? `<div class="bubble-meta">${escapeHtml(message.meta)}</div>` : "";
+  const feedbackActions = message.feedback
+    ? `
+      <div class="feedback-actions">
+        <button class="icon-button" type="button" title="thumbs up" data-feedback-rating="up" data-message-index="${index}">${message.feedback.rating === "up" ? "ok" : "+"}</button>
+        <button class="icon-button" type="button" title="thumbs down" data-feedback-rating="down" data-message-index="${index}">${message.feedback.rating === "down" ? "ok" : "-"}</button>
+      </div>
+    `
+    : "";
 
   return `
     <article class="${classes.join(" ")}">
       <div class="bubble">
         ${meta}
         ${content}
+        ${feedbackActions}
       </div>
     </article>
   `;
@@ -1356,6 +1385,42 @@ function replacePendingMessage(id, nextMessage) {
     state.messages.push(nextMessage);
   }
   renderMessages();
+}
+
+async function handleAnswerFeedbackClick(event) {
+  const button = event.target.closest("[data-feedback-rating]");
+  if (!button) {
+    return;
+  }
+  const message = state.messages[Number(button.dataset.messageIndex)];
+  if (!message?.feedback) {
+    return;
+  }
+  const feedback = message.feedback;
+  const payload = {
+    question: feedback.question,
+    answer: feedback.answer,
+    rating: button.dataset.feedbackRating,
+    route: feedback.route,
+    details: {
+      source_count: feedback.source_count,
+    },
+  };
+  if (feedback.knowledge_base_id) {
+    payload.knowledge_base_id = feedback.knowledge_base_id;
+  }
+  try {
+    await requestJson("/feedback/answers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    feedback.rating = payload.rating;
+    renderMessages();
+    showToast(t("toast.feedbackSaved"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
 }
 
 function switchTab(tabName) {
@@ -1372,6 +1437,9 @@ function switchTab(tabName) {
 
   if (tabName === "evaluation" && !state.evaluation) {
     loadLatestEvaluation();
+  }
+  if (tabName === "evaluation" && !state.evaluationRuns.length) {
+    loadEvaluationRuns();
   }
 }
 
@@ -1440,6 +1508,24 @@ async function loadLatestEvaluation() {
   }
 }
 
+async function loadEvaluationRuns() {
+  if (!els.evaluationHistory) {
+    return;
+  }
+  const params = new URLSearchParams({ limit: "8" });
+  if (state.activeKnowledgeBaseId) {
+    params.set("knowledge_base_id", state.activeKnowledgeBaseId);
+  }
+  try {
+    const data = await requestJson(`/evaluation/runs?${params.toString()}`);
+    state.evaluationRuns = data.runs || [];
+    renderEvaluationHistory();
+  } catch (error) {
+    state.evaluationRuns = [];
+    renderEvaluationHistory();
+  }
+}
+
 async function runEvaluation(event) {
   event.preventDefault();
   const payload = {
@@ -1459,6 +1545,53 @@ async function runEvaluation(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    state.evaluation = data;
+    renderEvaluation(data);
+    loadEvaluationRuns();
+    setEvaluationStatus("done");
+  } catch (error) {
+    setEvaluationStatus("error");
+    showToast(error.message, true);
+  }
+}
+
+function renderEvaluationHistory() {
+  if (!els.evaluationHistory) {
+    return;
+  }
+  const runs = state.evaluationRuns || [];
+  if (!runs.length) {
+    els.evaluationHistory.innerHTML = "";
+    return;
+  }
+  els.evaluationHistory.innerHTML = `
+    <div class="evaluation-history-head">
+      <b>${t("evaluation.history")}</b>
+    </div>
+    <div class="evaluation-run-list">
+      ${runs.map(renderEvaluationRun).join("")}
+    </div>
+  `;
+}
+
+function renderEvaluationRun(run) {
+  return `
+    <button class="evaluation-run" type="button" data-evaluation-run-id="${escapeHtml(run.run_id)}">
+      <span>${formatDateTime(run.generated_at)}</span>
+      <b>${formatRate(run.hit_rate)}</b>
+      <small>top_k ${run.limit} · ${t("evaluation.quality")} ${escapeHtml(run.quality_status || "-")}</small>
+    </button>
+  `;
+}
+
+async function handleEvaluationHistoryClick(event) {
+  const button = event.target.closest("[data-evaluation-run-id]");
+  if (!button) {
+    return;
+  }
+  setEvaluationStatus("loading");
+  try {
+    const data = await requestJson(`/evaluation/runs/${encodeURIComponent(button.dataset.evaluationRunId)}`);
     state.evaluation = data;
     renderEvaluation(data);
     setEvaluationStatus("done");
@@ -1486,6 +1619,7 @@ function renderEvaluation(data) {
       ${t("evaluation.dataset")} ${escapeHtml(data.dataset_name)} ·
       ${t("evaluation.cases")} ${data.scored_case_count}/${data.case_count} ·
       top_k ${data.limit} ·
+      ${t("evaluation.quality")} ${escapeHtml(data.quality_gate?.status || "-")} ·
       ${t("evaluation.generatedAt")} ${formatDateTime(data.generated_at)}
     </div>
   `;
@@ -1600,6 +1734,7 @@ function applyLanguage() {
   } else if (els.evaluationSummary) {
     renderEvaluation(null);
   }
+  renderEvaluationHistory();
 }
 
 function applyTheme() {
@@ -1803,6 +1938,7 @@ els.indexJobList.addEventListener("click", handleIndexJobListClick);
 els.documentList.addEventListener("click", handleDocumentListClick);
 els.documentList.addEventListener("change", handleDocumentListChange);
 els.askForm.addEventListener("submit", askQuestion);
+els.answerOutput.addEventListener("click", handleAnswerFeedbackClick);
 els.settingsForm.addEventListener("submit", saveSettings);
 els.profileForm.addEventListener("submit", saveProfile);
 els.profileTableBody.addEventListener("click", handleProfileTableClick);
@@ -1819,6 +1955,10 @@ els.evaluationForm.addEventListener("submit", runEvaluation);
 els.reloadEvaluation.addEventListener("click", () => {
   loadLatestEvaluation().catch((error) => showToast(error.message, true));
 });
+els.reloadEvaluationRuns.addEventListener("click", () => {
+  loadEvaluationRuns().catch((error) => showToast(error.message, true));
+});
+els.evaluationHistory.addEventListener("click", handleEvaluationHistoryClick);
 els.reloadSettings.addEventListener("click", () => {
   loadSettings().catch((error) => showToast(error.message, true));
 });

@@ -6,7 +6,7 @@
     <title>Local RAG Agent | Knowledge QA</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" />
     <link rel="apple-touch-icon" sizes="192x192" href="/web/assets/rag-agent-icon-192.png?v=29" />
-    <link rel="stylesheet" href="/web/styles.css?v=41" />
+    <link rel="stylesheet" href="/web/styles.css?v=42" />
   </head>
   <body>
     <section class="auth-panel" id="authPanel">
@@ -220,8 +220,10 @@
               </label>
               <button class="primary-button" type="submit" data-i18n="evaluation.run">运行评估</button>
               <button class="ghost-button" id="reloadEvaluation" type="button" data-i18n="evaluation.reload">读取最近结果</button>
+              <button class="ghost-button" id="reloadEvaluationRuns" type="button" data-i18n="evaluation.reloadHistory">刷新历史</button>
             </form>
 
+            <div class="evaluation-history" id="evaluationHistory"></div>
             <div class="evaluation-summary" id="evaluationSummary"></div>
             <div class="evaluation-case-list" id="evaluationCases"></div>
           </div>
@@ -368,6 +370,6 @@
       </form>
     </div>
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js?v=41"></script>
+    <script src="/web/app.js?v=42"></script>
   </body>
 </html>

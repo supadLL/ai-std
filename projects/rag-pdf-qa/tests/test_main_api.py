@@ -3,9 +3,11 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app.audit import AuditLogStore
 from app.config import Settings
 from app.document_loaders import ParsedDocument, ParsedSection
 from app.document_store import DocumentRecord
+from app.evaluation import EvaluationRunSummary
 from app.pdf_extractor import ExtractedPage, ExtractedPdf
 from app.runtime_settings import RuntimeSettings
 from app.text_splitter import TextChunk
@@ -81,12 +83,14 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=41" in app_response.text
-    assert "/web/app.js?v=41" in app_response.text
+    assert "/web/styles.css?v=42" in app_response.text
+    assert "/web/app.js?v=42" in app_response.text
     assert 'id="knowledgeBaseSelect"' in app_response.text
     assert 'id="knowledgeBaseForm"' in app_response.text
     assert 'id="indexJobList"' in app_response.text
     assert 'id="refreshIndexJobs"' in app_response.text
+    assert 'id="evaluationHistory"' in app_response.text
+    assert 'id="reloadEvaluationRuns"' in app_response.text
     assert "分块大小 chunk" in app_response.text
     assert "重叠长度 overlap" in app_response.text
     assert "重新索引 reindex" in app_response.text
@@ -121,6 +125,9 @@ def test_web_ui_routes_are_available():
     assert "/settings/vector-store/status" in openapi_response.json()["paths"]
     assert "/audit-logs" in openapi_response.json()["paths"]
     assert "/metrics" in openapi_response.json()["paths"]
+    assert "/evaluation/runs" in openapi_response.json()["paths"]
+    assert "/evaluation/runs/{run_id}" in openapi_response.json()["paths"]
+    assert "/feedback/answers" in openapi_response.json()["paths"]
     assert "/evaluation/questions" in openapi_response.json()["paths"]
     assert "/evaluation/latest" in openapi_response.json()["paths"]
     assert "/evaluation/run" in openapi_response.json()["paths"]
@@ -202,12 +209,38 @@ def test_evaluation_api_endpoints_return_dataset_and_run_result(monkeypatch):
 
     monkeypatch.setattr(main, "run_rag_search_evaluation", fake_run_rag_search_evaluation)
     monkeypatch.setattr(main, "read_latest_evaluation", lambda: fake_result)
+    monkeypatch.setattr(
+        main,
+        "list_evaluation_runs",
+        lambda *, settings, knowledge_base_id=None, limit=20: [
+            EvaluationRunSummary(
+                run_id="eval_1",
+                generated_at="2026-06-05T00:00:00+00:00",
+                dataset_name="demo_eval",
+                dataset_version="0.1",
+                knowledge_base_id=knowledge_base_id,
+                collection="rag_chunks",
+                embedding_model="BAAI/bge-small-zh-v1.5",
+                llm_provider="deepseek",
+                llm_model="deepseek-v4-flash",
+                limit=3,
+                score_threshold=None,
+                hit_rate=1.0,
+                page_hit_rate=1.0,
+                keyword_hit_rate=1.0,
+                quality_status="pass",
+            )
+        ],
+    )
+    monkeypatch.setattr(main, "read_evaluation_run", lambda *, settings, run_id: {**fake_result, "run_id": run_id})
 
     client = TestClient(main.app)
 
     questions_response = client.get("/evaluation/questions")
     run_response = client.post("/evaluation/run", json={"limit": 3})
     latest_response = client.get("/evaluation/latest")
+    runs_response = client.get("/evaluation/runs")
+    run_detail_response = client.get("/evaluation/runs/eval_1")
 
     assert questions_response.status_code == 200
     assert questions_response.json()["case_count"] == 1
@@ -217,6 +250,10 @@ def test_evaluation_api_endpoints_return_dataset_and_run_result(monkeypatch):
     assert run_response.json()["cases"][0]["top_sources"][0]["filename"] == "demo.md"
     assert latest_response.status_code == 200
     assert latest_response.json()["dataset_name"] == "demo_eval"
+    assert runs_response.status_code == 200
+    assert runs_response.json()["runs"][0]["run_id"] == "eval_1"
+    assert run_detail_response.status_code == 200
+    assert run_detail_response.json()["run_id"] == "eval_1"
 
 
 def test_pdf_extract_and_chunk_endpoints_reject_non_pdf_files():
@@ -369,6 +406,33 @@ def test_vector_store_status_endpoint_does_not_return_api_key(monkeypatch):
     assert data["indexed_chunk_count_matches_metadata"] is True
     assert data["api_key_configured"] is True
     assert "server-secret" not in response.text
+
+
+def test_answer_feedback_endpoint_records_user_feedback(tmp_path, monkeypatch):
+    settings = Settings(database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}")
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/feedback/answers",
+        json={
+            "question": "What is RAG?",
+            "answer": "RAG retrieves context before answering.",
+            "rating": "up",
+            "route": "rag",
+            "details": {"source_count": 2},
+        },
+        headers={"X-Request-ID": "req-feedback-1"},
+    )
+    logs = AuditLogStore(settings.database_url).list_logs(limit=5)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["feedback_id"].startswith("feedback_")
+    assert data["request_id"] == "req-feedback-1"
+    assert data["rating"] == "up"
+    assert logs[0].action == "feedback.answer"
+    assert logs[0].details["rating"] == "up"
 
 
 def test_update_settings_persists_runtime_values_without_returning_api_key(monkeypatch):
