@@ -33,7 +33,7 @@
 | 前端 | 原生 HTML / CSS / JavaScript |
 | 文档解析 | PDF / OCR / Markdown / txt / docx / csv / xlsx |
 | Embedding | fastembed，本地向量化 |
-| 向量库 | Qdrant local |
+| 向量库 | Qdrant local / Qdrant server |
 | LLM | DeepSeek 默认，支持 Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax、自定义 OpenAI-compatible API |
 | 测试 | pytest / Playwright 基础页面验证 |
 | 启动 | PowerShell 脚本 / Docker |
@@ -49,7 +49,7 @@ flowchart LR
   API --> Loader[Document Loaders]
   Loader --> Splitter[Text Splitter]
   Splitter --> Embed[fastembed]
-  Embed --> Qdrant[(Qdrant Local)]
+  Embed --> Qdrant[(Qdrant Local / Server)]
   API --> Search[Vector Search]
   Search --> Qdrant
   API --> LLM[Active LLM Profile]
@@ -64,7 +64,7 @@ flowchart TD
   A[上传 PDF / Markdown / txt / docx / 表格] --> B[解析文本、表格和 OCR 内容]
   B --> C[按 chunk_size / overlap 切分]
   C --> D[fastembed 生成向量]
-  D --> E[写入 Qdrant local]
+  D --> E[写入 Qdrant local / server]
   F[用户问题] --> G[问题向量化]
   G --> H[Qdrant top_k 检索]
   H --> I[构造 sources 和 RAG prompt]
@@ -212,6 +212,7 @@ flowchart TD
 - [企业级第 02 步完成总结：数据库持久化替代本地 JSON](docs/enterprise-summary/02-database-persistence-summary.md)
 - [企业级第 03 步完成总结：多租户和权限隔离](docs/enterprise-summary/03-tenant-and-permission-isolation-summary.md)
 - [企业级第 04 步完成总结：异步索引任务](docs/enterprise-summary/04-async-indexing-job-summary.md)
+- [企业级第 05 步完成总结：服务化 Qdrant 和索引状态检查](docs/enterprise-summary/05-enterprise-vector-store-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -345,13 +346,32 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 .\scripts\start.ps1
 ```
 
-本项目使用的是 Qdrant local 模式，不需要单独启动 Qdrant Docker。首次索引文档时会在本地生成 `.qdrant/` 数据目录。
+默认使用 Qdrant local 模式，不需要单独启动 Qdrant Docker。首次索引文档时会在本地生成 `.qdrant/` 数据目录。
+
+如果要把向量库切到服务化 Qdrant，可以先启动 Compose 中的 Qdrant：
+
+```powershell
+docker compose up -d qdrant
+```
+
+然后在 `.env` 中设置：
+
+```text
+QDRANT_MODE=server
+QDRANT_URL=http://127.0.0.1:6333
+QDRANT_API_KEY=
+QDRANT_COLLECTION_PREFIX=rag
+QDRANT_COLLECTION=rag_chunks
+```
+
+`QDRANT_COLLECTION` 仍然兼容旧配置；如果不显式设置，会按 `QDRANT_COLLECTION_PREFIX` 生成默认 collection，例如 `rag_chunks`。向量 payload 会写入 `tenant_id`、`workspace_id`、`knowledge_base_id` 和 `document_id`，检索与删除都会带租户/知识库过滤。
 
 ### Docker 启动
 
 如果本机已经安装 Docker，也可以在项目根目录执行：
 
 ```powershell
+docker compose up -d qdrant
 docker build -t local-rag-agent .
 docker run --rm -p 8000:8000 --env-file .env local-rag-agent
 ```
@@ -483,7 +503,7 @@ Invoke-RestMethod `
 - `POST /documents/extract`：上传 PDF 并提取文本，支持 `enable_ocr=true` 对扫描型 PDF 做 OCR
 - `POST /documents/chunk`：上传 PDF 并切分文本块，支持 OCR 页面来源标记
 - `POST /embeddings/text`：把文本转换成 embedding 向量
-- `POST /documents/index`：上传 PDF / 扫描型 PDF OCR / Markdown / txt / docx / csv / xlsx，切分并写入本地 Qdrant，支持 `content_hash` 去重和 `reindex`
+- `POST /documents/index`：上传 PDF / 扫描型 PDF OCR / Markdown / txt / docx / csv / xlsx，切分并写入 Qdrant，支持 `content_hash` 去重和 `reindex`
 - `GET /documents`：查看本地知识库文档列表
 - `GET /documents/{document_id}`：查看单个文档 metadata
 - `DELETE /documents/{document_id}`：删除某个文档在 Qdrant 中的 chunks 和 metadata
@@ -493,6 +513,7 @@ Invoke-RestMethod `
 - `POST /rag/ask`：检索本地 Qdrant，并把相关 chunk 交给当前 LLM Provider 生成 RAG 回答，支持限定 `document_id`
 - `GET /` / `GET /app`：打开本地 RAG Web UI
 - `GET /settings`：读取本地运行时 LLM 设置，不返回真实 API Key
+- `GET /settings/vector-store/status`：读取 Qdrant 模式、collection、点数和 metadata 一致性状态，不返回真实 API Key
 - `PUT /settings`：保存本地运行时 LLM、API Key 和 RAG prompt 设置
 - `POST /agent/ask`：可解释 Agent 工具路由，自动选择 `chat` / `rag` / `insufficient_context`，支持限定 `document_id`，返回 `route_reason`、`tools_used`、`routing_debug`
 - `GET /evaluation/questions`：读取本地 RAG 评估问题集
@@ -532,6 +553,7 @@ Invoke-RestMethod `
 - 企业级分支已新增 SQLAlchemy 数据库持久化，`users`、`documents`、`runtime_settings`、`llm_profiles` 不再以本地 JSON 作为主存储
 - 企业级分支已新增最小多租户隔离：`knowledge_bases`、membership、文档归属字段和 Qdrant `knowledge_base_id` payload 过滤
 - 企业级分支已新增异步索引任务：`index_jobs`、后台入库、状态查询、失败原因和 retry
+- 企业级分支已支持 Qdrant local/server 模式切换、collection prefix 配置、Qdrant Compose 服务和 `/settings/vector-store/status` 状态检查
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
@@ -640,5 +662,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续企业级改造，建议进入第 05 步：服务化 Qdrant 和索引治理。不要直接跳到审计观测、质量治理或复杂 Agent。
+后续如果继续企业级改造，建议进入第 06 步：审计日志与基础观测。不要直接跳到质量治理、复杂 Agent 或完整部署编排。
 

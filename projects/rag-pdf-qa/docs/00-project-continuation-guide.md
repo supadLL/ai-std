@@ -43,7 +43,7 @@ DeepSeek /chat 调用
 PDF 文本提取
 PDF chunk 切分
 fastembed 本地 embedding
-Qdrant 本地向量索引
+Qdrant local / server 向量索引
 Qdrant 语义检索
 DeepSeek RAG 问答最小实现
 RAG score_threshold 低分过滤
@@ -78,13 +78,14 @@ LLM API 配置档案管理：新增、编辑、删除和一键启用
 企业级第 02 步：数据库持久化替代本地 JSON，users、documents、runtime_settings、llm_profiles 已迁入 SQLAlchemy 数据库
 企业级第 03 步：最小多租户和权限隔离，支持 knowledge base membership、文档归属和 Qdrant payload 过滤
 企业级第 04 步：异步索引任务，支持 index_jobs、后台入库、状态查询、失败原因和 retry
+企业级第 05 步：Qdrant local/server 模式切换、collection prefix、Compose Qdrant 服务和向量库状态检查
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04 步
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -269,6 +270,7 @@ Swagger Docs 页面必须能测试接口。
 | `POST /knowledge-bases/{knowledge_base_id}/rag/ask` | 在指定知识库中执行 RAG 问答 |
 | `POST /agent/ask` | 可解释 Agent 工具路由，支持限定 document_id，并返回 route_reason / tools_used / routing_debug |
 | `POST /knowledge-bases/{knowledge_base_id}/agent/ask` | 在指定知识库中执行 Agent 问答 |
+| `GET /settings/vector-store/status` | 查看 Qdrant 模式、collection、点数和 metadata 一致性，不返回真实 API Key |
 | `GET /evaluation/questions` | 读取本地 RAG 评估问题集 |
 | `POST /evaluation/run` | 运行本地检索评估并保存最近结果，不调用 LLM |
 | `GET /evaluation/latest` | 读取最近一次 RAG 检索评估结果 |
@@ -311,7 +313,7 @@ app/
   pdf_extractor.py     PDF 文本提取
   ocr_extractor.py     扫描型 PDF 页面 OCR
   text_splitter.py     PDF 文本 chunk 切分
-  vector_store.py      Qdrant 本地 collection、upsert、search
+  vector_store.py      Qdrant local/server client、collection、upsert、search、status
   evaluation.py        本地 RAG 检索评估、结果保存和 Markdown 报告
   runtime_settings.py  本地运行时 LLM 和 RAG prompt 设置
 ```
@@ -642,7 +644,7 @@ app/main.py
 app/deepseek_client.py
 app/vector_store.py
 
-这是一个学习型本地 RAG 项目，技术栈是 FastAPI + OpenAI-compatible LLM Provider + fastembed + 本地 Qdrant。默认 provider 是 DeepSeek，也支持 Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax 和自定义 API。
+这是一个学习型本地 RAG 项目，技术栈是 FastAPI + OpenAI-compatible LLM Provider + fastembed + Qdrant local/server。默认 provider 是 DeepSeek，也支持 Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax 和自定义 API。
 
 当前已经实现最小 RAG：
 PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> 当前 LLM Provider 基于 sources 回答。
@@ -651,7 +653,7 @@ PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> 当前 LLM Pr
 PDF 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
-PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引，以及企业级分支上的 index_jobs 异步索引任务。
+PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/settings/vector-store/status 向量库状态检查、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引，以及企业级分支上的 index_jobs 异步索引任务和 Qdrant local/server 模式切换。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。

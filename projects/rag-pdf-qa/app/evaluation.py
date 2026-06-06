@@ -42,7 +42,12 @@ def run_rag_search_evaluation(
     knowledge_base_id: str | None = None,
 ) -> dict[str, Any]:
     dataset = load_evaluation_dataset(dataset_path)
-    client = get_qdrant_client(settings.qdrant_local_path)
+    client = get_qdrant_client(
+        settings.qdrant_local_path,
+        mode=getattr(settings, "qdrant_mode", "local"),
+        url=getattr(settings, "qdrant_url", "http://127.0.0.1:6333"),
+        api_key=getattr(settings, "qdrant_api_key", ""),
+    )
 
     case_results = []
     for case in dataset["cases"]:

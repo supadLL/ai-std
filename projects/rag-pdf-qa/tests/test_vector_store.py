@@ -2,8 +2,18 @@ from types import SimpleNamespace
 
 import pytest
 
+import app.vector_store as vector_store
 from app.text_splitter import TextChunk
-from app.vector_store import VectorStoreError, _document_id_filter, _search_filter, ensure_collection, search_chunks, upsert_chunks
+from app.vector_store import (
+    VectorStoreError,
+    _document_id_filter,
+    _search_filter,
+    build_collection_name,
+    ensure_collection,
+    get_collection_status,
+    search_chunks,
+    upsert_chunks,
+)
 
 
 class FakeClient:
@@ -30,11 +40,76 @@ def test_ensure_collection_dimension_mismatch_has_rebuild_hint():
     assert "Rebuild the local Qdrant index" in message
 
 
+def test_get_qdrant_client_uses_server_configuration(monkeypatch):
+    captured = {}
+
+    class FakeQdrantClient:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(vector_store, "QdrantClient", FakeQdrantClient)
+
+    vector_store.get_qdrant_client(
+        ".qdrant",
+        mode="server",
+        url="http://qdrant:6333/",
+        api_key=" secret ",
+    )
+
+    assert captured["url"] == "http://qdrant:6333"
+    assert captured["api_key"] == "secret"
+    assert "path" not in captured
+
+
+def test_get_qdrant_client_rejects_unknown_mode():
+    with pytest.raises(VectorStoreError):
+        vector_store.get_qdrant_client(".qdrant", mode="remote")
+
+
+def test_build_collection_name_supports_environment_and_tenant_parts():
+    assert build_collection_name("prod rag", tenant_id="org/default") == "prod_rag_org_default_chunks"
+
+
+def test_get_collection_status_reads_vector_and_point_counts():
+    class FakeStatusClient:
+        def collection_exists(self, collection_name):
+            return True
+
+        def get_collection(self, collection_name):
+            return SimpleNamespace(
+                config=SimpleNamespace(
+                    params=SimpleNamespace(
+                        vectors=SimpleNamespace(size=384),
+                    )
+                ),
+                points_count=12,
+                status="green",
+            )
+
+    status = get_collection_status(FakeStatusClient(), "rag_chunks", expected_vector_size=384)
+
+    assert status.exists is True
+    assert status.vector_size == 384
+    assert status.points_count == 12
+    assert status.dimension_matches is True
+
+
 def test_document_id_filter_targets_document_payload():
     filter_model = _document_id_filter("doc-1")
 
     assert filter_model.must[0].key == "document_id"
     assert filter_model.must[0].match.value == "doc-1"
+
+
+def test_document_id_filter_can_target_tenant_and_knowledge_base():
+    filter_model = _document_id_filter("doc-1", knowledge_base_id="kb-1", tenant_id="org-1")
+
+    assert [condition.key for condition in filter_model.must] == [
+        "document_id",
+        "knowledge_base_id",
+        "tenant_id",
+    ]
+    assert [condition.match.value for condition in filter_model.must] == ["doc-1", "kb-1", "org-1"]
 
 
 def test_search_filter_can_target_document_and_file_type():

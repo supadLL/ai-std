@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 
 import app.main as main
@@ -12,7 +14,7 @@ from app.vector_store import SearchResult
 
 def test_search_documents_returns_retrieved_results(monkeypatch):
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(main, "_require_document_in_knowledge_base", lambda **kwargs: None)
 
     def fake_search_chunks(
@@ -116,6 +118,7 @@ def test_web_ui_routes_are_available():
     assert "/documents/index-jobs/{job_id}/retry" in openapi_response.json()["paths"]
     assert "/knowledge-bases" in openapi_response.json()["paths"]
     assert "/knowledge-bases/{knowledge_base_id}/documents" in openapi_response.json()["paths"]
+    assert "/settings/vector-store/status" in openapi_response.json()["paths"]
     assert "/evaluation/questions" in openapi_response.json()["paths"]
     assert "/evaluation/latest" in openapi_response.json()["paths"]
     assert "/evaluation/run" in openapi_response.json()["paths"]
@@ -325,6 +328,47 @@ def test_settings_endpoint_returns_runtime_values_without_api_key(monkeypatch):
     assert data["rag_system_prompt"] == "runtime system"
 
 
+def test_vector_store_status_endpoint_does_not_return_api_key(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(
+            qdrant_mode="server",
+            qdrant_url="http://qdrant:6333",
+            qdrant_api_key="server-secret",
+            qdrant_collection_prefix="prod",
+            qdrant_collection="prod_chunks",
+        ),
+    )
+    monkeypatch.setattr(
+        main,
+        "_read_qdrant_collection_status",
+        lambda settings: SimpleNamespace(
+            exists=True,
+            vector_size=384,
+            points_count=3,
+            status="green",
+        ),
+    )
+    monkeypatch.setattr(main, "_read_vector_store_metadata_counts", lambda settings: (1, 3))
+
+    client = TestClient(main.app)
+    response = client.get("/settings/vector-store/status")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mode"] == "server"
+    assert data["url"] == "http://qdrant:6333"
+    assert data["local_path"] is None
+    assert data["collection"] == "prod_chunks"
+    assert data["collection_exists"] is True
+    assert data["points_count"] == 3
+    assert data["metadata_indexed_chunk_count"] == 3
+    assert data["indexed_chunk_count_matches_metadata"] is True
+    assert data["api_key_configured"] is True
+    assert "server-secret" not in response.text
+
+
 def test_update_settings_persists_runtime_values_without_returning_api_key(monkeypatch):
     saved = {}
 
@@ -460,7 +504,7 @@ def test_document_management_endpoints(monkeypatch):
         lambda: Settings(deepseek_api_key="", document_metadata_path="unused.json"),
     )
     monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id, **kwargs: 3)
 
     client = TestClient(main.app)
@@ -533,7 +577,7 @@ def test_batch_delete_documents_removes_chunks_and_metadata(monkeypatch):
         lambda: Settings(deepseek_api_key="", document_metadata_path="unused.json"),
     )
     monkeypatch.setattr(main, "get_document_store", lambda metadata_path: FakeDocumentStore())
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
 
     def fake_delete_document_chunks(client, collection_name, document_id, **kwargs):
         deleted_ids.append(document_id)
@@ -614,7 +658,7 @@ def test_reindex_document_replaces_existing_document_with_uploaded_file(monkeypa
         ),
     )
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
     monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id, **kwargs: 1)
     monkeypatch.setattr(main, "upsert_chunks", lambda **kwargs: len(kwargs["chunks"]))
@@ -755,7 +799,7 @@ def test_index_document_reindex_replaces_existing_chunks(monkeypatch):
         ],
     )
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
     monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id, **kwargs: 3)
     monkeypatch.setattr(main, "upsert_chunks", lambda **kwargs: len(kwargs["chunks"]))
@@ -907,7 +951,7 @@ def test_index_document_accepts_txt_file(monkeypatch):
     )
     monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
     monkeypatch.setattr(main, "upsert_chunks", lambda **kwargs: len(kwargs["chunks"]))
 
@@ -961,7 +1005,7 @@ def test_index_document_accepts_csv_file(monkeypatch):
     )
     monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
     monkeypatch.setattr(main, "upsert_chunks", lambda **kwargs: len(kwargs["chunks"]))
 

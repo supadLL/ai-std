@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from uuid import uuid5, NAMESPACE_URL
 
 from qdrant_client import QdrantClient, models
@@ -23,13 +24,90 @@ class SearchResult:
     workspace_id: str | None = None
 
 
+@dataclass(frozen=True)
+class CollectionStatus:
+    collection_name: str
+    exists: bool
+    vector_size: int | None = None
+    points_count: int | None = None
+    status: str | None = None
+    expected_vector_size: int | None = None
+    dimension_matches: bool | None = None
+
+
 class VectorStoreError(RuntimeError):
     pass
 
 
-def get_qdrant_client(local_path: str) -> QdrantClient:
-    Path(local_path).mkdir(parents=True, exist_ok=True)
-    return QdrantClient(path=local_path)
+def get_qdrant_client(
+    local_path: str,
+    *,
+    mode: str = "local",
+    url: str | None = None,
+    api_key: str | None = None,
+) -> QdrantClient:
+    resolved_mode = (mode or "local").strip().lower()
+    if resolved_mode == "local":
+        Path(local_path).mkdir(parents=True, exist_ok=True)
+        return QdrantClient(path=local_path)
+    if resolved_mode == "server":
+        return QdrantClient(
+            url=(url or "http://127.0.0.1:6333").rstrip("/"),
+            api_key=api_key.strip() if api_key and api_key.strip() else None,
+        )
+    raise VectorStoreError("QDRANT_MODE must be 'local' or 'server'")
+
+
+def get_configured_qdrant_client(settings: object) -> QdrantClient:
+    return get_qdrant_client(
+        getattr(settings, "qdrant_local_path", ".qdrant"),
+        mode=getattr(settings, "qdrant_mode", "local"),
+        url=getattr(settings, "qdrant_url", "http://127.0.0.1:6333"),
+        api_key=getattr(settings, "qdrant_api_key", ""),
+    )
+
+
+def build_collection_name(
+    prefix: str = "rag",
+    *,
+    suffix: str = "chunks",
+    tenant_id: str | None = None,
+) -> str:
+    parts = [_sanitize_collection_part(prefix) or "rag"]
+    if tenant_id:
+        parts.append(_sanitize_collection_part(tenant_id))
+    parts.append(_sanitize_collection_part(suffix) or "chunks")
+    return "_".join(parts)
+
+
+def get_collection_status(
+    client: QdrantClient,
+    collection_name: str,
+    *,
+    expected_vector_size: int | None = None,
+) -> CollectionStatus:
+    if not client.collection_exists(collection_name):
+        return CollectionStatus(
+            collection_name=collection_name,
+            exists=False,
+            expected_vector_size=expected_vector_size,
+        )
+
+    info = client.get_collection(collection_name)
+    vector_size = _extract_vector_size(info)
+    points_count = _extract_points_count(client, collection_name, info)
+    dimension_matches = None
+    if expected_vector_size is not None and vector_size is not None:
+        dimension_matches = vector_size == expected_vector_size
+    return CollectionStatus(
+        collection_name=collection_name,
+        exists=True,
+        vector_size=vector_size,
+        points_count=points_count,
+        status=_optional_str(getattr(info, "status", None)),
+        expected_vector_size=expected_vector_size,
+        dimension_matches=dimension_matches,
+    )
 
 
 def ensure_collection(client: QdrantClient, collection_name: str, vector_size: int) -> None:
@@ -108,6 +186,7 @@ def delete_document_chunks(
     collection_name: str,
     document_id: str,
     knowledge_base_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> int:
     if not client.collection_exists(collection_name):
         return 0
@@ -117,7 +196,11 @@ def delete_document_chunks(
     while True:
         points, next_offset = client.scroll(
             collection_name=collection_name,
-            scroll_filter=_document_id_filter(document_id, knowledge_base_id=knowledge_base_id),
+            scroll_filter=_document_id_filter(
+                document_id,
+                knowledge_base_id=knowledge_base_id,
+                tenant_id=tenant_id,
+            ),
             limit=1000,
             offset=next_offset,
             with_payload=False,
@@ -186,7 +269,11 @@ def search_chunks(
     return results
 
 
-def _document_id_filter(document_id: str, knowledge_base_id: str | None = None) -> models.Filter:
+def _document_id_filter(
+    document_id: str,
+    knowledge_base_id: str | None = None,
+    tenant_id: str | None = None,
+) -> models.Filter:
     conditions = [
         models.FieldCondition(
             key="document_id",
@@ -198,6 +285,13 @@ def _document_id_filter(document_id: str, knowledge_base_id: str | None = None) 
             models.FieldCondition(
                 key="knowledge_base_id",
                 match=models.MatchValue(value=knowledge_base_id),
+            )
+        )
+    if tenant_id:
+        conditions.append(
+            models.FieldCondition(
+                key="tenant_id",
+                match=models.MatchValue(value=tenant_id),
             )
         )
     return models.Filter(
@@ -249,3 +343,32 @@ def _optional_str(value: object) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _sanitize_collection_part(value: str | None) -> str:
+    text = (value or "").strip()
+    return re.sub(r"[^a-zA-Z0-9_-]+", "_", text).strip("_")
+
+
+def _extract_vector_size(info: object) -> int | None:
+    vectors = getattr(getattr(getattr(info, "config", None), "params", None), "vectors", None)
+    size = getattr(vectors, "size", None)
+    if size is not None:
+        return int(size)
+    if isinstance(vectors, dict) and vectors:
+        first_vector = next(iter(vectors.values()))
+        first_size = getattr(first_vector, "size", None)
+        if first_size is not None:
+            return int(first_size)
+    return None
+
+
+def _extract_points_count(client: QdrantClient, collection_name: str, info: object) -> int | None:
+    points_count = getattr(info, "points_count", None)
+    if points_count is not None:
+        return int(points_count)
+    if not hasattr(client, "count"):
+        return None
+    response = client.count(collection_name=collection_name, exact=True)
+    count = getattr(response, "count", None)
+    return int(count) if count is not None else None

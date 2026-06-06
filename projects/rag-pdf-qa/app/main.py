@@ -57,6 +57,7 @@ from app.vector_store import (
     VectorStoreError,
     delete_document_chunks,
     ensure_collection,
+    get_collection_status,
     get_qdrant_client,
     search_chunks,
     upsert_chunks,
@@ -468,6 +469,26 @@ class AppSettingsResponse(BaseModel):
     rag_answer_instructions: str
 
 
+class VectorStoreStatusResponse(BaseModel):
+    mode: str
+    collection: str
+    collection_prefix: str
+    embedding_model: str
+    reachable: bool
+    api_key_configured: bool
+    local_path: str | None = None
+    url: str | None = None
+    collection_exists: bool = False
+    vector_size: int | None = None
+    points_count: int | None = None
+    status: str | None = None
+    metadata_document_count: int | None = None
+    metadata_indexed_chunk_count: int | None = None
+    indexed_chunk_count_matches_metadata: bool | None = None
+    error: str | None = None
+    metadata_error: str | None = None
+
+
 class UpdateAppSettingsRequest(BaseModel):
     deepseek_api_key: str | None = Field(default=None, max_length=4000)
     clear_api_key: bool = False
@@ -626,6 +647,55 @@ async def read_app_settings(_current_user: AuthenticatedUser = Depends(get_curre
         base_settings=base_settings,
         runtime_settings=runtime_settings,
         effective_settings=effective_settings,
+    )
+
+
+@app.get("/settings/vector-store/status", response_model=VectorStoreStatusResponse)
+async def read_vector_store_status(
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> VectorStoreStatusResponse:
+    settings = get_settings()
+    collection_status = None
+    error = None
+    try:
+        collection_status = await run_in_threadpool(_read_qdrant_collection_status, settings)
+    except Exception as exc:
+        error = str(exc)
+
+    metadata_document_count = None
+    metadata_indexed_chunk_count = None
+    metadata_error = None
+    try:
+        metadata_document_count, metadata_indexed_chunk_count = await run_in_threadpool(
+            _read_vector_store_metadata_counts,
+            settings,
+        )
+    except DocumentStoreError as exc:
+        metadata_error = str(exc)
+
+    points_count = collection_status.points_count if collection_status else None
+    indexed_chunk_count_matches_metadata = None
+    if points_count is not None and metadata_indexed_chunk_count is not None:
+        indexed_chunk_count_matches_metadata = points_count == metadata_indexed_chunk_count
+
+    return VectorStoreStatusResponse(
+        mode=settings.qdrant_mode,
+        collection=settings.qdrant_collection,
+        collection_prefix=settings.qdrant_collection_prefix,
+        embedding_model=settings.embedding_model,
+        reachable=collection_status is not None,
+        api_key_configured=bool(settings.qdrant_api_key),
+        local_path=settings.qdrant_local_path if settings.qdrant_mode == "local" else None,
+        url=settings.qdrant_url if settings.qdrant_mode == "server" else None,
+        collection_exists=collection_status.exists if collection_status else False,
+        vector_size=collection_status.vector_size if collection_status else None,
+        points_count=points_count,
+        status=collection_status.status if collection_status else None,
+        metadata_document_count=metadata_document_count,
+        metadata_indexed_chunk_count=metadata_indexed_chunk_count,
+        indexed_chunk_count_matches_metadata=indexed_chunk_count_matches_metadata,
+        error=error,
+        metadata_error=metadata_error,
     )
 
 
@@ -1194,7 +1264,7 @@ async def batch_delete_documents(
     settings = get_settings()
     access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
     document_store = get_document_store(settings.document_metadata_path)
-    client = get_qdrant_client(settings.qdrant_local_path)
+    client = _get_qdrant_client_from_settings(settings)
     deleted: list[DeleteDocumentResponse] = []
     missing_document_ids: list[str] = []
 
@@ -1217,6 +1287,7 @@ async def batch_delete_documents(
                 collection_name=record.collection,
                 document_id=document_id,
                 knowledge_base_id=access.knowledge_base_id,
+                tenant_id=access.organization_id,
             )
             removed_record = document_store.remove_document(
                 document_id,
@@ -1263,12 +1334,13 @@ async def delete_document(
         raise HTTPException(status_code=404, detail=f"Document {document_id!r} not found")
 
     try:
-        client = get_qdrant_client(settings.qdrant_local_path)
+        client = _get_qdrant_client_from_settings(settings)
         deleted_chunks = delete_document_chunks(
             client=client,
             collection_name=record.collection,
             document_id=document_id,
             knowledge_base_id=access.knowledge_base_id,
+            tenant_id=access.organization_id,
         )
         removed_record = document_store.remove_document(
             document_id,
@@ -1337,13 +1409,14 @@ async def reindex_document(
             lambda: [embed_text(chunk.text, settings.embedding_model) for chunk in chunks]
         )
         dimension = len(vectors[0])
-        client = get_qdrant_client(settings.qdrant_local_path)
+        client = _get_qdrant_client_from_settings(settings)
         ensure_collection(client, settings.qdrant_collection, dimension)
         deleted_chunks = delete_document_chunks(
             client=client,
             collection_name=existing_record.collection,
             document_id=document_id,
             knowledge_base_id=access.knowledge_base_id,
+            tenant_id=access.organization_id,
         )
         document_store.remove_document(document_id, knowledge_base_id=access.knowledge_base_id)
         indexed_count = upsert_chunks(
@@ -1698,7 +1771,7 @@ async def _search_local_chunks(
         text=query,
         model_name=settings.embedding_model,
     )
-    client = get_qdrant_client(settings.qdrant_local_path)
+    client = _get_qdrant_client_from_settings(settings)
     return search_chunks(
         client=client,
         collection_name=settings.qdrant_collection,
@@ -1709,6 +1782,32 @@ async def _search_local_chunks(
         knowledge_base_id=knowledge_base_id,
         tenant_id=tenant_id,
     )
+
+
+def _get_qdrant_client_from_settings(settings: Any) -> Any:
+    return get_qdrant_client(
+        settings.qdrant_local_path,
+        mode=settings.qdrant_mode,
+        url=settings.qdrant_url,
+        api_key=settings.qdrant_api_key,
+    )
+
+
+def _read_qdrant_collection_status(settings: Any) -> Any:
+    client = _get_qdrant_client_from_settings(settings)
+    return get_collection_status(
+        client=client,
+        collection_name=settings.qdrant_collection,
+    )
+
+
+def _read_vector_store_metadata_counts(settings: Any) -> tuple[int, int]:
+    documents = [
+        document
+        for document in get_document_store(settings.document_metadata_path).list_documents()
+        if document.collection == settings.qdrant_collection
+    ]
+    return len(documents), sum(document.indexed_count for document in documents)
 
 
 def _load_runtime_settings_or_422() -> RuntimeSettings:
@@ -2117,7 +2216,7 @@ def _index_document_content(
 
     vectors = [embed_text(chunk.text, settings.embedding_model) for chunk in chunks]
     dimension = len(vectors[0])
-    client = get_qdrant_client(settings.qdrant_local_path)
+    client = _get_qdrant_client_from_settings(settings)
     ensure_collection(client, settings.qdrant_collection, dimension)
     if existing_record is not None and reindex:
         deleted_chunks = delete_document_chunks(
@@ -2125,6 +2224,7 @@ def _index_document_content(
             collection_name=existing_record.collection,
             document_id=existing_record.document_id,
             knowledge_base_id=existing_record.knowledge_base_id,
+            tenant_id=existing_record.organization_id,
         )
         document_store.remove_document(
             existing_record.document_id,

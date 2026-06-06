@@ -1,4 +1,5 @@
 import os
+import re
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
@@ -21,6 +22,10 @@ class Settings:
     request_timeout_seconds: float = 30.0
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
     qdrant_local_path: str = ".qdrant"
+    qdrant_mode: str = "local"
+    qdrant_url: str = "http://127.0.0.1:6333"
+    qdrant_api_key: str = ""
+    qdrant_collection_prefix: str = "rag"
     qdrant_collection: str = "rag_chunks"
     document_metadata_path: str = "data/documents.json"
     user_store_path: str = "data/users.json"
@@ -57,7 +62,18 @@ def get_settings() -> Settings:
     timeout = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "30"))
     embedding_model = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5").strip()
     qdrant_local_path = os.getenv("QDRANT_LOCAL_PATH", ".qdrant").strip()
-    qdrant_collection = os.getenv("QDRANT_COLLECTION", "rag_chunks").strip()
+    qdrant_mode = os.getenv("QDRANT_MODE", "local").strip().lower() or "local"
+    qdrant_url = os.getenv("QDRANT_URL", "http://127.0.0.1:6333").strip().rstrip("/")
+    qdrant_api_key = os.getenv("QDRANT_API_KEY", "").strip()
+    qdrant_collection_prefix = _sanitize_qdrant_collection_part(
+        os.getenv("QDRANT_COLLECTION_PREFIX", "rag")
+    ) or "rag"
+    qdrant_collection_env = os.getenv("QDRANT_COLLECTION")
+    qdrant_collection = (
+        qdrant_collection_env.strip()
+        if qdrant_collection_env and qdrant_collection_env.strip()
+        else f"{qdrant_collection_prefix}_chunks"
+    )
     document_metadata_path = os.getenv("DOCUMENT_METADATA_PATH", "data/documents.json").strip()
     user_store_path = os.getenv("USER_STORE_PATH", "data/users.json").strip()
     index_job_storage_path = os.getenv("INDEX_JOB_STORAGE_PATH", "data/index_jobs").strip()
@@ -76,6 +92,10 @@ def get_settings() -> Settings:
         request_timeout_seconds=timeout,
         embedding_model=embedding_model,
         qdrant_local_path=qdrant_local_path,
+        qdrant_mode=qdrant_mode,
+        qdrant_url=qdrant_url,
+        qdrant_api_key=qdrant_api_key,
+        qdrant_collection_prefix=qdrant_collection_prefix,
         qdrant_collection=qdrant_collection,
         document_metadata_path=document_metadata_path,
         user_store_path=user_store_path,
@@ -84,3 +104,8 @@ def get_settings() -> Settings:
         app_secret_key=app_secret_key,
         access_token_expire_minutes=access_token_expire_minutes,
     )
+
+
+def _sanitize_qdrant_collection_part(value: str | None) -> str:
+    text = (value or "").strip()
+    return re.sub(r"[^a-zA-Z0-9_-]+", "_", text).strip("_")

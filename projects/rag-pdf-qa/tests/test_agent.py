@@ -111,7 +111,7 @@ def test_agent_ask_routes_document_question_to_rag(monkeypatch):
     monkeypatch.setattr(main, "get_settings", lambda: Settings(deepseek_api_key="test"))
     monkeypatch.setattr(main, "DeepSeekClient", FakeDeepSeekClient)
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(main, "search_chunks", fake_search_chunks)
 
     client = TestClient(main.app)
@@ -150,7 +150,7 @@ def test_agent_ask_returns_insufficient_context_without_calling_deepseek(monkeyp
     monkeypatch.setattr(main, "get_settings", lambda: Settings(deepseek_api_key="test"))
     monkeypatch.setattr(main, "DeepSeekClient", FakeDeepSeekClient)
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(
         main,
         "search_chunks",
@@ -189,7 +189,7 @@ def test_agent_ask_returns_threshold_fallback_reason(monkeypatch):
     monkeypatch.setattr(main, "get_settings", lambda: Settings(deepseek_api_key="test"))
     monkeypatch.setattr(main, "DeepSeekClient", FakeDeepSeekClient)
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
     monkeypatch.setattr(
         main,
         "search_chunks",
