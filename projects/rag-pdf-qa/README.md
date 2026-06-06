@@ -21,13 +21,15 @@
 作为简历中的 AI 工程化个人项目
 ```
 
-当前不是企业级平台，也没有登录鉴权和多用户隔离；它更像一个可运行、可解释、可继续扩展的个人项目级 RAG Agent。
+当前主线是个人项目级 RAG Agent；在 `enterprise-rag-platform` 分支上已经开始企业级改造，并完成最小登录鉴权与数据库持久化。当前仍未完成多用户知识库隔离。
 
 ## 技术栈
 
 | 模块 | 技术 |
 |---|---|
 | Web 服务 | FastAPI / Pydantic / Uvicorn |
+| 鉴权 | 本地用户存储 / 密码哈希 / Bearer token |
+| 数据库 | SQLAlchemy / SQLite 默认 / PostgreSQL 可配置 |
 | 前端 | 原生 HTML / CSS / JavaScript |
 | 文档解析 | PDF / OCR / Markdown / txt / docx / csv / xlsx |
 | Embedding | fastembed，本地向量化 |
@@ -52,7 +54,7 @@ flowchart LR
   Search --> Qdrant
   API --> LLM[Active LLM Profile]
   LLM --> Answer[RAG / Agent Answer]
-  API --> Store[(documents.json / runtime_settings.json)]
+  API --> Store[(SQLite / PostgreSQL)]
 ```
 
 ## RAG 链路
@@ -85,6 +87,8 @@ flowchart TD
 | 能力 | 说明 |
 |---|---|
 | 多格式入库 | 支持 PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 图片 OCR、csv、xlsx |
+| 登录鉴权 | 企业级分支支持初始化管理员、登录、当前用户和 Bearer token 保护核心接口 |
+| 数据库持久化 | 企业级分支已将 users、documents、runtime_settings、llm_profiles 迁入数据库 |
 | 文档管理 | 支持列表、筛选、详情、批量删除、指定文档重建索引 |
 | 去重策略 | 使用 content_hash 避免重复入库，支持 reindex 重建 |
 | RAG 问答 | 返回稳定三段式回答，并提供 sources |
@@ -98,6 +102,10 @@ flowchart TD
 | 接口 | 作用 |
 |---|---|
 | `GET /health` | 健康检查 |
+| `POST /auth/bootstrap-admin` | 首次初始化管理员 |
+| `POST /auth/login` | 登录并获取 Bearer token |
+| `GET /auth/me` | 查看当前登录用户 |
+| `POST /auth/logout` | 退出登录，前端清除 token |
 | `POST /documents/index` | 上传并索引文档 |
 | `GET /documents` | 查看知识库文档列表 |
 | `POST /documents/search` | 只做语义检索 |
@@ -295,9 +303,16 @@ LLM_PROVIDER=deepseek
 LLM_API_KEY=你的真实模型 API Key
 LLM_BASE_URL=https://api.deepseek.com
 LLM_MODEL=deepseek-v4-flash
+DATABASE_URL=sqlite:///data/app.db
 ```
 
 旧的 `DEEPSEEK_*` 变量仍然兼容，但后续建议新环境统一使用 `LLM_*`。
+
+企业级分支默认使用 SQLite 保存用户、文档 metadata、运行时设置和 LLM profile。后续可以把 `DATABASE_URL` 切换为 PostgreSQL，例如：
+
+```text
+DATABASE_URL=postgresql+psycopg://user:password@host:5432/rag
+```
 
 不要把真实 API Key 写进 README、docs、测试文件或提交到 GitHub。
 
@@ -324,7 +339,7 @@ docker build -t local-rag-agent .
 docker run --rm -p 8000:8000 --env-file .env local-rag-agent
 ```
 
-Docker 构建不会打包 `.env`、`.qdrant/`、`data/documents.json` 或 `data/runtime_settings.json`。
+Docker 构建不会打包 `.env`、`.qdrant/`、`data/app.db` 或其他本地运行数据。
 
 ### 4. 打开使用入口
 
@@ -341,8 +356,10 @@ GitHub 仓库不会提交你的本地运行数据：
 ```text
 .env
 .qdrant/
-data/documents.json
-data/runtime_settings.json
+data/app.db
+data/*.db
+data/runtime_settings.json  # legacy
+data/documents.json         # legacy
 ```
 
 所以换电脑或别人首次使用时，需要重新上传文档建立知识库。
@@ -428,7 +445,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 http://你的电脑IP:8000/docs
 ```
 
-注意：当前项目还没有登录鉴权，只建议本机或可信内网学习使用。
+注意：企业级分支已经有最小登录鉴权，但还没有多租户隔离、复杂 RBAC 和生产级密钥治理，仍只建议本机或可信内网学习使用。
 
 ## 测试接口
 
@@ -492,7 +509,8 @@ Invoke-RestMethod `
 - 已支持在设置页选择 DeepSeek、Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax 或自定义 OpenAI-compatible API
 - 已支持在设置页调整当前 LLM Provider 的 base_url、model、timeout、API Key 和 RAG prompt
 - 已支持多个 LLM API 配置档案，支持新增、编辑、删除和一键启用
-- 已新增运行时设置文件 `data/runtime_settings.json`，该文件不提交 GitHub
+- 企业级分支已新增最小登录鉴权：`/auth/bootstrap-admin`、`/auth/login`、`/auth/me`、`/auth/logout`，并用 Bearer token 保护文档、问答、评估和设置等核心接口
+- 企业级分支已新增 SQLAlchemy 数据库持久化，`users`、`documents`、`runtime_settings`、`llm_profiles` 不再以本地 JSON 作为主存储
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
@@ -583,6 +601,13 @@ GET /evaluation/latest
 本地 RAG Agent 初版
 ```
 
+当前 `enterprise-rag-platform` 分支已经完成：
+
+```text
+企业级第 01 步：登录鉴权与用户体系
+企业级第 02 步：数据库持久化替代本地 JSON
+```
+
 执行顺序保持：
 
 ```text
@@ -592,5 +617,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续扩展，不要直接堆复杂多 Agent。当前项目演示材料已经补齐，后续建议从登录鉴权、多用户知识库隔离、评估历史记录或 LLM-as-a-judge 回答质量评估继续推进。
+后续如果继续企业级改造，建议进入第 03 步：多租户和权限隔离。不要直接跳到异步任务、服务化 Qdrant 或复杂 Agent。
 

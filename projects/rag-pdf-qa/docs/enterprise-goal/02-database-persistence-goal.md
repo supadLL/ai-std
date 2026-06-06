@@ -102,3 +102,18 @@ llm_profiles
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests\test_database.py tests\test_main_api.py
 ```
+## 8. 补充决策：用户注册与账号管理
+
+第 01 步只实现初始化管理员和登录，不在本地 JSON 用户存储上新增开放注册。
+
+本步骤迁移数据库时，需要为后续注册能力打基础：
+
+```text
+1. users 表支持 username 唯一索引
+2. users 表保留 role / status 字段
+3. 预留创建普通用户的服务函数
+4. 可以新增管理员创建用户接口，或为 /auth/register 预留测试边界
+5. 不在接口中返回 password_hash
+```
+
+真正面向局域网成员的自助注册，建议等第 03 步多租户和知识库归属确定后再开放。

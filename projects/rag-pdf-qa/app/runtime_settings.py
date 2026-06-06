@@ -1,8 +1,11 @@
-import json
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
+from dataclasses import dataclass, field
 
-from app.config import Settings
+from sqlalchemy import delete, select
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.config import Settings, get_settings
+from app.db import database_url_from_legacy_path, session_scope
+from app.models import LlmProfileModel, RuntimeSettingModel
 
 
 DEFAULT_RUNTIME_SETTINGS_PATH = "data/runtime_settings.json"
@@ -35,15 +38,30 @@ class RuntimeSettings:
     rag_answer_instructions: str | None = None
 
 
-def load_runtime_settings(path: str = DEFAULT_RUNTIME_SETTINGS_PATH) -> RuntimeSettings:
-    settings_path = Path(path)
-    if not settings_path.exists():
-        return RuntimeSettings()
-
+def load_runtime_settings(
+    path: str = DEFAULT_RUNTIME_SETTINGS_PATH,
+    database_url: str | None = None,
+) -> RuntimeSettings:
+    resolved_database_url = _resolve_database_url(path=path, database_url=database_url)
     try:
-        data = json.loads(settings_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Failed to load runtime settings: {exc}") from exc
+        with session_scope(resolved_database_url) as session:
+            data = {
+                item.key: item.value
+                for item in session.scalars(select(RuntimeSettingModel)).all()
+            }
+            profiles = tuple(
+                LlmRuntimeProfile(
+                    profile_id=profile.profile_id,
+                    name=profile.name,
+                    provider=profile.provider,
+                    base_url=profile.base_url,
+                    model=profile.model,
+                    api_key=_optional_str(profile.api_key),
+                )
+                for profile in session.scalars(select(LlmProfileModel).order_by(LlmProfileModel.name)).all()
+            )
+    except SQLAlchemyError as exc:
+        raise RuntimeError(f"Failed to load runtime settings from database: {exc}") from exc
 
     return RuntimeSettings(
         deepseek_api_key=_optional_str(data.get("deepseek_api_key")),
@@ -54,11 +72,7 @@ def load_runtime_settings(path: str = DEFAULT_RUNTIME_SETTINGS_PATH) -> RuntimeS
         llm_base_url=_optional_str(data.get("llm_base_url")),
         llm_model=_optional_str(data.get("llm_model")),
         active_llm_profile_id=_optional_str(data.get("active_llm_profile_id")),
-        llm_profiles=tuple(
-            profile
-            for item in data.get("llm_profiles", [])
-            if (profile := _load_llm_profile(item)) is not None
-        ),
+        llm_profiles=profiles,
         request_timeout_seconds=_optional_float(data.get("request_timeout_seconds")),
         rag_system_prompt=_optional_str(data.get("rag_system_prompt")),
         rag_answer_instructions=_optional_str(data.get("rag_answer_instructions")),
@@ -68,21 +82,29 @@ def load_runtime_settings(path: str = DEFAULT_RUNTIME_SETTINGS_PATH) -> RuntimeS
 def save_runtime_settings(
     runtime_settings: RuntimeSettings,
     path: str = DEFAULT_RUNTIME_SETTINGS_PATH,
+    database_url: str | None = None,
 ) -> RuntimeSettings:
-    settings_path = Path(path)
-    data = {
-        key: value
-        for key, value in asdict(runtime_settings).items()
-        if value is not None
-    }
+    resolved_database_url = _resolve_database_url(path=path, database_url=database_url)
+    scalar_values = _runtime_scalar_values(runtime_settings)
     try:
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-    except OSError as exc:
-        raise RuntimeError(f"Failed to save runtime settings: {exc}") from exc
+        with session_scope(resolved_database_url) as session:
+            session.execute(delete(RuntimeSettingModel))
+            session.execute(delete(LlmProfileModel))
+            for key, value in scalar_values.items():
+                session.add(RuntimeSettingModel(key=key, value=value))
+            for profile in runtime_settings.llm_profiles:
+                session.add(
+                    LlmProfileModel(
+                        profile_id=profile.profile_id,
+                        name=profile.name,
+                        provider=profile.provider,
+                        base_url=profile.base_url,
+                        model=profile.model,
+                        api_key=profile.api_key,
+                    )
+                )
+    except SQLAlchemyError as exc:
+        raise RuntimeError(f"Failed to save runtime settings to database: {exc}") from exc
     return runtime_settings
 
 
@@ -115,6 +137,10 @@ def apply_runtime_settings(settings: Settings, runtime_settings: RuntimeSettings
         qdrant_local_path=settings.qdrant_local_path,
         qdrant_collection=settings.qdrant_collection,
         document_metadata_path=settings.document_metadata_path,
+        user_store_path=settings.user_store_path,
+        database_url=settings.database_url,
+        app_secret_key=settings.app_secret_key,
+        access_token_expire_minutes=settings.access_token_expire_minutes,
     )
 
 
@@ -204,20 +230,30 @@ def _coalesce_optional(new_value: str | None, current_value: str | None) -> str 
     return stripped or None
 
 
-def _load_llm_profile(value: object) -> LlmRuntimeProfile | None:
-    if not isinstance(value, dict):
-        return None
-    profile_id = _optional_str(value.get("profile_id"))
-    provider = _optional_str(value.get("provider"))
-    base_url = _optional_str(value.get("base_url"))
-    model = _optional_str(value.get("model"))
-    if not profile_id or not provider or not base_url or not model:
-        return None
-    return LlmRuntimeProfile(
-        profile_id=profile_id,
-        name=_optional_str(value.get("name")) or f"{provider} / {model}",
-        provider=provider,
-        base_url=base_url,
-        model=model,
-        api_key=_optional_str(value.get("api_key")),
-    )
+def _runtime_scalar_values(runtime_settings: RuntimeSettings) -> dict[str, str]:
+    values: dict[str, object | None] = {
+        "deepseek_api_key": runtime_settings.deepseek_api_key,
+        "deepseek_base_url": runtime_settings.deepseek_base_url,
+        "deepseek_model": runtime_settings.deepseek_model,
+        "llm_provider": runtime_settings.llm_provider,
+        "llm_api_key": runtime_settings.llm_api_key,
+        "llm_base_url": runtime_settings.llm_base_url,
+        "llm_model": runtime_settings.llm_model,
+        "active_llm_profile_id": runtime_settings.active_llm_profile_id,
+        "request_timeout_seconds": runtime_settings.request_timeout_seconds,
+        "rag_system_prompt": runtime_settings.rag_system_prompt,
+        "rag_answer_instructions": runtime_settings.rag_answer_instructions,
+    }
+    return {
+        key: str(value)
+        for key, value in values.items()
+        if value is not None
+    }
+
+
+def _resolve_database_url(path: str, database_url: str | None) -> str:
+    if database_url:
+        return database_url
+    if path != DEFAULT_RUNTIME_SETTINGS_PATH:
+        return database_url_from_legacy_path(path)
+    return get_settings().database_url

@@ -9,7 +9,28 @@
     <link rel="stylesheet" href="/web/styles.css?v=39" />
   </head>
   <body>
-    <main class="shell">
+    <section class="auth-panel" id="authPanel">
+      <form class="auth-card" id="authForm">
+        <div>
+          <p class="eyebrow" data-i18n="auth.eyebrow">Enterprise Access</p>
+          <h2 data-i18n="auth.title">Sign in</h2>
+        </div>
+        <label>
+          <span data-i18n="auth.username">Username</span>
+          <input id="authUsername" type="text" autocomplete="username" value="admin" />
+        </label>
+        <label>
+          <span data-i18n="auth.password">Password</span>
+          <input id="authPassword" type="password" autocomplete="current-password" />
+        </label>
+        <div class="auth-actions">
+          <button class="primary-button" type="submit" data-i18n="auth.login">Login</button>
+          <button class="ghost-button" id="bootstrapAdmin" type="button" data-i18n="auth.bootstrap">Initialize Admin</button>
+        </div>
+      </form>
+    </section>
+
+    <main class="shell auth-locked" id="appShell">
       <aside class="panel nav-panel">
         <div class="panel-head">
           <div>
@@ -45,6 +66,10 @@
           </button>
         </nav>
 
+        <div class="auth-user-box">
+          <span id="currentUserLabel">guest</span>
+          <button class="ghost-button" id="logoutButton" type="button" data-i18n="auth.logout">Logout</button>
+        </div>
         <a class="ghost-link docs-link" href="/docs" target="_blank" rel="noreferrer" data-i18n="nav.docs">Swagger Docs</a>
       </aside>
 

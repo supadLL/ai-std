@@ -1,16 +1,18 @@
 from dataclasses import asdict
+from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from app.agent import explain_agent_route
+from app.auth import AuthenticatedUser, get_current_user, get_user_store
 from app.config import get_settings
 from app.deepseek_client import DeepSeekClient, DeepSeekClientError
 from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
@@ -35,6 +37,8 @@ from app.runtime_settings import (
     save_runtime_settings,
 )
 from app.text_splitter import TextChunk, TextSplitError, split_parsed_document, split_pdf_text
+from app.security import create_access_token
+from app.user_store import UserRecord, UserStoreError, public_user
 from app.vector_store import (
     SearchResult,
     VectorStoreError,
@@ -414,6 +418,31 @@ class LlmProfileRequest(BaseModel):
     activate: bool = False
 
 
+class AuthCredentialsRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=8, max_length=200)
+
+
+class AuthUserResponse(BaseModel):
+    user_id: str
+    username: str
+    role: str
+
+
+class AuthTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: AuthUserResponse
+
+
+class AuthMeResponse(BaseModel):
+    user: AuthUserResponse
+
+
+class AuthLogoutResponse(BaseModel):
+    message: str
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -428,8 +457,47 @@ async def web_app() -> FileResponse:
     return FileResponse(index_path)
 
 
+@app.post("/auth/bootstrap-admin", response_model=AuthTokenResponse)
+async def bootstrap_admin(request: AuthCredentialsRequest) -> AuthTokenResponse:
+    settings = get_settings()
+    user_store = get_user_store(settings.user_store_path, settings.database_url)
+    try:
+        if user_store.has_users():
+            raise HTTPException(status_code=409, detail="Admin user already exists")
+        user = user_store.create_user(username=request.username, password=request.password, role="admin")
+    except UserStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _to_auth_token_response(user)
+
+
+@app.post("/auth/login", response_model=AuthTokenResponse)
+async def login(request: AuthCredentialsRequest) -> AuthTokenResponse:
+    settings = get_settings()
+    try:
+        user = get_user_store(settings.user_store_path, settings.database_url).authenticate(
+            username=request.username,
+            password=request.password,
+        )
+    except UserStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    return _to_auth_token_response(user)
+
+
+@app.post("/auth/logout", response_model=AuthLogoutResponse)
+async def logout(_current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthLogoutResponse:
+    return AuthLogoutResponse(message="Logged out. Clear the bearer token on the client.")
+
+
+@app.get("/auth/me", response_model=AuthMeResponse)
+async def read_current_user(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthMeResponse:
+    return AuthMeResponse(user=AuthUserResponse(**asdict(current_user)))
+
+
 @app.get("/settings", response_model=AppSettingsResponse)
-async def read_app_settings() -> AppSettingsResponse:
+async def read_app_settings(_current_user: AuthenticatedUser = Depends(get_current_user)) -> AppSettingsResponse:
     base_settings = get_settings()
     runtime_settings = _load_runtime_settings_or_422()
     effective_settings = apply_runtime_settings(base_settings, runtime_settings)
@@ -441,7 +509,10 @@ async def read_app_settings() -> AppSettingsResponse:
 
 
 @app.put("/settings", response_model=AppSettingsResponse)
-async def update_app_settings(request: UpdateAppSettingsRequest) -> AppSettingsResponse:
+async def update_app_settings(
+    request: UpdateAppSettingsRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
     next_runtime_settings = merge_runtime_settings(
@@ -473,7 +544,10 @@ async def update_app_settings(request: UpdateAppSettingsRequest) -> AppSettingsR
 
 
 @app.post("/settings/llm-profiles", response_model=AppSettingsResponse)
-async def create_llm_profile(request: LlmProfileRequest) -> AppSettingsResponse:
+async def create_llm_profile(
+    request: LlmProfileRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
     effective_settings = apply_runtime_settings(base_settings, current_runtime_settings)
@@ -501,7 +575,11 @@ async def create_llm_profile(request: LlmProfileRequest) -> AppSettingsResponse:
 
 
 @app.put("/settings/llm-profiles/{profile_id}", response_model=AppSettingsResponse)
-async def update_llm_profile(profile_id: str, request: LlmProfileRequest) -> AppSettingsResponse:
+async def update_llm_profile(
+    profile_id: str,
+    request: LlmProfileRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
     effective_settings = apply_runtime_settings(base_settings, current_runtime_settings)
@@ -542,7 +620,10 @@ async def update_llm_profile(profile_id: str, request: LlmProfileRequest) -> App
 
 
 @app.post("/settings/llm-profiles/{profile_id}/activate", response_model=AppSettingsResponse)
-async def activate_llm_profile(profile_id: str) -> AppSettingsResponse:
+async def activate_llm_profile(
+    profile_id: str,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
     effective_settings = apply_runtime_settings(base_settings, current_runtime_settings)
@@ -562,7 +643,10 @@ async def activate_llm_profile(profile_id: str) -> AppSettingsResponse:
 
 
 @app.delete("/settings/llm-profiles/{profile_id}", response_model=AppSettingsResponse)
-async def delete_llm_profile(profile_id: str) -> AppSettingsResponse:
+async def delete_llm_profile(
+    profile_id: str,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AppSettingsResponse:
     base_settings = get_settings()
     current_runtime_settings = _load_runtime_settings_or_422()
     effective_settings = apply_runtime_settings(base_settings, current_runtime_settings)
@@ -585,7 +669,9 @@ async def delete_llm_profile(profile_id: str) -> AppSettingsResponse:
 
 
 @app.get("/evaluation/questions", response_model=EvaluationQuestionsResponse)
-async def read_evaluation_questions() -> EvaluationQuestionsResponse:
+async def read_evaluation_questions(
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> EvaluationQuestionsResponse:
     try:
         dataset = await run_in_threadpool(load_evaluation_dataset)
     except EvaluationError as exc:
@@ -610,7 +696,9 @@ async def read_evaluation_questions() -> EvaluationQuestionsResponse:
 
 
 @app.get("/evaluation/latest", response_model=EvaluationRunResponse)
-async def read_latest_rag_evaluation() -> EvaluationRunResponse:
+async def read_latest_rag_evaluation(
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> EvaluationRunResponse:
     try:
         result = await run_in_threadpool(read_latest_evaluation)
     except EvaluationError as exc:
@@ -619,7 +707,10 @@ async def read_latest_rag_evaluation() -> EvaluationRunResponse:
 
 
 @app.post("/evaluation/run", response_model=EvaluationRunResponse)
-async def run_rag_evaluation(request: EvaluationRunRequest) -> EvaluationRunResponse:
+async def run_rag_evaluation(
+    request: EvaluationRunRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> EvaluationRunResponse:
     settings = get_settings()
     try:
         result = await run_in_threadpool(
@@ -634,7 +725,10 @@ async def run_rag_evaluation(request: EvaluationRunRequest) -> EvaluationRunResp
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
+async def chat(
+    request: ChatRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> ChatResponse:
     settings = _get_effective_settings()
     client = DeepSeekClient(settings)
 
@@ -651,6 +745,7 @@ async def extract_document(
     file: UploadFile = File(...),
     enable_ocr: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
+    _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> PdfExtractResponse:
     filename = file.filename or "uploaded.pdf"
     if not filename.lower().endswith(".pdf"):
@@ -698,6 +793,7 @@ async def chunk_document(
     overlap: int = Form(100),
     enable_ocr: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
+    _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> PdfChunkResponse:
     filename = file.filename or "uploaded.pdf"
     if not filename.lower().endswith(".pdf"):
@@ -745,7 +841,10 @@ async def chunk_document(
 
 
 @app.post("/embeddings/text", response_model=EmbeddingResponse)
-async def create_text_embedding(request: EmbeddingRequest) -> EmbeddingResponse:
+async def create_text_embedding(
+    request: EmbeddingRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> EmbeddingResponse:
     settings = get_settings()
 
     try:
@@ -774,6 +873,7 @@ async def index_document(
     enable_ocr: bool = Form(False),
     enable_image_ocr: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
+    _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
@@ -892,7 +992,7 @@ async def index_document(
 
 
 @app.get("/documents", response_model=DocumentListResponse)
-async def list_documents() -> DocumentListResponse:
+async def list_documents(_current_user: AuthenticatedUser = Depends(get_current_user)) -> DocumentListResponse:
     settings = get_settings()
     try:
         records = get_document_store(settings.document_metadata_path).list_documents()
@@ -903,7 +1003,10 @@ async def list_documents() -> DocumentListResponse:
 
 
 @app.get("/documents/{document_id}", response_model=DocumentRecordResponse)
-async def get_document(document_id: str) -> DocumentRecordResponse:
+async def get_document(
+    document_id: str,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> DocumentRecordResponse:
     settings = get_settings()
     try:
         record = get_document_store(settings.document_metadata_path).get_document(document_id)
@@ -916,7 +1019,10 @@ async def get_document(document_id: str) -> DocumentRecordResponse:
 
 
 @app.delete("/documents/batch", response_model=BatchDeleteDocumentsResponse)
-async def batch_delete_documents(request: BatchDeleteDocumentsRequest) -> BatchDeleteDocumentsResponse:
+async def batch_delete_documents(
+    request: BatchDeleteDocumentsRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> BatchDeleteDocumentsResponse:
     settings = get_settings()
     document_store = get_document_store(settings.document_metadata_path)
     client = get_qdrant_client(settings.qdrant_local_path)
@@ -959,7 +1065,10 @@ async def batch_delete_documents(request: BatchDeleteDocumentsRequest) -> BatchD
 
 
 @app.delete("/documents/{document_id}", response_model=DeleteDocumentResponse)
-async def delete_document(document_id: str) -> DeleteDocumentResponse:
+async def delete_document(
+    document_id: str,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> DeleteDocumentResponse:
     settings = get_settings()
     document_store = get_document_store(settings.document_metadata_path)
 
@@ -998,6 +1107,7 @@ async def reindex_document(
     enable_ocr: bool = Form(False),
     enable_image_ocr: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
+    _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
@@ -1094,7 +1204,10 @@ async def reindex_document(
 
 
 @app.post("/documents/search", response_model=SearchResponse)
-async def search_documents(request: SearchRequest) -> SearchResponse:
+async def search_documents(
+    request: SearchRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> SearchResponse:
     settings = get_settings()
     try:
         retrieved_results = await _search_local_chunks(
@@ -1121,7 +1234,10 @@ async def search_documents(request: SearchRequest) -> SearchResponse:
 
 
 @app.post("/rag/ask", response_model=RagAskResponse)
-async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
+async def ask_with_rag(
+    request: RagAskRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> RagAskResponse:
     settings = get_settings()
     runtime_settings = _load_runtime_settings_or_422()
     llm_settings = apply_runtime_settings(settings, runtime_settings)
@@ -1180,7 +1296,10 @@ async def ask_with_rag(request: RagAskRequest) -> RagAskResponse:
 
 
 @app.post("/agent/ask", response_model=AgentAskResponse)
-async def ask_with_agent(request: AgentAskRequest) -> AgentAskResponse:
+async def ask_with_agent(
+    request: AgentAskRequest,
+    _current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AgentAskResponse:
     settings = get_settings()
     runtime_settings = _load_runtime_settings_or_422()
     llm_settings = apply_runtime_settings(settings, runtime_settings)
@@ -1365,6 +1484,21 @@ def _save_and_render_settings(base_settings: Any, runtime_settings: RuntimeSetti
     )
 
 
+def _to_auth_token_response(user: UserRecord) -> AuthTokenResponse:
+    settings = get_settings()
+    token = create_access_token(
+        subject=user.user_id,
+        username=user.username,
+        role=user.role,
+        secret_key=settings.app_secret_key,
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    return AuthTokenResponse(
+        access_token=token,
+        user=AuthUserResponse(**public_user(user)),
+    )
+
+
 def _materialize_llm_profiles(
     *,
     base_settings: Any,
@@ -1496,7 +1630,8 @@ def _to_rag_source_response(source_id: int, result: SearchResult, preview_chars:
 
 
 def get_document_store(metadata_path: str) -> DocumentStore:
-    return DocumentStore(metadata_path)
+    settings = get_settings()
+    return DocumentStore(metadata_path, database_url=settings.database_url)
 
 
 def _to_document_record_response(record: DocumentRecord) -> DocumentRecordResponse:

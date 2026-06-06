@@ -1,7 +1,10 @@
 const PREFERENCES_KEY = "ragPdfQaUiPreferences";
+const AUTH_TOKEN_KEY = "ragPdfQaAccessToken";
 const DEFAULT_BACKGROUND_COLOR = "#0f1213";
 
 const state = {
+  accessToken: localStorage.getItem(AUTH_TOKEN_KEY) || "",
+  currentUser: null,
   documents: [],
   lastAnswer: null,
   messages: [],
@@ -76,6 +79,14 @@ const els = {
   customColorInput: document.querySelector("#customColorInput"),
   backgroundColorInput: document.querySelector("#backgroundColorInput"),
   resetBackgroundColor: document.querySelector("#resetBackgroundColor"),
+  authPanel: document.querySelector("#authPanel"),
+  appShell: document.querySelector("#appShell"),
+  authForm: document.querySelector("#authForm"),
+  authUsername: document.querySelector("#authUsername"),
+  authPassword: document.querySelector("#authPassword"),
+  bootstrapAdmin: document.querySelector("#bootstrapAdmin"),
+  logoutButton: document.querySelector("#logoutButton"),
+  currentUserLabel: document.querySelector("#currentUserLabel"),
 };
 
 const THEME_COLORS = {
@@ -427,14 +438,117 @@ function showToast(message, isError = false) {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const headers = new Headers(options.headers || {});
+  if (state.accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${state.accessToken}`);
+  }
+  const response = await fetch(url, { ...options, headers });
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) {
+    if (response.status === 401 && !url.startsWith("/auth/login")) {
+      clearAuthState();
+      showAuthPanel();
+    }
     const detail = data?.detail || response.statusText;
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
   return data;
+}
+
+function setAuthState(authData) {
+  state.accessToken = authData.access_token || "";
+  state.currentUser = authData.user || null;
+  localStorage.setItem(AUTH_TOKEN_KEY, state.accessToken);
+  renderAuthState();
+}
+
+function clearAuthState() {
+  state.accessToken = "";
+  state.currentUser = null;
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  renderAuthState();
+}
+
+function showAuthPanel() {
+  els.authPanel.hidden = false;
+  els.appShell.classList.add("auth-locked");
+}
+
+function hideAuthPanel() {
+  els.authPanel.hidden = true;
+  els.appShell.classList.remove("auth-locked");
+}
+
+function renderAuthState() {
+  if (els.currentUserLabel) {
+    els.currentUserLabel.textContent = state.currentUser
+      ? `${state.currentUser.username} / ${state.currentUser.role}`
+      : "guest";
+  }
+}
+
+async function initializeAuthenticatedApp() {
+  applyPreferences();
+  switchTab("import");
+
+  if (!state.accessToken) {
+    showAuthPanel();
+    return;
+  }
+
+  try {
+    const data = await requestJson("/auth/me");
+    state.currentUser = data.user;
+    hideAuthPanel();
+    renderAuthState();
+    await Promise.all([loadDocuments(), loadSettings()]);
+  } catch (error) {
+    clearAuthState();
+    showAuthPanel();
+  }
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  await authenticateWith("/auth/login");
+}
+
+async function bootstrapAdmin() {
+  await authenticateWith("/auth/bootstrap-admin");
+}
+
+async function authenticateWith(endpoint) {
+  const payload = {
+    username: els.authUsername.value.trim(),
+    password: els.authPassword.value,
+  };
+  try {
+    const data = await requestJson(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setAuthState(data);
+    hideAuthPanel();
+    showToast("Signed in");
+    await Promise.all([loadDocuments(), loadSettings()]);
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+async function logout() {
+  try {
+    if (state.accessToken) {
+      await requestJson("/auth/logout", { method: "POST" });
+    }
+  } catch {
+    // Local logout still clears the client token.
+  }
+  clearAuthState();
+  showAuthPanel();
+  showToast("Signed out");
 }
 
 async function loadDocuments() {
@@ -1525,20 +1639,15 @@ els.questionInput.addEventListener("keydown", (event) => {
 els.refreshDocuments.addEventListener("click", () => {
   loadDocuments().catch((error) => showToast(error.message, true));
 });
-
-loadDocuments().catch((error) => {
-  showToast(error.message, true);
-  setStatus("error");
+els.authForm.addEventListener("submit", submitAuth);
+els.bootstrapAdmin.addEventListener("click", () => {
+  bootstrapAdmin().catch((error) => showToast(error.message, true));
 });
-loadSettings().catch((error) => {
-  showToast(error.message, true);
-  if (els.settingsStatus) {
-    setSettingsStatus("error");
-  }
+els.logoutButton.addEventListener("click", () => {
+  logout().catch((error) => showToast(error.message, true));
 });
 
-applyPreferences();
-switchTab("import");
+initializeAuthenticatedApp();
 
 function insertTextareaNewline(textarea) {
   const start = textarea.selectionStart;

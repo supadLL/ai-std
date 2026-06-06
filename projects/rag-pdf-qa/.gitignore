@@ -7,3 +7,6 @@ __pycache__/
 .qdrant_eval/
 data/documents.json
 data/runtime_settings.json
+data/users.json
+data/*.db
+data/*.sqlite

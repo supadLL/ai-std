@@ -72,3 +72,16 @@ POST /knowledge-bases/{knowledge_base_id}/rag/ask
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests\test_permissions.py tests\test_main_api.py
 ```
+## 8. 补充决策：开放注册的归属规则
+
+如果后续允许局域网成员自助注册，必须在本步骤明确新用户默认归属：
+
+```text
+1. 新用户默认进入哪个 organization
+2. 新用户是否自动拥有默认 knowledge_base
+3. 新用户是否只能访问自己上传的文档
+4. 管理员是否需要审核或邀请
+5. 注册后默认 role 是 user 还是 pending
+```
+
+在这些规则确定前，系统保持“管理员初始化/管理员登录”的最小鉴权模式。

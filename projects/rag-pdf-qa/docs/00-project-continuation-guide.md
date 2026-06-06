@@ -74,13 +74,15 @@ RAG 检索评估脚本、API 和 Web UI 评估面板
 运行时 LLM 设置：base_url、model、timeout、API Key 和 RAG prompt
 多模型供应商与自定义 OpenAI-compatible API 配置
 LLM API 配置档案管理：新增、编辑、删除和一键启用
+企业级第 01 步：最小登录鉴权与用户体系，支持初始化管理员、登录、当前用户、退出和 Bearer token 保护核心接口
+企业级第 02 步：数据库持久化替代本地 JSON，users、documents、runtime_settings、llm_profiles 已迁入 SQLAlchemy 数据库
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -234,6 +236,10 @@ Swagger Docs 页面必须能测试接口。
 | 接口 | 作用 |
 |---|---|
 | `GET /health` | 健康检查 |
+| `POST /auth/bootstrap-admin` | 首次初始化管理员用户 |
+| `POST /auth/login` | 登录并获取 Bearer token |
+| `GET /auth/me` | 查看当前登录用户 |
+| `POST /auth/logout` | 退出登录，前端清除 token |
 | `POST /chat` | 直接调用当前配置的 LLM Provider |
 | `POST /documents/extract` | 上传 PDF 并提取文本，支持可选 OCR |
 | `POST /documents/chunk` | 上传 PDF 并切分 chunk，支持 OCR 来源标记 |
@@ -372,6 +378,7 @@ HTTPException
 DEEPSEEK_API_KEY
 LLM_API_KEY
 完整 .env
+data/app.db
 data/runtime_settings.json
 真实 token
 私有文件内容
