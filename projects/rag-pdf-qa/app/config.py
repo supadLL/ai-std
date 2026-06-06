@@ -36,6 +36,10 @@ class Settings:
     app_secret_key: str = "change-this-local-development-secret"
     secret_encryption_key: str = ""
     access_token_expire_minutes: int = 480
+    max_upload_bytes: int = 10 * 1024 * 1024
+    rate_limit_enabled: bool = False
+    rate_limit_requests: int = 120
+    rate_limit_window_seconds: int = 60
 
     def __post_init__(self) -> None:
         if not self.llm_api_key and self.deepseek_api_key:
@@ -86,6 +90,13 @@ def get_settings() -> Settings:
     app_secret_key = os.getenv("APP_SECRET_KEY", "change-this-local-development-secret").strip()
     secret_encryption_key = os.getenv("SECRET_ENCRYPTION_KEY", "").strip()
     access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+    max_upload_bytes = max(1, int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024))))
+    rate_limit_enabled = _parse_bool(
+        os.getenv("RATE_LIMIT_ENABLED"),
+        default=app_env == "production",
+    )
+    rate_limit_requests = max(1, int(os.getenv("RATE_LIMIT_REQUESTS", "120")))
+    rate_limit_window_seconds = max(1, int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")))
 
     return Settings(
         app_env=app_env,
@@ -112,9 +123,19 @@ def get_settings() -> Settings:
         app_secret_key=app_secret_key,
         secret_encryption_key=secret_encryption_key,
         access_token_expire_minutes=access_token_expire_minutes,
+        max_upload_bytes=max_upload_bytes,
+        rate_limit_enabled=rate_limit_enabled,
+        rate_limit_requests=rate_limit_requests,
+        rate_limit_window_seconds=rate_limit_window_seconds,
     )
 
 
 def _sanitize_qdrant_collection_part(value: str | None) -> str:
     text = (value or "").strip()
     return re.sub(r"[^a-zA-Z0-9_-]+", "_", text).strip("_")
+
+
+def _parse_bool(value: str | None, *, default: bool) -> bool:
+    if value is None or value.strip() == "":
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}

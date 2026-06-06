@@ -1,3 +1,4 @@
+from collections import defaultdict, deque
 from dataclasses import asdict
 from datetime import timedelta
 from hashlib import sha256
@@ -104,12 +105,32 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 if WEB_DIR.exists():
     app.mount("/web", StaticFiles(directory=WEB_DIR), name="web")
 
+RATE_LIMIT_EXEMPT_PATHS = {"/health", "/openapi.json", "/docs", "/redoc"}
+RATE_LIMIT_EXEMPT_PREFIXES = ("/web/",)
+_rate_limit_hits: dict[str, deque[float]] = defaultdict(deque)
+
 
 @app.middleware("http")
 async def request_context_middleware(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or create_request_id()
     token = set_request_id(request_id)
     started_at = time.perf_counter()
+    rate_limited_response = _rate_limit_response(request)
+    if rate_limited_response is not None:
+        duration_ms = _elapsed_ms(started_at)
+        rate_limited_response.headers["X-Request-ID"] = request_id
+        logger.info(
+            "request rate limited",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": rate_limited_response.status_code,
+                "duration_ms": duration_ms,
+            },
+        )
+        reset_request_id(token)
+        return rate_limited_response
+
     try:
         response = await call_next(request)
     except Exception:
@@ -688,6 +709,10 @@ class HealthResponse(BaseModel):
     qdrant_url: str | None = None
     redis_configured: bool
     secret_encryption_configured: bool
+    max_upload_bytes: int
+    rate_limit_enabled: bool
+    rate_limit_requests: int
+    rate_limit_window_seconds: int
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -713,6 +738,10 @@ async def health(response: Response) -> HealthResponse:
         qdrant_url=settings.qdrant_url if settings.qdrant_mode == "server" else None,
         redis_configured=bool(settings.redis_url),
         secret_encryption_configured=bool(settings.secret_encryption_key),
+        max_upload_bytes=settings.max_upload_bytes,
+        rate_limit_enabled=settings.rate_limit_enabled,
+        rate_limit_requests=settings.rate_limit_requests,
+        rate_limit_window_seconds=settings.rate_limit_window_seconds,
         warnings=warnings,
     )
 
@@ -1247,10 +1276,8 @@ async def extract_document(
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported by this extraction endpoint")
 
-    content = await file.read()
-    max_size = 10 * 1024 * 1024
-    if len(content) > max_size:
-        raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
+    settings = get_settings()
+    content = await _read_upload_content(file, settings)
 
     try:
         extracted = extract_text_from_pdf_bytes(
@@ -1295,10 +1322,8 @@ async def chunk_document(
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported by this chunk endpoint")
 
-    content = await file.read()
-    max_size = 10 * 1024 * 1024
-    if len(content) > max_size:
-        raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
+    settings = get_settings()
+    content = await _read_upload_content(file, settings)
 
     try:
         extracted = extract_text_from_pdf_bytes(
@@ -1378,12 +1403,8 @@ async def index_document(
     if not _is_supported_index_file(filename):
         raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
 
-    content = await file.read()
-    max_size = 10 * 1024 * 1024
-    if len(content) > max_size:
-        raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
-
     settings = get_settings()
+    content = await _read_upload_content(file, settings)
     access = _resolve_knowledge_base_context(
         current_user,
         _select_knowledge_base_id(knowledge_base_id, knowledge_base_id_form),
@@ -1457,12 +1478,8 @@ async def create_index_job(
     if not _is_supported_index_file(filename):
         raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
 
-    content = await file.read()
-    max_size = 10 * 1024 * 1024
-    if len(content) > max_size:
-        raise HTTPException(status_code=413, detail="File is too large; max size is 10 MB")
-
     settings = get_settings()
+    content = await _read_upload_content(file, settings)
     access = _resolve_knowledge_base_context(
         current_user,
         _select_knowledge_base_id(knowledge_base_id, knowledge_base_id_form),
@@ -1749,12 +1766,8 @@ async def reindex_document(
     if not _is_supported_index_file(filename):
         raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
 
-    content = await file.read()
-    max_size = 10 * 1024 * 1024
-    if len(content) > max_size:
-        raise HTTPException(status_code=413, detail="File is too large; max size is 10 MB")
-
     settings = get_settings()
+    content = await _read_upload_content(file, settings)
     access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
     document_store = get_document_store(settings.document_metadata_path)
     try:
@@ -2447,6 +2460,63 @@ async def _search_local_chunks(
 
 def _elapsed_ms(started_at: float) -> int:
     return int((time.perf_counter() - started_at) * 1000)
+
+
+async def _read_upload_content(file: UploadFile, settings: Any) -> bytes:
+    max_upload_bytes = max(1, int(getattr(settings, "max_upload_bytes", 10 * 1024 * 1024)))
+    content = await file.read(max_upload_bytes + 1)
+    if len(content) > max_upload_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File is too large; max upload size is {_format_bytes(max_upload_bytes)}",
+        )
+    return content
+
+
+def _rate_limit_response(request: Request) -> JSONResponse | None:
+    settings = get_settings()
+    if not getattr(settings, "rate_limit_enabled", False) or _is_rate_limit_exempt(request):
+        return None
+
+    now = time.perf_counter()
+    window_seconds = max(1, int(getattr(settings, "rate_limit_window_seconds", 60)))
+    request_limit = max(1, int(getattr(settings, "rate_limit_requests", 120)))
+    key = _rate_limit_key(request)
+    hits = _rate_limit_hits[key]
+    while hits and now - hits[0] >= window_seconds:
+        hits.popleft()
+
+    if len(hits) >= request_limit:
+        retry_after = max(1, int(window_seconds - (now - hits[0]))) if hits else window_seconds
+        return UTF8JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded"},
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    hits.append(now)
+    return None
+
+
+def _rate_limit_key(request: Request) -> str:
+    forwarded_for = request.headers.get("X-Forwarded-For", "").split(",", 1)[0].strip()
+    client_host = forwarded_for or (request.client.host if request.client else "unknown")
+    return client_host or "unknown"
+
+
+def _is_rate_limit_exempt(request: Request) -> bool:
+    if request.method.upper() == "OPTIONS":
+        return True
+    path = request.url.path
+    return path in RATE_LIMIT_EXEMPT_PATHS or any(path.startswith(prefix) for prefix in RATE_LIMIT_EXEMPT_PREFIXES)
+
+
+def _format_bytes(value: int) -> str:
+    if value % (1024 * 1024) == 0:
+        return f"{value // (1024 * 1024)} MB"
+    if value % 1024 == 0:
+        return f"{value // 1024} KB"
+    return f"{value} bytes"
 
 
 def _get_qdrant_client_from_settings(settings: Any) -> Any:

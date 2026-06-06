@@ -216,6 +216,7 @@ flowchart TD
 - [企业级第 06 步完成总结：审计日志与基础观测](docs/enterprise-summary/06-audit-and-observability-summary.md)
 - [企业级第 07 步完成总结：评估历史和质量治理](docs/enterprise-summary/07-evaluation-and-quality-governance-summary.md)
 - [企业级第 08 步完成总结：部署、环境和密钥治理](docs/enterprise-summary/08-deployment-and-secret-governance-summary.md)
+- [企业级第 09 步完成总结：运行安全边界和限流](docs/enterprise-summary/09-runtime-safety-and-limits-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -322,6 +323,10 @@ Copy-Item .env.example .env
 APP_ENV=development
 APP_SECRET_KEY=change-this-local-development-secret
 SECRET_ENCRYPTION_KEY=replace-with-random-secret-before-deploy
+MAX_UPLOAD_BYTES=10485760
+RATE_LIMIT_ENABLED=false
+RATE_LIMIT_REQUESTS=120
+RATE_LIMIT_WINDOW_SECONDS=60
 LLM_PROVIDER=deepseek
 LLM_API_KEY=你的真实模型 API Key
 LLM_BASE_URL=https://api.deepseek.com
@@ -574,6 +579,7 @@ Invoke-RestMethod `
 - 企业级分支已新增审计与基础观测：`audit_logs`、`X-Request-ID`、结构化请求日志、`/audit-logs`、`/metrics`，并记录 RAG/Agent 检索耗时、LLM 耗时、provider/model 和 token usage
 - 企业级分支已新增评估质量治理：`evaluation_runs`、`evaluation_cases` 知识库归属、评估历史 API、quality_gate、答案反馈 `/feedback/answers` 和 Web UI 评估历史
 - 企业级分支已新增部署和密钥治理：Compose 编排 `api/db/qdrant/redis`、`/health` 启动检查、生产环境告警、数据库内 LLM API Key 加密存储和部署文档
+- 企业级分支已新增运行安全边界：可配置 `MAX_UPLOAD_BYTES`、基础请求限流、429 `Retry-After` 和 `/health` 安全配置可见性
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制

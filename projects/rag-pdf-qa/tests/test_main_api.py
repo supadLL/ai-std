@@ -146,6 +146,10 @@ def test_health_endpoint_reports_startup_checks_without_secret_values(monkeypatc
             llm_api_key="your_llm_api_key_here",
             app_secret_key="change-this-local-development-secret",
             secret_encryption_key="",
+            max_upload_bytes=2048,
+            rate_limit_enabled=True,
+            rate_limit_requests=10,
+            rate_limit_window_seconds=60,
         ),
     )
 
@@ -160,9 +164,53 @@ def test_health_endpoint_reports_startup_checks_without_secret_values(monkeypatc
     assert data["qdrant_url"] == "http://qdrant:6333"
     assert data["redis_configured"] is True
     assert data["secret_encryption_configured"] is False
+    assert data["max_upload_bytes"] == 2048
+    assert data["rate_limit_enabled"] is True
+    assert data["rate_limit_requests"] == 10
+    assert data["rate_limit_window_seconds"] == 60
     assert "secret_encryption_key_not_configured" in data["warnings"]
     assert "change-this-local-development-secret" not in response.text
     assert "your_llm_api_key_here" not in response.text
+
+
+def test_upload_endpoints_enforce_configured_file_size(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(max_upload_bytes=4, rate_limit_enabled=False),
+    )
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/documents/extract",
+        files={"file": ("oversized.pdf", b"12345", "application/pdf")},
+    )
+
+    assert response.status_code == 413
+    assert "max upload size is 4 bytes" in response.json()["detail"]
+
+
+def test_rate_limit_returns_429_with_retry_after(monkeypatch):
+    main._rate_limit_hits.clear()
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(
+            rate_limit_enabled=True,
+            rate_limit_requests=2,
+            rate_limit_window_seconds=60,
+        ),
+    )
+
+    client = TestClient(main.app)
+    assert client.get("/auth/me").status_code == 200
+    assert client.get("/auth/me").status_code == 200
+    response = client.get("/auth/me")
+
+    main._rate_limit_hits.clear()
+    assert response.status_code == 429
+    assert response.headers["Retry-After"]
+    assert response.json()["detail"] == "Rate limit exceeded"
 
 
 def test_evaluation_api_endpoints_return_dataset_and_run_result(monkeypatch):
