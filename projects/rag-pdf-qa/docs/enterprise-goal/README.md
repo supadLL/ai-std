@@ -124,4 +124,5 @@ Additional enterprise goal:
 ```text
 09-runtime-safety-and-limits-goal.md
 10-source-file-storage-governance-goal.md
+11-knowledge-base-versioning-goal.md
 ```

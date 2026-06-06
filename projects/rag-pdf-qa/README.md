@@ -21,7 +21,7 @@
 作为简历中的 AI 工程化个人项目
 ```
 
-当前主线是个人项目级 RAG Agent；在 `enterprise-rag-platform` 分支上已经开始企业级改造，并完成最小登录鉴权、数据库持久化和最小多租户知识库隔离。
+当前主线是个人项目级 RAG Agent；在 `enterprise-rag-platform` 分支上已经开始企业级改造，并完成登录鉴权、数据库持久化、多租户知识库隔离、异步索引、审计观测、质量治理、部署密钥治理、运行安全边界、源文件存储治理和知识库版本快照。
 
 ## 技术栈
 
@@ -91,6 +91,7 @@ flowchart TD
 | 数据库持久化 | 企业级分支已将 users、documents、runtime_settings、llm_profiles 迁入数据库 |
 | 多租户隔离 | 企业级分支已支持 Organization / Workspace / KnowledgeBase / Membership，文档和检索按知识库隔离 |
 | 异步索引任务 | 企业级分支支持上传后创建 index job、后台入库、状态查询、失败原因和手动重试 |
+| 知识库版本快照 | 企业级分支支持手动创建知识库快照，记录文档清单、索引 chunk 数和稳定 content_hash |
 | 文档管理 | 支持列表、筛选、详情、批量删除、指定文档重建索引 |
 | 去重策略 | 使用 content_hash 避免重复入库，支持 reindex 重建 |
 | RAG 问答 | 返回稳定三段式回答，并提供 sources |
@@ -115,6 +116,9 @@ flowchart TD
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 上传并创建指定知识库的异步索引任务 |
 | `GET /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 查看指定知识库索引任务列表 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs/{job_id}/retry` | 重试失败索引任务 |
+| `POST /knowledge-bases/{knowledge_base_id}/snapshots` | 手动创建指定知识库版本快照 |
+| `GET /knowledge-bases/{knowledge_base_id}/snapshots` | 查看指定知识库快照列表 |
+| `GET /knowledge-bases/{knowledge_base_id}/snapshots/{snapshot_id}` | 查看指定知识库快照详情和文档摘要 |
 | `POST /documents/index` | 上传并索引文档 |
 | `POST /documents/index-jobs` | 上传并创建默认知识库异步索引任务 |
 | `GET /documents` | 查看知识库文档列表 |
@@ -218,6 +222,7 @@ flowchart TD
 - [企业级第 08 步完成总结：部署、环境和密钥治理](docs/enterprise-summary/08-deployment-and-secret-governance-summary.md)
 - [企业级第 09 步完成总结：运行安全边界和限流](docs/enterprise-summary/09-runtime-safety-and-limits-summary.md)
 - [企业级第 10 步完成总结：原始文件存储治理](docs/enterprise-summary/10-source-file-storage-governance-summary.md)
+- [企业级第 11 步完成总结：知识库版本快照](docs/enterprise-summary/11-knowledge-base-versioning-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 

@@ -208,6 +208,22 @@ class AnswerFeedbackModel(Base):
     details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class KnowledgeBaseSnapshotModel(Base):
+    __tablename__ = "knowledge_base_snapshots"
+
+    snapshot_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    created_at: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    created_by_user_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    organization_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    workspace_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    knowledge_base_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    document_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    indexed_chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    content_hash: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    documents_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 class RuntimeSettingModel(Base):
     __tablename__ = "runtime_settings"
 

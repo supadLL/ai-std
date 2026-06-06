@@ -84,13 +84,14 @@ LLM API 配置档案管理：新增、编辑、删除和一键启用
 企业级第 08 步：Docker Compose 部署、/health 启动检查、环境变量分层和数据库内 API Key 加密存储
 企业级第 09 步：MAX_UPLOAD_BYTES 上传大小限制、基础请求限流、429 Retry-After 和 /health 安全配置可见性
 企业级第 10 步：原始上传文件 source storage、本地对象存储引用 metadata 和迁移 006
+企业级第 11 步：知识库版本快照，支持手动创建快照、稳定 content_hash、文档摘要清单和权限隔离 API
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06/07/08/09/10 步
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06/07/08/09/10/11 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -265,6 +266,9 @@ Swagger Docs 页面必须能测试接口。
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 上传文件并创建指定知识库异步索引任务 |
 | `GET /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 查看指定知识库索引任务列表 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs/{job_id}/retry` | 重试指定知识库失败索引任务 |
+| `POST /knowledge-bases/{knowledge_base_id}/snapshots` | 手动创建指定知识库版本快照 |
+| `GET /knowledge-bases/{knowledge_base_id}/snapshots` | 查看指定知识库快照列表 |
+| `GET /knowledge-bases/{knowledge_base_id}/snapshots/{snapshot_id}` | 查看指定知识库快照详情和文档摘要 |
 | `GET /documents/{document_id}` | 查看单个文档 metadata |
 | `DELETE /documents/{document_id}` | 删除某个文档的 Qdrant chunks 和 metadata |
 | `DELETE /documents/batch` | 批量删除多个文档的 Qdrant chunks 和 metadata |
@@ -784,6 +788,7 @@ Docker Compose 部署 api / db / qdrant / redis
 MAX_UPLOAD_BYTES 上传大小限制
 基础请求限流和 429 Retry-After
 原始上传文件 source storage 和 documents 存储引用
+知识库版本快照和稳定 content_hash
 ```
 
 当前还没有支持：

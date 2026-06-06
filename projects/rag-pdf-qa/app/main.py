@@ -48,6 +48,11 @@ from app.index_jobs import (
     IndexJobStoreError,
     RETRYABLE_JOB_STATUSES,
 )
+from app.knowledge_base_snapshots import (
+    KnowledgeBaseSnapshotRecord,
+    KnowledgeBaseSnapshotStore,
+    KnowledgeBaseSnapshotStoreError,
+)
 from app.llm_providers import get_provider_options, normalize_provider
 from app.logging_config import (
     configure_logging,
@@ -505,6 +510,44 @@ class DocumentRecordResponse(BaseModel):
 
 class DocumentListResponse(BaseModel):
     documents: list[DocumentRecordResponse]
+
+
+class KnowledgeBaseSnapshotCreateRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=240)
+
+
+class KnowledgeBaseSnapshotDocumentResponse(BaseModel):
+    document_id: str
+    filename: str
+    file_type: str
+    content_hash: str
+    chunk_count: int
+    indexed_count: int
+    source_file_size: int
+    source_storage_backend: str | None = None
+    source_storage_key: str | None = None
+    indexed_at: str
+
+
+class KnowledgeBaseSnapshotSummaryResponse(BaseModel):
+    snapshot_id: str
+    created_at: str
+    created_by_user_id: str
+    organization_id: str
+    workspace_id: str
+    knowledge_base_id: str
+    reason: str | None = None
+    document_count: int
+    indexed_chunk_count: int
+    content_hash: str
+
+
+class KnowledgeBaseSnapshotResponse(KnowledgeBaseSnapshotSummaryResponse):
+    documents: list[KnowledgeBaseSnapshotDocumentResponse]
+
+
+class KnowledgeBaseSnapshotListResponse(BaseModel):
+    snapshots: list[KnowledgeBaseSnapshotSummaryResponse]
 
 
 class IndexJobResponse(BaseModel):
@@ -1605,6 +1648,84 @@ async def list_documents(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return DocumentListResponse(documents=[_to_document_record_response(record) for record in records])
+
+
+@app.post("/knowledge-bases/{knowledge_base_id}/snapshots", response_model=KnowledgeBaseSnapshotResponse)
+async def create_knowledge_base_snapshot(
+    knowledge_base_id: str,
+    request: KnowledgeBaseSnapshotCreateRequest | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseSnapshotResponse:
+    settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    try:
+        documents = get_document_store(settings.document_metadata_path).list_documents(
+            knowledge_base_id=access.knowledge_base_id,
+        )
+        snapshot = get_knowledge_base_snapshot_store().create_snapshot(
+            created_by_user_id=current_user.user_id,
+            organization_id=access.organization_id,
+            workspace_id=access.workspace_id,
+            knowledge_base_id=access.knowledge_base_id,
+            documents=documents,
+            reason=request.reason if request else None,
+        )
+    except (DocumentStoreError, KnowledgeBaseSnapshotStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _record_audit_event(
+        settings=settings,
+        action="knowledge_base.snapshot.create",
+        current_user=current_user,
+        access=access,
+        resource_type="knowledge_base_snapshot",
+        resource_id=snapshot.snapshot_id,
+        details={
+            "document_count": snapshot.document_count,
+            "indexed_chunk_count": snapshot.indexed_chunk_count,
+            "content_hash": snapshot.content_hash,
+        },
+    )
+    return _to_knowledge_base_snapshot_response(snapshot)
+
+
+@app.get("/knowledge-bases/{knowledge_base_id}/snapshots", response_model=KnowledgeBaseSnapshotListResponse)
+async def list_knowledge_base_snapshots(
+    knowledge_base_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseSnapshotListResponse:
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    try:
+        snapshots = get_knowledge_base_snapshot_store().list_snapshots(
+            knowledge_base_id=access.knowledge_base_id,
+        )
+    except KnowledgeBaseSnapshotStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return KnowledgeBaseSnapshotListResponse(
+        snapshots=[_to_knowledge_base_snapshot_summary_response(snapshot) for snapshot in snapshots],
+    )
+
+
+@app.get(
+    "/knowledge-bases/{knowledge_base_id}/snapshots/{snapshot_id}",
+    response_model=KnowledgeBaseSnapshotResponse,
+)
+async def get_knowledge_base_snapshot(
+    knowledge_base_id: str,
+    snapshot_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseSnapshotResponse:
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    try:
+        snapshot = get_knowledge_base_snapshot_store().get_snapshot(
+            snapshot_id,
+            knowledge_base_id=access.knowledge_base_id,
+        )
+    except KnowledgeBaseSnapshotStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail=f"Knowledge base snapshot {snapshot_id!r} not found")
+    return _to_knowledge_base_snapshot_response(snapshot)
 
 
 @app.get("/knowledge-bases/{knowledge_base_id}/documents/{document_id}", response_model=DocumentRecordResponse)
@@ -2822,6 +2943,11 @@ def get_index_job_store() -> IndexJobStore:
     return IndexJobStore(settings.database_url)
 
 
+def get_knowledge_base_snapshot_store() -> KnowledgeBaseSnapshotStore:
+    settings = get_settings()
+    return KnowledgeBaseSnapshotStore(settings.database_url)
+
+
 def _ensure_default_knowledge_base(current_user: AuthenticatedUser) -> KnowledgeBaseAccess:
     try:
         return get_permission_store().ensure_default_access(
@@ -2967,6 +3093,18 @@ def get_document_store(metadata_path: str) -> DocumentStore:
 
 def _to_document_record_response(record: DocumentRecord) -> DocumentRecordResponse:
     return DocumentRecordResponse(**asdict(record))
+
+
+def _to_knowledge_base_snapshot_summary_response(
+    snapshot: KnowledgeBaseSnapshotRecord,
+) -> KnowledgeBaseSnapshotSummaryResponse:
+    data = asdict(snapshot)
+    data.pop("documents", None)
+    return KnowledgeBaseSnapshotSummaryResponse(**data)
+
+
+def _to_knowledge_base_snapshot_response(snapshot: KnowledgeBaseSnapshotRecord) -> KnowledgeBaseSnapshotResponse:
+    return KnowledgeBaseSnapshotResponse(**asdict(snapshot))
 
 
 def _write_index_job_file(*, storage_path: str, filename: str, content: bytes) -> str:
