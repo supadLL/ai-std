@@ -26,6 +26,11 @@ from app.evaluation import (
 )
 from app.llm_providers import get_provider_options, normalize_provider
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
+from app.permissions import (
+    KnowledgeBaseAccess,
+    PermissionStore,
+    PermissionStoreError,
+)
 from app.runtime_settings import (
     DEFAULT_LLM_PROFILE_ID,
     LlmRuntimeProfile,
@@ -155,6 +160,7 @@ class EmbeddingResponse(BaseModel):
 
 class DocumentIndexResponse(BaseModel):
     document_id: str
+    knowledge_base_id: str
     filename: str
     file_type: str
     content_hash: str
@@ -180,11 +186,13 @@ class SearchRequest(BaseModel):
     limit: int = Field(default=5, ge=1, le=20)
     document_id: str | None = Field(default=None, max_length=120)
     file_type: str | None = Field(default=None, max_length=40)
+    knowledge_base_id: str | None = Field(default=None, max_length=120)
 
 
 class SearchResultResponse(BaseModel):
     score: float
     document_id: str | None = None
+    knowledge_base_id: str | None = None
     file_type: str
     filename: str
     page_number: int
@@ -197,6 +205,7 @@ class SearchResponse(BaseModel):
     query: str
     collection: str
     limit: int
+    knowledge_base_id: str
     document_id: str | None = None
     file_type: str | None = None
     results: list[SearchResultResponse]
@@ -207,12 +216,14 @@ class RagAskRequest(BaseModel):
     limit: int = Field(default=5, ge=1, le=10)
     score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
     document_id: str | None = Field(default=None, max_length=120)
+    knowledge_base_id: str | None = Field(default=None, max_length=120)
 
 
 class RagSourceResponse(BaseModel):
     source_id: int
     score: float
     document_id: str | None = None
+    knowledge_base_id: str | None = None
     file_type: str
     filename: str
     page_number: int
@@ -226,6 +237,7 @@ class RagAskResponse(BaseModel):
     reply: str
     model: str
     collection: str
+    knowledge_base_id: str
     score_threshold: float | None = None
     retrieved_count: int
     source_count: int
@@ -238,6 +250,7 @@ class AgentAskRequest(BaseModel):
     limit: int = Field(default=5, ge=1, le=10)
     score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
     document_id: str | None = Field(default=None, max_length=120)
+    knowledge_base_id: str | None = Field(default=None, max_length=120)
 
 
 class AgentAskResponse(BaseModel):
@@ -249,6 +262,7 @@ class AgentAskResponse(BaseModel):
     reply: str
     model: str | None = None
     collection: str
+    knowledge_base_id: str | None = None
     score_threshold: float | None = None
     retrieved_count: int = 0
     source_count: int = 0
@@ -274,11 +288,13 @@ class EvaluationQuestionsResponse(BaseModel):
 class EvaluationRunRequest(BaseModel):
     limit: int = Field(default=5, ge=1, le=20)
     score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+    knowledge_base_id: str | None = Field(default=None, max_length=120)
 
 
 class EvaluationSourceResponse(BaseModel):
     score: float
     document_id: str | None = None
+    knowledge_base_id: str | None = None
     file_type: str
     filename: str
     page_number: int
@@ -309,6 +325,7 @@ class EvaluationRunResponse(BaseModel):
     generated_at: str
     collection: str
     embedding_model: str
+    knowledge_base_id: str | None = None
     limit: int
     score_threshold: float | None = None
     low_score_threshold: float
@@ -326,6 +343,10 @@ class EvaluationRunResponse(BaseModel):
 
 class DocumentRecordResponse(BaseModel):
     document_id: str
+    organization_id: str
+    workspace_id: str
+    knowledge_base_id: str
+    owner_user_id: str
     filename: str
     file_type: str
     content_hash: str
@@ -360,6 +381,23 @@ class BatchDeleteDocumentsResponse(BaseModel):
     deleted_count: int
     deleted: list[DeleteDocumentResponse]
     missing_document_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeBaseResponse(BaseModel):
+    organization_id: str
+    workspace_id: str
+    knowledge_base_id: str
+    name: str
+    role: str
+
+
+class KnowledgeBaseListResponse(BaseModel):
+    default_knowledge_base_id: str
+    knowledge_bases: list[KnowledgeBaseResponse]
+
+
+class KnowledgeBaseCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
 
 
 class LlmProfileResponse(BaseModel):
@@ -465,7 +503,14 @@ async def bootstrap_admin(request: AuthCredentialsRequest) -> AuthTokenResponse:
         if user_store.has_users():
             raise HTTPException(status_code=409, detail="Admin user already exists")
         user = user_store.create_user(username=request.username, password=request.password, role="admin")
+        get_permission_store().ensure_default_access(
+            user_id=user.user_id,
+            username=user.username,
+            role=user.role,
+        )
     except UserStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PermissionStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _to_auth_token_response(user)
 
@@ -483,6 +528,14 @@ async def login(request: AuthCredentialsRequest) -> AuthTokenResponse:
 
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    try:
+        get_permission_store().ensure_default_access(
+            user_id=user.user_id,
+            username=user.username,
+            role=user.role,
+        )
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _to_auth_token_response(user)
 
 
@@ -493,7 +546,39 @@ async def logout(_current_user: AuthenticatedUser = Depends(get_current_user)) -
 
 @app.get("/auth/me", response_model=AuthMeResponse)
 async def read_current_user(current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthMeResponse:
+    _ensure_default_knowledge_base(current_user)
     return AuthMeResponse(user=AuthUserResponse(**asdict(current_user)))
+
+
+@app.get("/knowledge-bases", response_model=KnowledgeBaseListResponse)
+async def list_knowledge_bases(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseListResponse:
+    default_access = _ensure_default_knowledge_base(current_user)
+    try:
+        knowledge_bases = get_permission_store().list_knowledge_bases(user_id=current_user.user_id)
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return KnowledgeBaseListResponse(
+        default_knowledge_base_id=default_access.knowledge_base_id,
+        knowledge_bases=[_to_knowledge_base_response(knowledge_base) for knowledge_base in knowledge_bases],
+    )
+
+
+@app.post("/knowledge-bases", response_model=KnowledgeBaseResponse)
+async def create_knowledge_base(
+    request: KnowledgeBaseCreateRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseResponse:
+    _ensure_default_knowledge_base(current_user)
+    try:
+        knowledge_base = get_permission_store().create_knowledge_base(
+            user_id=current_user.user_id,
+            name=request.name,
+        )
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _to_knowledge_base_response(knowledge_base)
 
 
 @app.get("/settings", response_model=AppSettingsResponse)
@@ -709,15 +794,17 @@ async def read_latest_rag_evaluation(
 @app.post("/evaluation/run", response_model=EvaluationRunResponse)
 async def run_rag_evaluation(
     request: EvaluationRunRequest,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> EvaluationRunResponse:
     settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, request.knowledge_base_id)
     try:
         result = await run_in_threadpool(
             run_rag_search_evaluation,
             settings=settings,
             limit=request.limit,
             score_threshold=request.score_threshold,
+            knowledge_base_id=access.knowledge_base_id,
         )
     except (EvaluationError, EmbeddingError, VectorStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -864,8 +951,10 @@ async def create_text_embedding(
     )
 
 
+@app.post("/knowledge-bases/{knowledge_base_id}/documents/index", response_model=DocumentIndexResponse)
 @app.post("/documents/index", response_model=DocumentIndexResponse)
 async def index_document(
+    knowledge_base_id: str | None = None,
     file: UploadFile = File(...),
     chunk_size: int = Form(800),
     overlap: int = Form(100),
@@ -873,7 +962,8 @@ async def index_document(
     enable_ocr: bool = Form(False),
     enable_image_ocr: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    knowledge_base_id_form: str | None = Form(default=None, alias="knowledge_base_id"),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
@@ -885,14 +975,22 @@ async def index_document(
         raise HTTPException(status_code=413, detail="PDF file is too large; max size is 10 MB")
 
     settings = get_settings()
+    access = _resolve_knowledge_base_context(
+        current_user,
+        _select_knowledge_base_id(knowledge_base_id, knowledge_base_id_form),
+    )
     content_hash = _calculate_content_hash(content)
     document_store = get_document_store(settings.document_metadata_path)
 
     try:
-        existing_record = document_store.get_document_by_content_hash(content_hash)
+        existing_record = document_store.get_document_by_content_hash(
+            content_hash,
+            knowledge_base_id=access.knowledge_base_id,
+        )
         if existing_record is not None and not reindex:
             return DocumentIndexResponse(
                 document_id=existing_record.document_id,
+                knowledge_base_id=existing_record.knowledge_base_id,
                 filename=filename,
                 file_type=existing_record.file_type,
                 content_hash=content_hash,
@@ -938,8 +1036,12 @@ async def index_document(
                 client=client,
                 collection_name=existing_record.collection,
                 document_id=existing_record.document_id,
+                knowledge_base_id=existing_record.knowledge_base_id,
             )
-            document_store.remove_document(existing_record.document_id)
+            document_store.remove_document(
+                existing_record.document_id,
+                knowledge_base_id=existing_record.knowledge_base_id,
+            )
 
         indexed_count = upsert_chunks(
             client=client,
@@ -950,9 +1052,16 @@ async def index_document(
             document_id=document_id,
             content_hash=content_hash,
             file_type=file_type,
+            tenant_id=access.organization_id,
+            workspace_id=access.workspace_id,
+            knowledge_base_id=access.knowledge_base_id,
         )
         document_store.add_document(
             document_id=document_id,
+            organization_id=access.organization_id,
+            workspace_id=access.workspace_id,
+            knowledge_base_id=access.knowledge_base_id,
+            owner_user_id=current_user.user_id,
             filename=filename,
             file_type=file_type,
             content_hash=content_hash,
@@ -970,6 +1079,7 @@ async def index_document(
 
     return DocumentIndexResponse(
         document_id=document_id,
+        knowledge_base_id=access.knowledge_base_id,
         filename=filename,
         file_type=file_type,
         content_hash=content_hash,
@@ -991,25 +1101,38 @@ async def index_document(
     )
 
 
+@app.get("/knowledge-bases/{knowledge_base_id}/documents", response_model=DocumentListResponse)
 @app.get("/documents", response_model=DocumentListResponse)
-async def list_documents(_current_user: AuthenticatedUser = Depends(get_current_user)) -> DocumentListResponse:
+async def list_documents(
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> DocumentListResponse:
     settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
     try:
-        records = get_document_store(settings.document_metadata_path).list_documents()
+        records = get_document_store(settings.document_metadata_path).list_documents(
+            knowledge_base_id=access.knowledge_base_id,
+        )
     except DocumentStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return DocumentListResponse(documents=[_to_document_record_response(record) for record in records])
 
 
+@app.get("/knowledge-bases/{knowledge_base_id}/documents/{document_id}", response_model=DocumentRecordResponse)
 @app.get("/documents/{document_id}", response_model=DocumentRecordResponse)
 async def get_document(
     document_id: str,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> DocumentRecordResponse:
     settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
     try:
-        record = get_document_store(settings.document_metadata_path).get_document(document_id)
+        record = get_document_store(settings.document_metadata_path).get_document(
+            document_id,
+            knowledge_base_id=access.knowledge_base_id,
+        )
     except DocumentStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1018,12 +1141,15 @@ async def get_document(
     return _to_document_record_response(record)
 
 
+@app.delete("/knowledge-bases/{knowledge_base_id}/documents/batch", response_model=BatchDeleteDocumentsResponse)
 @app.delete("/documents/batch", response_model=BatchDeleteDocumentsResponse)
 async def batch_delete_documents(
     request: BatchDeleteDocumentsRequest,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> BatchDeleteDocumentsResponse:
     settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
     document_store = get_document_store(settings.document_metadata_path)
     client = get_qdrant_client(settings.qdrant_local_path)
     deleted: list[DeleteDocumentResponse] = []
@@ -1031,7 +1157,10 @@ async def batch_delete_documents(
 
     for document_id in dict.fromkeys(request.document_ids):
         try:
-            record = document_store.get_document(document_id)
+            record = document_store.get_document(
+                document_id,
+                knowledge_base_id=access.knowledge_base_id,
+            )
         except DocumentStoreError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1044,8 +1173,12 @@ async def batch_delete_documents(
                 client=client,
                 collection_name=record.collection,
                 document_id=document_id,
+                knowledge_base_id=access.knowledge_base_id,
             )
-            removed_record = document_store.remove_document(document_id)
+            removed_record = document_store.remove_document(
+                document_id,
+                knowledge_base_id=access.knowledge_base_id,
+            )
         except (VectorStoreError, DocumentStoreError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1064,16 +1197,22 @@ async def batch_delete_documents(
     )
 
 
+@app.delete("/knowledge-bases/{knowledge_base_id}/documents/{document_id}", response_model=DeleteDocumentResponse)
 @app.delete("/documents/{document_id}", response_model=DeleteDocumentResponse)
 async def delete_document(
     document_id: str,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> DeleteDocumentResponse:
     settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
     document_store = get_document_store(settings.document_metadata_path)
 
     try:
-        record = document_store.get_document(document_id)
+        record = document_store.get_document(
+            document_id,
+            knowledge_base_id=access.knowledge_base_id,
+        )
     except DocumentStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1086,8 +1225,12 @@ async def delete_document(
             client=client,
             collection_name=record.collection,
             document_id=document_id,
+            knowledge_base_id=access.knowledge_base_id,
         )
-        removed_record = document_store.remove_document(document_id)
+        removed_record = document_store.remove_document(
+            document_id,
+            knowledge_base_id=access.knowledge_base_id,
+        )
     except (VectorStoreError, DocumentStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1098,16 +1241,18 @@ async def delete_document(
     )
 
 
+@app.post("/knowledge-bases/{knowledge_base_id}/documents/{document_id}/reindex", response_model=DocumentIndexResponse)
 @app.post("/documents/{document_id}/reindex", response_model=DocumentIndexResponse)
 async def reindex_document(
     document_id: str,
+    knowledge_base_id: str | None = None,
     file: UploadFile = File(...),
     chunk_size: int = Form(800),
     overlap: int = Form(100),
     enable_ocr: bool = Form(False),
     enable_image_ocr: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
@@ -1119,9 +1264,13 @@ async def reindex_document(
         raise HTTPException(status_code=413, detail="File is too large; max size is 10 MB")
 
     settings = get_settings()
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
     document_store = get_document_store(settings.document_metadata_path)
     try:
-        existing_record = document_store.get_document(document_id)
+        existing_record = document_store.get_document(
+            document_id,
+            knowledge_base_id=access.knowledge_base_id,
+        )
     except DocumentStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if existing_record is None:
@@ -1151,8 +1300,9 @@ async def reindex_document(
             client=client,
             collection_name=existing_record.collection,
             document_id=document_id,
+            knowledge_base_id=access.knowledge_base_id,
         )
-        document_store.remove_document(document_id)
+        document_store.remove_document(document_id, knowledge_base_id=access.knowledge_base_id)
         indexed_count = upsert_chunks(
             client=client,
             collection_name=settings.qdrant_collection,
@@ -1162,9 +1312,16 @@ async def reindex_document(
             document_id=document_id,
             content_hash=content_hash,
             file_type=file_type,
+            tenant_id=access.organization_id,
+            workspace_id=access.workspace_id,
+            knowledge_base_id=access.knowledge_base_id,
         )
         document_store.add_document(
             document_id=document_id,
+            organization_id=access.organization_id,
+            workspace_id=access.workspace_id,
+            knowledge_base_id=access.knowledge_base_id,
+            owner_user_id=current_user.user_id,
             filename=filename,
             file_type=file_type,
             content_hash=content_hash,
@@ -1182,6 +1339,7 @@ async def reindex_document(
 
     return DocumentIndexResponse(
         document_id=document_id,
+        knowledge_base_id=access.knowledge_base_id,
         filename=filename,
         file_type=file_type,
         content_hash=content_hash,
@@ -1203,12 +1361,24 @@ async def reindex_document(
     )
 
 
+@app.post("/knowledge-bases/{knowledge_base_id}/documents/search", response_model=SearchResponse)
 @app.post("/documents/search", response_model=SearchResponse)
 async def search_documents(
     request: SearchRequest,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> SearchResponse:
     settings = get_settings()
+    access = _resolve_knowledge_base_context(
+        current_user,
+        _select_knowledge_base_id(knowledge_base_id, request.knowledge_base_id),
+    )
+    if request.document_id:
+        _require_document_in_knowledge_base(
+            document_id=request.document_id,
+            knowledge_base=access,
+            settings=settings,
+        )
     try:
         retrieved_results = await _search_local_chunks(
             settings=settings,
@@ -1216,6 +1386,8 @@ async def search_documents(
             limit=request.limit,
             document_id=request.document_id,
             file_type=request.file_type,
+            knowledge_base_id=access.knowledge_base_id,
+            tenant_id=access.organization_id,
         )
     except (EmbeddingError, VectorStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1224,6 +1396,7 @@ async def search_documents(
         query=request.query,
         collection=settings.qdrant_collection,
         limit=request.limit,
+        knowledge_base_id=access.knowledge_base_id,
         document_id=request.document_id,
         file_type=request.file_type,
         results=[
@@ -1233,12 +1406,24 @@ async def search_documents(
     )
 
 
+@app.post("/knowledge-bases/{knowledge_base_id}/rag/ask", response_model=RagAskResponse)
 @app.post("/rag/ask", response_model=RagAskResponse)
 async def ask_with_rag(
     request: RagAskRequest,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> RagAskResponse:
     settings = get_settings()
+    access = _resolve_knowledge_base_context(
+        current_user,
+        _select_knowledge_base_id(knowledge_base_id, request.knowledge_base_id),
+    )
+    if request.document_id:
+        _require_document_in_knowledge_base(
+            document_id=request.document_id,
+            knowledge_base=access,
+            settings=settings,
+        )
     runtime_settings = _load_runtime_settings_or_422()
     llm_settings = apply_runtime_settings(settings, runtime_settings)
 
@@ -1248,6 +1433,8 @@ async def ask_with_rag(
             query=request.question,
             limit=request.limit,
             document_id=request.document_id,
+            knowledge_base_id=access.knowledge_base_id,
+            tenant_id=access.organization_id,
         )
     except (EmbeddingError, VectorStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1284,6 +1471,7 @@ async def ask_with_rag(
         reply=answer["reply"],
         model=answer["model"],
         collection=settings.qdrant_collection,
+        knowledge_base_id=access.knowledge_base_id,
         score_threshold=request.score_threshold,
         retrieved_count=len(retrieved_results),
         source_count=len(results),
@@ -1295,12 +1483,24 @@ async def ask_with_rag(
     )
 
 
+@app.post("/knowledge-bases/{knowledge_base_id}/agent/ask", response_model=AgentAskResponse)
 @app.post("/agent/ask", response_model=AgentAskResponse)
 async def ask_with_agent(
     request: AgentAskRequest,
-    _current_user: AuthenticatedUser = Depends(get_current_user),
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> AgentAskResponse:
     settings = get_settings()
+    access = _resolve_knowledge_base_context(
+        current_user,
+        _select_knowledge_base_id(knowledge_base_id, request.knowledge_base_id),
+    )
+    if request.document_id:
+        _require_document_in_knowledge_base(
+            document_id=request.document_id,
+            knowledge_base=access,
+            settings=settings,
+        )
     runtime_settings = _load_runtime_settings_or_422()
     llm_settings = apply_runtime_settings(settings, runtime_settings)
     route_decision = explain_agent_route(request.question)
@@ -1312,6 +1512,7 @@ async def ask_with_agent(
         "requested_limit": request.limit,
         "score_threshold": request.score_threshold,
         "document_id": request.document_id,
+        "knowledge_base_id": access.knowledge_base_id,
     }
 
     if selected_route == "chat":
@@ -1335,6 +1536,7 @@ async def ask_with_agent(
             reply=answer["reply"],
             model=answer["model"],
             collection=settings.qdrant_collection,
+            knowledge_base_id=access.knowledge_base_id,
             score_threshold=request.score_threshold,
             usage=answer.get("usage"),
         )
@@ -1345,6 +1547,8 @@ async def ask_with_agent(
             query=request.question,
             limit=request.limit,
             document_id=request.document_id,
+            knowledge_base_id=access.knowledge_base_id,
+            tenant_id=access.organization_id,
         )
     except (EmbeddingError, VectorStoreError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1373,6 +1577,7 @@ async def ask_with_agent(
             },
             reply="资料不足：本地知识库中没有检索到相关内容。请先上传并索引相关文档，或换一个更具体的问题。",
             collection=settings.qdrant_collection,
+            knowledge_base_id=access.knowledge_base_id,
             score_threshold=request.score_threshold,
             retrieved_count=0,
             source_count=0,
@@ -1391,6 +1596,7 @@ async def ask_with_agent(
             },
             reply="资料不足：检索结果没有达到当前 score_threshold。可以降低阈值，或补充更相关的资料后再问。",
             collection=settings.qdrant_collection,
+            knowledge_base_id=access.knowledge_base_id,
             score_threshold=request.score_threshold,
             retrieved_count=len(retrieved_results),
             source_count=0,
@@ -1425,6 +1631,7 @@ async def ask_with_agent(
         reply=answer["reply"],
         model=answer["model"],
         collection=settings.qdrant_collection,
+        knowledge_base_id=access.knowledge_base_id,
         score_threshold=request.score_threshold,
         retrieved_count=len(retrieved_results),
         source_count=len(results),
@@ -1440,6 +1647,8 @@ async def _search_local_chunks(
     limit: int,
     document_id: str | None = None,
     file_type: str | None = None,
+    knowledge_base_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> list[SearchResult]:
     query_vector = await run_in_threadpool(
         embed_text,
@@ -1454,6 +1663,8 @@ async def _search_local_chunks(
         limit=limit,
         document_id=document_id,
         file_type=file_type,
+        knowledge_base_id=knowledge_base_id,
+        tenant_id=tenant_id,
     )
 
 
@@ -1594,6 +1805,76 @@ def _to_app_settings_response(
     )
 
 
+def get_permission_store() -> PermissionStore:
+    settings = get_settings()
+    return PermissionStore(settings.database_url)
+
+
+def _ensure_default_knowledge_base(current_user: AuthenticatedUser) -> KnowledgeBaseAccess:
+    try:
+        return get_permission_store().ensure_default_access(
+            user_id=current_user.user_id,
+            username=current_user.username,
+            role=current_user.role,
+        )
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _resolve_knowledge_base_context(
+    current_user: AuthenticatedUser,
+    knowledge_base_id: str | None,
+) -> KnowledgeBaseAccess:
+    default_access = _ensure_default_knowledge_base(current_user)
+    if not knowledge_base_id:
+        return default_access
+    try:
+        access = get_permission_store().get_knowledge_base_for_user(
+            user_id=current_user.user_id,
+            knowledge_base_id=knowledge_base_id,
+        )
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if access is None:
+        raise HTTPException(status_code=403, detail="No access to this knowledge base")
+    return access
+
+
+def _require_document_in_knowledge_base(
+    *,
+    document_id: str,
+    knowledge_base: KnowledgeBaseAccess,
+    settings: Any,
+) -> DocumentRecord:
+    try:
+        record = get_document_store(settings.document_metadata_path).get_document(
+            document_id,
+            knowledge_base_id=knowledge_base.knowledge_base_id,
+        )
+    except DocumentStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Document {document_id!r} not found")
+    return record
+
+
+def _select_knowledge_base_id(*candidates: str | None) -> str | None:
+    for candidate in candidates:
+        if candidate and candidate.strip():
+            return candidate.strip()
+    return None
+
+
+def _to_knowledge_base_response(knowledge_base: KnowledgeBaseAccess) -> KnowledgeBaseResponse:
+    return KnowledgeBaseResponse(
+        organization_id=knowledge_base.organization_id,
+        workspace_id=knowledge_base.workspace_id,
+        knowledge_base_id=knowledge_base.knowledge_base_id,
+        name=knowledge_base.name,
+        role=knowledge_base.role,
+    )
+
+
 def _optional_secret(value: str | None) -> str | None:
     if value is None:
         return None
@@ -1605,6 +1886,7 @@ def _to_search_result_response(result: SearchResult) -> SearchResultResponse:
     return SearchResultResponse(
         score=result.score,
         document_id=result.document_id,
+        knowledge_base_id=result.knowledge_base_id,
         file_type=result.file_type,
         filename=result.filename,
         page_number=result.page_number,
@@ -1620,6 +1902,7 @@ def _to_rag_source_response(source_id: int, result: SearchResult, preview_chars:
         source_id=source_id,
         score=result.score,
         document_id=result.document_id,
+        knowledge_base_id=result.knowledge_base_id,
         file_type=result.file_type,
         filename=result.filename,
         page_number=result.page_number,

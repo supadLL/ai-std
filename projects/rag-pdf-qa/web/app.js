@@ -5,6 +5,8 @@ const DEFAULT_BACKGROUND_COLOR = "#0f1213";
 const state = {
   accessToken: localStorage.getItem(AUTH_TOKEN_KEY) || "",
   currentUser: null,
+  knowledgeBases: [],
+  activeKnowledgeBaseId: "",
   documents: [],
   lastAnswer: null,
   messages: [],
@@ -87,6 +89,9 @@ const els = {
   bootstrapAdmin: document.querySelector("#bootstrapAdmin"),
   logoutButton: document.querySelector("#logoutButton"),
   currentUserLabel: document.querySelector("#currentUserLabel"),
+  knowledgeBaseSelect: document.querySelector("#knowledgeBaseSelect"),
+  knowledgeBaseForm: document.querySelector("#knowledgeBaseForm"),
+  knowledgeBaseNameInput: document.querySelector("#knowledgeBaseNameInput"),
 };
 
 const THEME_COLORS = {
@@ -111,6 +116,10 @@ const translations = {
     "nav.settings": "设置",
     "nav.settingsSub": "Settings",
     "nav.docs": "Swagger Docs",
+    "kb.current": "Knowledge base",
+    "kb.newPlaceholder": "New knowledge base",
+    "kb.create": "Create knowledge base",
+    "kb.created": "Knowledge base created",
     "import.eyebrow": "Import",
     "import.title": "文件导入",
     "import.refresh": "刷新文档列表",
@@ -265,6 +274,10 @@ const translations = {
     "nav.settings": "Settings",
     "nav.settingsSub": "Settings",
     "nav.docs": "Swagger Docs",
+    "kb.current": "Knowledge base",
+    "kb.newPlaceholder": "New knowledge base",
+    "kb.create": "Create knowledge base",
+    "kb.created": "Knowledge base created",
     "import.eyebrow": "Import",
     "import.title": "Import Files",
     "import.refresh": "Refresh documents",
@@ -466,8 +479,16 @@ function setAuthState(authData) {
 function clearAuthState() {
   state.accessToken = "";
   state.currentUser = null;
+  state.knowledgeBases = [];
+  state.activeKnowledgeBaseId = "";
+  state.documents = [];
+  state.selectedDocumentIds.clear();
+  state.activeDocumentId = null;
   localStorage.removeItem(AUTH_TOKEN_KEY);
   renderAuthState();
+  renderKnowledgeBases();
+  renderDocumentControls();
+  renderDocuments();
 }
 
 function showAuthPanel() {
@@ -502,6 +523,7 @@ async function initializeAuthenticatedApp() {
     state.currentUser = data.user;
     hideAuthPanel();
     renderAuthState();
+    await loadKnowledgeBases();
     await Promise.all([loadDocuments(), loadSettings()]);
   } catch (error) {
     clearAuthState();
@@ -532,6 +554,7 @@ async function authenticateWith(endpoint) {
     setAuthState(data);
     hideAuthPanel();
     showToast("Signed in");
+    await loadKnowledgeBases();
     await Promise.all([loadDocuments(), loadSettings()]);
   } catch (error) {
     showToast(error.message, true);
@@ -551,9 +574,70 @@ async function logout() {
   showToast("Signed out");
 }
 
+async function loadKnowledgeBases() {
+  const data = await requestJson("/knowledge-bases");
+  state.knowledgeBases = data.knowledge_bases || [];
+  const fallbackId = data.default_knowledge_base_id || state.knowledgeBases[0]?.knowledge_base_id || "";
+  if (!state.knowledgeBases.some((item) => item.knowledge_base_id === state.activeKnowledgeBaseId)) {
+    state.activeKnowledgeBaseId = fallbackId;
+  }
+  renderKnowledgeBases();
+}
+
+function renderKnowledgeBases() {
+  if (!els.knowledgeBaseSelect) {
+    return;
+  }
+  els.knowledgeBaseSelect.innerHTML = state.knowledgeBases
+    .map(
+      (knowledgeBase) =>
+        `<option value="${escapeHtml(knowledgeBase.knowledge_base_id)}">${escapeHtml(knowledgeBase.name)}</option>`,
+    )
+    .join("");
+  els.knowledgeBaseSelect.value = state.activeKnowledgeBaseId;
+}
+
+function knowledgeBasePath(path) {
+  if (!state.activeKnowledgeBaseId) {
+    return path;
+  }
+  return `/knowledge-bases/${encodeURIComponent(state.activeKnowledgeBaseId)}${path}`;
+}
+
+async function changeKnowledgeBase() {
+  state.activeKnowledgeBaseId = els.knowledgeBaseSelect.value || "";
+  state.selectedDocumentIds.clear();
+  state.activeDocumentId = null;
+  state.evaluation = null;
+  renderDocumentDetail();
+  await loadDocuments();
+}
+
+async function createKnowledgeBase(event) {
+  event.preventDefault();
+  const name = els.knowledgeBaseNameInput.value.trim();
+  if (!name) {
+    return;
+  }
+  try {
+    const knowledgeBase = await requestJson("/knowledge-bases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    state.activeKnowledgeBaseId = knowledgeBase.knowledge_base_id;
+    els.knowledgeBaseNameInput.value = "";
+    await loadKnowledgeBases();
+    await loadDocuments();
+    showToast(t("kb.created"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
 async function loadDocuments() {
   setStatus("loading");
-  const data = await requestJson("/documents");
+  const data = await requestJson(knowledgeBasePath("/documents"));
   state.documents = data.documents || [];
   state.selectedDocumentIds = new Set(
     [...state.selectedDocumentIds].filter((documentId) => state.documents.some((doc) => doc.document_id === documentId)),
@@ -903,6 +987,7 @@ function renderDocumentDetail() {
   els.documentDetail.innerHTML = `
     <b>${escapeHtml(doc.filename)}</b><br />
     document_id ${escapeHtml(doc.document_id)}<br />
+    knowledge_base_id ${escapeHtml(doc.knowledge_base_id || "-")}<br />
     type ${escapeHtml(doc.file_type)} · chunks ${doc.chunk_count} · pages ${doc.page_count}<br />
     hash ${escapeHtml(doc.content_hash)}<br />
     created ${escapeHtml(doc.created_at)} · indexed ${escapeHtml(doc.indexed_at)}
@@ -925,7 +1010,7 @@ async function uploadDocument(event) {
 
   setStatus("indexing");
   try {
-    const data = await requestJson("/documents/index", {
+    const data = await requestJson(knowledgeBasePath("/documents/index"), {
       method: "POST",
       body: form,
     });
@@ -949,7 +1034,7 @@ async function batchDeleteDocuments() {
 
   setStatus("loading");
   try {
-    await requestJson("/documents/batch", {
+    await requestJson(knowledgeBasePath("/documents/batch"), {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ document_ids: documentIds }),
@@ -972,7 +1057,7 @@ async function reindexDocument(documentId, file) {
 
   setStatus("indexing");
   try {
-    await requestJson(`/documents/${encodeURIComponent(documentId)}/reindex`, {
+    await requestJson(knowledgeBasePath(`/documents/${encodeURIComponent(documentId)}/reindex`), {
       method: "POST",
       body: form,
     });
@@ -1059,6 +1144,9 @@ async function askQuestion(event) {
   if (els.askDocumentFilter.value) {
     payload.document_id = els.askDocumentFilter.value;
   }
+  if (state.activeKnowledgeBaseId) {
+    payload.knowledge_base_id = state.activeKnowledgeBaseId;
+  }
 
   setStatus("asking");
   const pendingId = `pending-${Date.now()}`;
@@ -1068,7 +1156,7 @@ async function askQuestion(event) {
   els.questionInput.value = "";
   els.sourceList.innerHTML = "";
   try {
-    const endpoint = state.askMode === "agent" ? "/agent/ask" : "/rag/ask";
+    const endpoint = knowledgeBasePath(state.askMode === "agent" ? "/agent/ask" : "/rag/ask");
     const data = await requestJson(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1239,6 +1327,9 @@ async function runEvaluation(event) {
   };
   if (els.evaluationThreshold.value !== "") {
     payload.score_threshold = Number(els.evaluationThreshold.value);
+  }
+  if (state.activeKnowledgeBaseId) {
+    payload.knowledge_base_id = state.activeKnowledgeBaseId;
   }
 
   setEvaluationStatus("evaluating");
@@ -1581,6 +1672,10 @@ els.clearDocumentFilters.addEventListener("click", () => {
   renderDocuments();
 });
 els.batchDeleteDocuments.addEventListener("click", batchDeleteDocuments);
+els.knowledgeBaseSelect.addEventListener("change", () => {
+  changeKnowledgeBase().catch((error) => showToast(error.message, true));
+});
+els.knowledgeBaseForm.addEventListener("submit", createKnowledgeBase);
 els.documentList.addEventListener("click", handleDocumentListClick);
 els.documentList.addEventListener("change", handleDocumentListChange);
 els.askForm.addEventListener("submit", askQuestion);

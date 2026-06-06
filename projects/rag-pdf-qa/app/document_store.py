@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import database_url_from_legacy_path, session_scope
 from app.models import DocumentModel
+from app.permissions import DEFAULT_KNOWLEDGE_BASE_ID, DEFAULT_ORGANIZATION_ID, DEFAULT_WORKSPACE_ID
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,10 @@ class DocumentRecord:
     embedding_model: str
     page_count: int
     indexed_count: int
+    organization_id: str = DEFAULT_ORGANIZATION_ID
+    workspace_id: str = DEFAULT_WORKSPACE_ID
+    knowledge_base_id: str = DEFAULT_KNOWLEDGE_BASE_ID
+    owner_user_id: str = "system"
 
 
 class DocumentStoreError(RuntimeError):
@@ -37,28 +42,40 @@ class DocumentStore:
         self.path = path
         self.database_url = database_url or database_url_from_legacy_path(path)
 
-    def list_documents(self) -> list[DocumentRecord]:
+    def list_documents(self, *, knowledge_base_id: str | None = None) -> list[DocumentRecord]:
         try:
             with session_scope(self.database_url) as session:
-                documents = session.scalars(select(DocumentModel).order_by(DocumentModel.indexed_at.desc())).all()
+                statement = select(DocumentModel)
+                if knowledge_base_id:
+                    statement = statement.where(DocumentModel.knowledge_base_id == knowledge_base_id)
+                documents = session.scalars(statement.order_by(DocumentModel.indexed_at.desc())).all()
                 return [_record_from_model(document) for document in documents]
         except SQLAlchemyError as exc:
             raise DocumentStoreError(f"Failed to list document metadata: {exc}") from exc
 
-    def get_document(self, document_id: str) -> DocumentRecord | None:
+    def get_document(self, document_id: str, *, knowledge_base_id: str | None = None) -> DocumentRecord | None:
         try:
             with session_scope(self.database_url) as session:
-                document = session.get(DocumentModel, document_id)
+                statement = select(DocumentModel).where(DocumentModel.document_id == document_id)
+                if knowledge_base_id:
+                    statement = statement.where(DocumentModel.knowledge_base_id == knowledge_base_id)
+                document = session.scalar(statement)
                 return _record_from_model(document) if document else None
         except SQLAlchemyError as exc:
             raise DocumentStoreError(f"Failed to get document metadata: {exc}") from exc
 
-    def get_document_by_content_hash(self, content_hash: str) -> DocumentRecord | None:
+    def get_document_by_content_hash(
+        self,
+        content_hash: str,
+        *,
+        knowledge_base_id: str | None = None,
+    ) -> DocumentRecord | None:
         try:
             with session_scope(self.database_url) as session:
-                document = session.scalar(
-                    select(DocumentModel).where(DocumentModel.content_hash == content_hash)
-                )
+                statement = select(DocumentModel).where(DocumentModel.content_hash == content_hash)
+                if knowledge_base_id:
+                    statement = statement.where(DocumentModel.knowledge_base_id == knowledge_base_id)
+                document = session.scalar(statement)
                 return _record_from_model(document) if document else None
         except SQLAlchemyError as exc:
             raise DocumentStoreError(f"Failed to get document metadata by content hash: {exc}") from exc
@@ -78,10 +95,18 @@ class DocumentStore:
         page_count: int,
         indexed_count: int,
         source_file_size: int,
+        organization_id: str = DEFAULT_ORGANIZATION_ID,
+        workspace_id: str = DEFAULT_WORKSPACE_ID,
+        knowledge_base_id: str = DEFAULT_KNOWLEDGE_BASE_ID,
+        owner_user_id: str = "system",
     ) -> DocumentRecord:
         now = datetime.now(UTC).isoformat()
         document = DocumentModel(
             document_id=document_id or str(uuid4()),
+            organization_id=organization_id,
+            workspace_id=workspace_id,
+            knowledge_base_id=knowledge_base_id,
+            owner_user_id=owner_user_id,
             filename=filename,
             file_type=file_type,
             content_hash=content_hash,
@@ -106,10 +131,13 @@ class DocumentStore:
         except SQLAlchemyError as exc:
             raise DocumentStoreError(f"Failed to add document metadata: {exc}") from exc
 
-    def remove_document(self, document_id: str) -> DocumentRecord | None:
+    def remove_document(self, document_id: str, *, knowledge_base_id: str | None = None) -> DocumentRecord | None:
         try:
             with session_scope(self.database_url) as session:
-                document = session.get(DocumentModel, document_id)
+                statement = select(DocumentModel).where(DocumentModel.document_id == document_id)
+                if knowledge_base_id:
+                    statement = statement.where(DocumentModel.knowledge_base_id == knowledge_base_id)
+                document = session.scalar(statement)
                 if document is None:
                     return None
                 record = _record_from_model(document)
@@ -136,4 +164,8 @@ def _record_from_model(document: DocumentModel) -> DocumentRecord:
         embedding_model=document.embedding_model,
         page_count=document.page_count,
         indexed_count=document.indexed_count,
+        organization_id=document.organization_id,
+        workspace_id=document.workspace_id,
+        knowledge_base_id=document.knowledge_base_id,
+        owner_user_id=document.owner_user_id,
     )

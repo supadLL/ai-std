@@ -76,13 +76,14 @@ RAG 检索评估脚本、API 和 Web UI 评估面板
 LLM API 配置档案管理：新增、编辑、删除和一键启用
 企业级第 01 步：最小登录鉴权与用户体系，支持初始化管理员、登录、当前用户、退出和 Bearer token 保护核心接口
 企业级第 02 步：数据库持久化替代本地 JSON，users、documents、runtime_settings、llm_profiles 已迁入 SQLAlchemy 数据库
+企业级第 03 步：最小多租户和权限隔离，支持 knowledge base membership、文档归属和 Qdrant payload 过滤
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02 步
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -240,19 +241,26 @@ Swagger Docs 页面必须能测试接口。
 | `POST /auth/login` | 登录并获取 Bearer token |
 | `GET /auth/me` | 查看当前登录用户 |
 | `POST /auth/logout` | 退出登录，前端清除 token |
+| `GET /knowledge-bases` | 查看当前用户可访问的知识库 |
+| `POST /knowledge-bases` | 新建知识库并自动成为 owner |
 | `POST /chat` | 直接调用当前配置的 LLM Provider |
 | `POST /documents/extract` | 上传 PDF 并提取文本，支持可选 OCR |
 | `POST /documents/chunk` | 上传 PDF 并切分 chunk，支持 OCR 来源标记 |
 | `POST /embeddings/text` | 文本向量化 |
 | `POST /documents/index` | PDF / 扫描型 PDF OCR / Markdown / txt / docx / csv / xlsx 切分、向量化并写入 Qdrant，支持 content_hash 去重和 reindex |
 | `GET /documents` | 查看本地知识库文档列表 |
+| `GET /knowledge-bases/{knowledge_base_id}/documents` | 查看指定知识库文档列表 |
+| `POST /knowledge-bases/{knowledge_base_id}/documents/index` | 上传并索引到指定知识库 |
 | `GET /documents/{document_id}` | 查看单个文档 metadata |
 | `DELETE /documents/{document_id}` | 删除某个文档的 Qdrant chunks 和 metadata |
 | `DELETE /documents/batch` | 批量删除多个文档的 Qdrant chunks 和 metadata |
 | `POST /documents/{document_id}/reindex` | 为指定 document_id 上传替换文件并重新索引 |
 | `POST /documents/search` | 只做语义检索，不调用 LLM，支持 document_id / file_type 过滤 |
+| `POST /knowledge-bases/{knowledge_base_id}/documents/search` | 在指定知识库中做语义检索 |
 | `POST /rag/ask` | 检索 Qdrant，再调用当前 LLM Provider 生成 RAG 回答，支持限定 document_id |
+| `POST /knowledge-bases/{knowledge_base_id}/rag/ask` | 在指定知识库中执行 RAG 问答 |
 | `POST /agent/ask` | 可解释 Agent 工具路由，支持限定 document_id，并返回 route_reason / tools_used / routing_debug |
+| `POST /knowledge-bases/{knowledge_base_id}/agent/ask` | 在指定知识库中执行 Agent 问答 |
 | `GET /evaluation/questions` | 读取本地 RAG 评估问题集 |
 | `POST /evaluation/run` | 运行本地检索评估并保存最近结果，不调用 LLM |
 | `GET /evaluation/latest` | 读取最近一次 RAG 检索评估结果 |
@@ -743,6 +751,7 @@ Web UI 项目图标和 Tab 标题
 Web UI 背景色覆盖左侧导航、主面板、表单、卡片和回答区域
 Web UI RAG / Agent 模式切换和 Agent 路由解释展示
 Web UI 提问限定 document_id
+Web UI 当前 knowledge base 选择和创建
 README 项目架构图、RAG 链路图、Web UI 截图、简历描述模板和项目演示脚本
 一键启动脚本和 Dockerfile
 /settings 多供应商 LLM 运行时设置
