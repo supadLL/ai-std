@@ -24,6 +24,7 @@ class Settings:
     qdrant_collection: str = "rag_chunks"
     document_metadata_path: str = "data/documents.json"
     user_store_path: str = "data/users.json"
+    index_job_storage_path: str = "data/index_jobs"
     database_url: str = "sqlite:///data/app.db"
     app_secret_key: str = "change-this-local-development-secret"
     access_token_expire_minutes: int = 480
@@ -59,6 +60,7 @@ def get_settings() -> Settings:
     qdrant_collection = os.getenv("QDRANT_COLLECTION", "rag_chunks").strip()
     document_metadata_path = os.getenv("DOCUMENT_METADATA_PATH", "data/documents.json").strip()
     user_store_path = os.getenv("USER_STORE_PATH", "data/users.json").strip()
+    index_job_storage_path = os.getenv("INDEX_JOB_STORAGE_PATH", "data/index_jobs").strip()
     database_url = os.getenv("DATABASE_URL", "sqlite:///data/app.db").strip()
     app_secret_key = os.getenv("APP_SECRET_KEY", "change-this-local-development-secret").strip()
     access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
@@ -77,6 +79,7 @@ def get_settings() -> Settings:
         qdrant_collection=qdrant_collection,
         document_metadata_path=document_metadata_path,
         user_store_path=user_store_path,
+        index_job_storage_path=index_job_storage_path,
         database_url=database_url,
         app_secret_key=app_secret_key,
         access_token_expire_minutes=access_token_expire_minutes,

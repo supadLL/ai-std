@@ -79,10 +79,12 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=40" in app_response.text
-    assert "/web/app.js?v=40" in app_response.text
+    assert "/web/styles.css?v=41" in app_response.text
+    assert "/web/app.js?v=41" in app_response.text
     assert 'id="knowledgeBaseSelect"' in app_response.text
     assert 'id="knowledgeBaseForm"' in app_response.text
+    assert 'id="indexJobList"' in app_response.text
+    assert 'id="refreshIndexJobs"' in app_response.text
     assert "分块大小 chunk" in app_response.text
     assert "重叠长度 overlap" in app_response.text
     assert "重新索引 reindex" in app_response.text
@@ -110,6 +112,8 @@ def test_web_ui_routes_are_available():
     assert openapi_response.status_code == 200
     assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
     assert "/documents/index" in openapi_response.json()["paths"]
+    assert "/documents/index-jobs" in openapi_response.json()["paths"]
+    assert "/documents/index-jobs/{job_id}/retry" in openapi_response.json()["paths"]
     assert "/knowledge-bases" in openapi_response.json()["paths"]
     assert "/knowledge-bases/{knowledge_base_id}/documents" in openapi_response.json()["paths"]
     assert "/evaluation/questions" in openapi_response.json()["paths"]

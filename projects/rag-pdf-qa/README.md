@@ -90,6 +90,7 @@ flowchart TD
 | 登录鉴权 | 企业级分支支持初始化管理员、登录、当前用户和 Bearer token 保护核心接口 |
 | 数据库持久化 | 企业级分支已将 users、documents、runtime_settings、llm_profiles 迁入数据库 |
 | 多租户隔离 | 企业级分支已支持 Organization / Workspace / KnowledgeBase / Membership，文档和检索按知识库隔离 |
+| 异步索引任务 | 企业级分支支持上传后创建 index job、后台入库、状态查询、失败原因和手动重试 |
 | 文档管理 | 支持列表、筛选、详情、批量删除、指定文档重建索引 |
 | 去重策略 | 使用 content_hash 避免重复入库，支持 reindex 重建 |
 | RAG 问答 | 返回稳定三段式回答，并提供 sources |
@@ -111,7 +112,11 @@ flowchart TD
 | `POST /knowledge-bases` | 新建知识库并自动成为 owner |
 | `GET /knowledge-bases/{knowledge_base_id}/documents` | 查看指定知识库文档列表 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index` | 上传并索引到指定知识库 |
+| `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 上传并创建指定知识库的异步索引任务 |
+| `GET /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 查看指定知识库索引任务列表 |
+| `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs/{job_id}/retry` | 重试失败索引任务 |
 | `POST /documents/index` | 上传并索引文档 |
+| `POST /documents/index-jobs` | 上传并创建默认知识库异步索引任务 |
 | `GET /documents` | 查看知识库文档列表 |
 | `POST /documents/search` | 只做语义检索 |
 | `POST /knowledge-bases/{knowledge_base_id}/rag/ask` | 在指定知识库中执行 RAG 问答 |
@@ -206,6 +211,7 @@ flowchart TD
 - [企业级第 01 步完成总结：登录鉴权与用户体系](docs/enterprise-summary/01-auth-and-user-system-summary.md)
 - [企业级第 02 步完成总结：数据库持久化替代本地 JSON](docs/enterprise-summary/02-database-persistence-summary.md)
 - [企业级第 03 步完成总结：多租户和权限隔离](docs/enterprise-summary/03-tenant-and-permission-isolation-summary.md)
+- [企业级第 04 步完成总结：异步索引任务](docs/enterprise-summary/04-async-indexing-job-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -314,6 +320,7 @@ LLM_API_KEY=你的真实模型 API Key
 LLM_BASE_URL=https://api.deepseek.com
 LLM_MODEL=deepseek-v4-flash
 DATABASE_URL=sqlite:///data/app.db
+INDEX_JOB_STORAGE_PATH=data/index_jobs
 ```
 
 旧的 `DEEPSEEK_*` 变量仍然兼容，但后续建议新环境统一使用 `LLM_*`。
@@ -349,7 +356,7 @@ docker build -t local-rag-agent .
 docker run --rm -p 8000:8000 --env-file .env local-rag-agent
 ```
 
-Docker 构建不会打包 `.env`、`.qdrant/`、`data/app.db` 或其他本地运行数据。
+Docker 构建不会打包 `.env`、`.qdrant/`、`data/app.db`、`data/index_jobs/` 或其他本地运行数据。
 
 ### 4. 打开使用入口
 
@@ -367,6 +374,7 @@ GitHub 仓库不会提交你的本地运行数据：
 .env
 .qdrant/
 data/app.db
+data/index_jobs/
 data/*.db
 data/runtime_settings.json  # legacy
 data/documents.json         # legacy
@@ -377,7 +385,8 @@ data/documents.json         # legacy
 可以在 Web UI 上传，也可以在 Swagger Docs 里调用：
 
 ```text
-POST /documents/index
+POST /documents/index-jobs  # 推荐，异步任务
+POST /documents/index       # 兼容旧同步接口
 ```
 
 当前支持入库的文件类型：
@@ -522,6 +531,7 @@ Invoke-RestMethod `
 - 企业级分支已新增最小登录鉴权：`/auth/bootstrap-admin`、`/auth/login`、`/auth/me`、`/auth/logout`，并用 Bearer token 保护文档、问答、评估和设置等核心接口
 - 企业级分支已新增 SQLAlchemy 数据库持久化，`users`、`documents`、`runtime_settings`、`llm_profiles` 不再以本地 JSON 作为主存储
 - 企业级分支已新增最小多租户隔离：`knowledge_bases`、membership、文档归属字段和 Qdrant `knowledge_base_id` payload 过滤
+- 企业级分支已新增异步索引任务：`index_jobs`、后台入库、状态查询、失败原因和 retry
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
@@ -618,6 +628,7 @@ GET /evaluation/latest
 企业级第 01 步：登录鉴权与用户体系
 企业级第 02 步：数据库持久化替代本地 JSON
 企业级第 03 步：多租户和权限隔离
+企业级第 04 步：异步索引任务
 ```
 
 执行顺序保持：
@@ -629,5 +640,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续企业级改造，建议进入第 04 步：异步索引任务。不要直接跳到服务化 Qdrant、审计观测或复杂 Agent。
+后续如果继续企业级改造，建议进入第 05 步：服务化 Qdrant 和索引治理。不要直接跳到审计观测、质量治理或复杂 Agent。
 

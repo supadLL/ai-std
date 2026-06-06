@@ -90,6 +90,36 @@ class DocumentModel(Base):
     indexed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
+class IndexJobModel(Base):
+    __tablename__ = "index_jobs"
+
+    job_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    status: Mapped[str] = mapped_column(String(40), index=True, nullable=False, default="queued")
+    organization_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    workspace_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    knowledge_base_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    owner_user_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    source_file_size: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    content_hash: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    chunk_size: Mapped[int] = mapped_column(Integer, nullable=False, default=800)
+    overlap: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    reindex: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    enable_ocr: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    enable_image_ocr: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ocr_language: Mapped[str] = mapped_column(String(80), nullable=False, default="chi_sim+eng")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    document_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress_message: Mapped[str] = mapped_column(String(200), nullable=False, default="queued")
+    result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    updated_at: Mapped[str] = mapped_column(String(40), nullable=False)
+    started_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    finished_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
 class RuntimeSettingModel(Base):
     __tablename__ = "runtime_settings"
 

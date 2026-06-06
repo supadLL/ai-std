@@ -77,13 +77,14 @@ LLM API 配置档案管理：新增、编辑、删除和一键启用
 企业级第 01 步：最小登录鉴权与用户体系，支持初始化管理员、登录、当前用户、退出和 Bearer token 保护核心接口
 企业级第 02 步：数据库持久化替代本地 JSON，users、documents、runtime_settings、llm_profiles 已迁入 SQLAlchemy 数据库
 企业级第 03 步：最小多租户和权限隔离，支持 knowledge base membership、文档归属和 Qdrant payload 过滤
+企业级第 04 步：异步索引任务，支持 index_jobs、后台入库、状态查询、失败原因和 retry
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03 步
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -248,9 +249,16 @@ Swagger Docs 页面必须能测试接口。
 | `POST /documents/chunk` | 上传 PDF 并切分 chunk，支持 OCR 来源标记 |
 | `POST /embeddings/text` | 文本向量化 |
 | `POST /documents/index` | PDF / 扫描型 PDF OCR / Markdown / txt / docx / csv / xlsx 切分、向量化并写入 Qdrant，支持 content_hash 去重和 reindex |
+| `POST /documents/index-jobs` | 上传文件并创建默认知识库异步索引任务 |
+| `GET /documents/index-jobs` | 查看默认知识库索引任务列表 |
+| `GET /documents/index-jobs/{job_id}` | 查看单个索引任务状态 |
+| `POST /documents/index-jobs/{job_id}/retry` | 重试失败索引任务 |
 | `GET /documents` | 查看本地知识库文档列表 |
 | `GET /knowledge-bases/{knowledge_base_id}/documents` | 查看指定知识库文档列表 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index` | 上传并索引到指定知识库 |
+| `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 上传文件并创建指定知识库异步索引任务 |
+| `GET /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 查看指定知识库索引任务列表 |
+| `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs/{job_id}/retry` | 重试指定知识库失败索引任务 |
 | `GET /documents/{document_id}` | 查看单个文档 metadata |
 | `DELETE /documents/{document_id}` | 删除某个文档的 Qdrant chunks 和 metadata |
 | `DELETE /documents/batch` | 批量删除多个文档的 Qdrant chunks 和 metadata |
@@ -643,7 +651,7 @@ PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> 当前 LLM Pr
 PDF 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
-PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引。
+PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/evaluation/* 本地检索评估接口、知识库筛选/详情/批量删除/重建索引，以及企业级分支上的 index_jobs 异步索引任务。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。
@@ -752,6 +760,7 @@ Web UI 背景色覆盖左侧导航、主面板、表单、卡片和回答区域
 Web UI RAG / Agent 模式切换和 Agent 路由解释展示
 Web UI 提问限定 document_id
 Web UI 当前 knowledge base 选择和创建
+Web UI 异步索引任务状态展示和失败任务 retry
 README 项目架构图、RAG 链路图、Web UI 截图、简历描述模板和项目演示脚本
 一键启动脚本和 Dockerfile
 /settings 多供应商 LLM 运行时设置

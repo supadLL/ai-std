@@ -412,12 +412,14 @@ label,
 
 .document-list,
 .source-list,
-.answer-output {
+.answer-output,
+.index-job-list {
   overflow: auto;
 }
 
 .document-list,
-.source-list {
+.source-list,
+.index-job-list {
   display: grid;
   align-content: start;
   gap: 10px;
@@ -701,6 +703,36 @@ h3 {
   border-radius: 18px;
   background: var(--surface);
   z-index: 1;
+}
+
+.index-job-tools {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.job-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--field);
+  font-size: 12px;
+}
+
+.job-status.succeeded {
+  color: var(--accent);
+}
+
+.job-status.failed {
+  color: var(--danger);
 }
 
 .library-filter-grid {

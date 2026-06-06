@@ -2,10 +2,11 @@ from dataclasses import asdict
 from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
+import re
 from typing import Any
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -23,6 +24,13 @@ from app.evaluation import (
     load_evaluation_dataset,
     read_latest_evaluation,
     run_rag_search_evaluation,
+)
+from app.index_jobs import (
+    JOB_STATUS_FAILED,
+    IndexJobRecord,
+    IndexJobStore,
+    IndexJobStoreError,
+    RETRYABLE_JOB_STATUSES,
 )
 from app.llm_providers import get_provider_options, normalize_provider
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
@@ -365,6 +373,34 @@ class DocumentRecordResponse(BaseModel):
 
 class DocumentListResponse(BaseModel):
     documents: list[DocumentRecordResponse]
+
+
+class IndexJobResponse(BaseModel):
+    job_id: str
+    status: str
+    knowledge_base_id: str
+    filename: str
+    source_file_size: int
+    content_hash: str
+    chunk_size: int
+    overlap: int
+    reindex: bool
+    enable_ocr: bool
+    enable_image_ocr: bool
+    ocr_language: str
+    attempts: int
+    progress_message: str
+    created_at: str
+    updated_at: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    document_id: str | None = None
+    error_message: str | None = None
+    result: dict[str, Any] | None = None
+
+
+class IndexJobListResponse(BaseModel):
+    jobs: list[IndexJobResponse]
 
 
 class DeleteDocumentResponse(BaseModel):
@@ -979,126 +1015,133 @@ async def index_document(
         current_user,
         _select_knowledge_base_id(knowledge_base_id, knowledge_base_id_form),
     )
-    content_hash = _calculate_content_hash(content)
-    document_store = get_document_store(settings.document_metadata_path)
-
     try:
-        existing_record = document_store.get_document_by_content_hash(
-            content_hash,
-            knowledge_base_id=access.knowledge_base_id,
-        )
-        if existing_record is not None and not reindex:
-            return DocumentIndexResponse(
-                document_id=existing_record.document_id,
-                knowledge_base_id=existing_record.knowledge_base_id,
-                filename=filename,
-                file_type=existing_record.file_type,
-                content_hash=content_hash,
-                content_hash_prefix=content_hash[:12],
-                is_duplicate=True,
-                indexed=False,
-                message="Duplicate document content detected. Existing index was reused.",
-                collection=existing_record.collection,
-                page_count=existing_record.page_count,
-                chunk_count=existing_record.chunk_count,
-                indexed_count=0,
-                deleted_chunks=0,
-                dimension=None,
-                local_path=settings.qdrant_local_path,
-                extraction_mode=None,
-                ocr_page_count=0,
-                image_ocr_count=0,
-                extraction_methods=[],
-            )
-
-        document_id = existing_record.document_id if existing_record is not None else str(uuid4())
-        deleted_chunks = 0
-        file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = _parse_and_split_index_file(
+        return await run_in_threadpool(
+            _index_document_content,
+            settings=settings,
+            access=access,
+            owner_user_id=current_user.user_id,
             filename=filename,
             content=content,
             chunk_size=chunk_size,
             overlap=overlap,
+            reindex=reindex,
             enable_ocr=enable_ocr,
             enable_image_ocr=enable_image_ocr,
             ocr_language=ocr_language,
         )
-        if not chunks:
-            raise VectorStoreError("No text chunks to index")
+    except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-        vectors = await run_in_threadpool(
-            lambda: [embed_text(chunk.text, settings.embedding_model) for chunk in chunks]
-        )
-        dimension = len(vectors[0])
-        client = get_qdrant_client(settings.qdrant_local_path)
-        ensure_collection(client, settings.qdrant_collection, dimension)
-        if existing_record is not None and reindex:
-            deleted_chunks = delete_document_chunks(
-                client=client,
-                collection_name=existing_record.collection,
-                document_id=existing_record.document_id,
-                knowledge_base_id=existing_record.knowledge_base_id,
-            )
-            document_store.remove_document(
-                existing_record.document_id,
-                knowledge_base_id=existing_record.knowledge_base_id,
-            )
 
-        indexed_count = upsert_chunks(
-            client=client,
-            collection_name=settings.qdrant_collection,
-            filename=filename,
-            chunks=chunks,
-            vectors=vectors,
-            document_id=document_id,
-            content_hash=content_hash,
-            file_type=file_type,
-            tenant_id=access.organization_id,
-            workspace_id=access.workspace_id,
-            knowledge_base_id=access.knowledge_base_id,
-        )
-        document_store.add_document(
-            document_id=document_id,
+@app.post("/knowledge-bases/{knowledge_base_id}/documents/index-jobs", response_model=IndexJobResponse)
+@app.post("/documents/index-jobs", response_model=IndexJobResponse)
+async def create_index_job(
+    background_tasks: BackgroundTasks,
+    knowledge_base_id: str | None = None,
+    file: UploadFile = File(...),
+    chunk_size: int = Form(800),
+    overlap: int = Form(100),
+    reindex: bool = Form(False),
+    enable_ocr: bool = Form(False),
+    enable_image_ocr: bool = Form(False),
+    ocr_language: str = Form("chi_sim+eng"),
+    knowledge_base_id_form: str | None = Form(default=None, alias="knowledge_base_id"),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> IndexJobResponse:
+    filename = file.filename or "uploaded.pdf"
+    if not _is_supported_index_file(filename):
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
+
+    content = await file.read()
+    max_size = 10 * 1024 * 1024
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="File is too large; max size is 10 MB")
+
+    settings = get_settings()
+    access = _resolve_knowledge_base_context(
+        current_user,
+        _select_knowledge_base_id(knowledge_base_id, knowledge_base_id_form),
+    )
+    content_hash = _calculate_content_hash(content)
+    file_path = _write_index_job_file(
+        storage_path=settings.index_job_storage_path,
+        filename=filename,
+        content=content,
+    )
+
+    try:
+        job = get_index_job_store().create_job(
             organization_id=access.organization_id,
             workspace_id=access.workspace_id,
             knowledge_base_id=access.knowledge_base_id,
             owner_user_id=current_user.user_id,
             filename=filename,
-            file_type=file_type,
+            file_path=file_path,
+            source_file_size=len(content),
             content_hash=content_hash,
-            chunk_count=len(chunks),
-            collection=settings.qdrant_collection,
             chunk_size=chunk_size,
             overlap=overlap,
-            embedding_model=settings.embedding_model,
-            page_count=page_count,
-            indexed_count=indexed_count,
-            source_file_size=len(content),
+            reindex=reindex,
+            enable_ocr=enable_ocr,
+            enable_image_ocr=enable_image_ocr,
+            ocr_language=ocr_language,
         )
-    except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
+    except IndexJobStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    return DocumentIndexResponse(
-        document_id=document_id,
-        knowledge_base_id=access.knowledge_base_id,
-        filename=filename,
-        file_type=file_type,
-        content_hash=content_hash,
-        content_hash_prefix=content_hash[:12],
-        is_duplicate=False,
-        indexed=True,
-        message="Document indexed successfully." if deleted_chunks == 0 else "Document reindexed successfully.",
-        collection=settings.qdrant_collection,
-        page_count=page_count,
-        chunk_count=len(chunks),
-        indexed_count=indexed_count,
-        deleted_chunks=deleted_chunks,
-        dimension=dimension,
-        local_path=settings.qdrant_local_path,
-        extraction_mode=extraction_mode,
-        ocr_page_count=ocr_page_count,
-        image_ocr_count=image_ocr_count,
-        extraction_methods=extraction_methods,
-    )
+    background_tasks.add_task(_run_index_job_task, job.job_id)
+    return _to_index_job_response(job)
+
+
+@app.get("/knowledge-bases/{knowledge_base_id}/documents/index-jobs", response_model=IndexJobListResponse)
+@app.get("/documents/index-jobs", response_model=IndexJobListResponse)
+async def list_index_jobs(
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> IndexJobListResponse:
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    try:
+        jobs = get_index_job_store().list_jobs(knowledge_base_id=access.knowledge_base_id)
+    except IndexJobStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return IndexJobListResponse(jobs=[_to_index_job_response(job) for job in jobs])
+
+
+@app.get("/knowledge-bases/{knowledge_base_id}/documents/index-jobs/{job_id}", response_model=IndexJobResponse)
+@app.get("/documents/index-jobs/{job_id}", response_model=IndexJobResponse)
+async def get_index_job(
+    job_id: str,
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> IndexJobResponse:
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    job = _get_index_job_or_404(job_id=job_id, knowledge_base_id=access.knowledge_base_id)
+    return _to_index_job_response(job)
+
+
+@app.post("/knowledge-bases/{knowledge_base_id}/documents/index-jobs/{job_id}/retry", response_model=IndexJobResponse)
+@app.post("/documents/index-jobs/{job_id}/retry", response_model=IndexJobResponse)
+async def retry_index_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> IndexJobResponse:
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    job = _get_index_job_or_404(job_id=job_id, knowledge_base_id=access.knowledge_base_id)
+    if job.status not in RETRYABLE_JOB_STATUSES:
+        raise HTTPException(status_code=400, detail="Only failed index jobs can be retried")
+
+    try:
+        retried_job = get_index_job_store().reset_for_retry(job_id)
+    except IndexJobStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if retried_job is None:
+        raise HTTPException(status_code=404, detail=f"Index job {job_id!r} not found")
+
+    background_tasks.add_task(_run_index_job_task, retried_job.job_id)
+    return _to_index_job_response(retried_job)
 
 
 @app.get("/knowledge-bases/{knowledge_base_id}/documents", response_model=DocumentListResponse)
@@ -1810,6 +1853,11 @@ def get_permission_store() -> PermissionStore:
     return PermissionStore(settings.database_url)
 
 
+def get_index_job_store() -> IndexJobStore:
+    settings = get_settings()
+    return IndexJobStore(settings.database_url)
+
+
 def _ensure_default_knowledge_base(current_user: AuthenticatedUser) -> KnowledgeBaseAccess:
     try:
         return get_permission_store().ensure_default_access(
@@ -1875,6 +1923,42 @@ def _to_knowledge_base_response(knowledge_base: KnowledgeBaseAccess) -> Knowledg
     )
 
 
+def _get_index_job_or_404(*, job_id: str, knowledge_base_id: str) -> IndexJobRecord:
+    try:
+        job = get_index_job_store().get_job(job_id, knowledge_base_id=knowledge_base_id)
+    except IndexJobStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Index job {job_id!r} not found")
+    return job
+
+
+def _to_index_job_response(job: IndexJobRecord) -> IndexJobResponse:
+    return IndexJobResponse(
+        job_id=job.job_id,
+        status=job.status,
+        knowledge_base_id=job.knowledge_base_id,
+        filename=job.filename,
+        source_file_size=job.source_file_size,
+        content_hash=job.content_hash,
+        chunk_size=job.chunk_size,
+        overlap=job.overlap,
+        reindex=job.reindex,
+        enable_ocr=job.enable_ocr,
+        enable_image_ocr=job.enable_image_ocr,
+        ocr_language=job.ocr_language,
+        attempts=job.attempts,
+        progress_message=job.progress_message,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        document_id=job.document_id,
+        error_message=job.error_message,
+        result=job.result,
+    )
+
+
 def _optional_secret(value: str | None) -> str | None:
     if value is None:
         return None
@@ -1919,6 +2003,188 @@ def get_document_store(metadata_path: str) -> DocumentStore:
 
 def _to_document_record_response(record: DocumentRecord) -> DocumentRecordResponse:
     return DocumentRecordResponse(**asdict(record))
+
+
+def _write_index_job_file(*, storage_path: str, filename: str, content: bytes) -> str:
+    storage_dir = Path(storage_path)
+    storage_dir.mkdir(parents=True, exist_ok=True)
+    safe_filename = re.sub(r"[^a-zA-Z0-9_.-]+", "_", Path(filename).name).strip("._")
+    if not safe_filename:
+        safe_filename = "upload.bin"
+    file_path = storage_dir / f"{uuid4().hex[:16]}-{safe_filename}"
+    file_path.write_bytes(content)
+    return file_path.as_posix()
+
+
+def _run_index_job_task(job_id: str) -> None:
+    store = get_index_job_store()
+    try:
+        job = store.get_job(job_id)
+        if job is None:
+            return
+        running_job = store.mark_running(job_id) or job
+        content = Path(running_job.file_path).read_bytes()
+        settings = get_settings()
+        access = KnowledgeBaseAccess(
+            organization_id=running_job.organization_id,
+            workspace_id=running_job.workspace_id,
+            knowledge_base_id=running_job.knowledge_base_id,
+            name="",
+            role="owner",
+        )
+        result = _index_document_content(
+            settings=settings,
+            access=access,
+            owner_user_id=running_job.owner_user_id,
+            filename=running_job.filename,
+            content=content,
+            chunk_size=running_job.chunk_size,
+            overlap=running_job.overlap,
+            reindex=running_job.reindex,
+            enable_ocr=running_job.enable_ocr,
+            enable_image_ocr=running_job.enable_image_ocr,
+            ocr_language=running_job.ocr_language,
+        )
+        store.mark_succeeded(
+            job_id,
+            document_id=result.document_id,
+            result=result.model_dump(),
+        )
+    except Exception as exc:
+        try:
+            store.mark_failed(job_id, error_message=str(exc))
+        except IndexJobStoreError:
+            pass
+
+
+def _index_document_content(
+    *,
+    settings: Any,
+    access: KnowledgeBaseAccess,
+    owner_user_id: str,
+    filename: str,
+    content: bytes,
+    chunk_size: int,
+    overlap: int,
+    reindex: bool,
+    enable_ocr: bool,
+    enable_image_ocr: bool,
+    ocr_language: str,
+) -> DocumentIndexResponse:
+    content_hash = _calculate_content_hash(content)
+    document_store = get_document_store(settings.document_metadata_path)
+    existing_record = document_store.get_document_by_content_hash(
+        content_hash,
+        knowledge_base_id=access.knowledge_base_id,
+    )
+    if existing_record is not None and not reindex:
+        return DocumentIndexResponse(
+            document_id=existing_record.document_id,
+            knowledge_base_id=existing_record.knowledge_base_id,
+            filename=filename,
+            file_type=existing_record.file_type,
+            content_hash=content_hash,
+            content_hash_prefix=content_hash[:12],
+            is_duplicate=True,
+            indexed=False,
+            message="Duplicate document content detected. Existing index was reused.",
+            collection=existing_record.collection,
+            page_count=existing_record.page_count,
+            chunk_count=existing_record.chunk_count,
+            indexed_count=0,
+            deleted_chunks=0,
+            dimension=None,
+            local_path=settings.qdrant_local_path,
+            extraction_mode=None,
+            ocr_page_count=0,
+            image_ocr_count=0,
+            extraction_methods=[],
+        )
+
+    document_id = existing_record.document_id if existing_record is not None else str(uuid4())
+    deleted_chunks = 0
+    file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = _parse_and_split_index_file(
+        filename=filename,
+        content=content,
+        chunk_size=chunk_size,
+        overlap=overlap,
+        enable_ocr=enable_ocr,
+        enable_image_ocr=enable_image_ocr,
+        ocr_language=ocr_language,
+    )
+    if not chunks:
+        raise VectorStoreError("No text chunks to index")
+
+    vectors = [embed_text(chunk.text, settings.embedding_model) for chunk in chunks]
+    dimension = len(vectors[0])
+    client = get_qdrant_client(settings.qdrant_local_path)
+    ensure_collection(client, settings.qdrant_collection, dimension)
+    if existing_record is not None and reindex:
+        deleted_chunks = delete_document_chunks(
+            client=client,
+            collection_name=existing_record.collection,
+            document_id=existing_record.document_id,
+            knowledge_base_id=existing_record.knowledge_base_id,
+        )
+        document_store.remove_document(
+            existing_record.document_id,
+            knowledge_base_id=existing_record.knowledge_base_id,
+        )
+
+    indexed_count = upsert_chunks(
+        client=client,
+        collection_name=settings.qdrant_collection,
+        filename=filename,
+        chunks=chunks,
+        vectors=vectors,
+        document_id=document_id,
+        content_hash=content_hash,
+        file_type=file_type,
+        tenant_id=access.organization_id,
+        workspace_id=access.workspace_id,
+        knowledge_base_id=access.knowledge_base_id,
+    )
+    document_store.add_document(
+        document_id=document_id,
+        organization_id=access.organization_id,
+        workspace_id=access.workspace_id,
+        knowledge_base_id=access.knowledge_base_id,
+        owner_user_id=owner_user_id,
+        filename=filename,
+        file_type=file_type,
+        content_hash=content_hash,
+        chunk_count=len(chunks),
+        collection=settings.qdrant_collection,
+        chunk_size=chunk_size,
+        overlap=overlap,
+        embedding_model=settings.embedding_model,
+        page_count=page_count,
+        indexed_count=indexed_count,
+        source_file_size=len(content),
+    )
+
+    return DocumentIndexResponse(
+        document_id=document_id,
+        knowledge_base_id=access.knowledge_base_id,
+        filename=filename,
+        file_type=file_type,
+        content_hash=content_hash,
+        content_hash_prefix=content_hash[:12],
+        is_duplicate=False,
+        indexed=True,
+        message="Document indexed successfully." if deleted_chunks == 0 else "Document reindexed successfully.",
+        collection=settings.qdrant_collection,
+        page_count=page_count,
+        chunk_count=len(chunks),
+        indexed_count=indexed_count,
+        deleted_chunks=deleted_chunks,
+        dimension=dimension,
+        local_path=settings.qdrant_local_path,
+        extraction_mode=extraction_mode,
+        ocr_page_count=ocr_page_count,
+        image_ocr_count=image_ocr_count,
+        extraction_methods=extraction_methods,
+    )
 
 
 def _calculate_content_hash(content: bytes) -> str:

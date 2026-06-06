@@ -8,6 +8,9 @@ const state = {
   knowledgeBases: [],
   activeKnowledgeBaseId: "",
   documents: [],
+  indexJobs: [],
+  indexJobPollingHandle: null,
+  hadActiveIndexJobs: false,
   lastAnswer: null,
   messages: [],
   evaluation: null,
@@ -34,6 +37,8 @@ const els = {
   clearDocumentFilters: document.querySelector("#clearDocumentFilters"),
   batchDeleteDocuments: document.querySelector("#batchDeleteDocuments"),
   documentDetail: document.querySelector("#documentDetail"),
+  indexJobList: document.querySelector("#indexJobList"),
+  refreshIndexJobs: document.querySelector("#refreshIndexJobs"),
   askForm: document.querySelector("#askForm"),
   askModeButtons: Array.from(document.querySelectorAll("[data-ask-mode]")),
   questionInput: document.querySelector("#questionInput"),
@@ -120,6 +125,12 @@ const translations = {
     "kb.newPlaceholder": "New knowledge base",
     "kb.create": "Create knowledge base",
     "kb.created": "Knowledge base created",
+    "jobs.eyebrow": "Jobs",
+    "jobs.title": "Index jobs",
+    "jobs.refresh": "Refresh index jobs",
+    "jobs.empty": "No index jobs",
+    "jobs.retry": "Retry",
+    "jobs.created": "Index job queued",
     "import.eyebrow": "Import",
     "import.title": "文件导入",
     "import.refresh": "刷新文档列表",
@@ -278,6 +289,12 @@ const translations = {
     "kb.newPlaceholder": "New knowledge base",
     "kb.create": "Create knowledge base",
     "kb.created": "Knowledge base created",
+    "jobs.eyebrow": "Jobs",
+    "jobs.title": "Index jobs",
+    "jobs.refresh": "Refresh index jobs",
+    "jobs.empty": "No index jobs",
+    "jobs.retry": "Retry",
+    "jobs.created": "Index job queued",
     "import.eyebrow": "Import",
     "import.title": "Import Files",
     "import.refresh": "Refresh documents",
@@ -482,11 +499,15 @@ function clearAuthState() {
   state.knowledgeBases = [];
   state.activeKnowledgeBaseId = "";
   state.documents = [];
+  state.indexJobs = [];
+  state.hadActiveIndexJobs = false;
+  stopIndexJobPolling();
   state.selectedDocumentIds.clear();
   state.activeDocumentId = null;
   localStorage.removeItem(AUTH_TOKEN_KEY);
   renderAuthState();
   renderKnowledgeBases();
+  renderIndexJobs();
   renderDocumentControls();
   renderDocuments();
 }
@@ -524,7 +545,7 @@ async function initializeAuthenticatedApp() {
     hideAuthPanel();
     renderAuthState();
     await loadKnowledgeBases();
-    await Promise.all([loadDocuments(), loadSettings()]);
+    await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings()]);
   } catch (error) {
     clearAuthState();
     showAuthPanel();
@@ -555,7 +576,7 @@ async function authenticateWith(endpoint) {
     hideAuthPanel();
     showToast("Signed in");
     await loadKnowledgeBases();
-    await Promise.all([loadDocuments(), loadSettings()]);
+    await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings()]);
   } catch (error) {
     showToast(error.message, true);
   }
@@ -609,8 +630,12 @@ async function changeKnowledgeBase() {
   state.selectedDocumentIds.clear();
   state.activeDocumentId = null;
   state.evaluation = null;
+  state.indexJobs = [];
+  state.hadActiveIndexJobs = false;
+  stopIndexJobPolling();
   renderDocumentDetail();
-  await loadDocuments();
+  renderIndexJobs();
+  await Promise.all([loadDocuments(), loadIndexJobs()]);
 }
 
 async function createKnowledgeBase(event) {
@@ -628,7 +653,7 @@ async function createKnowledgeBase(event) {
     state.activeKnowledgeBaseId = knowledgeBase.knowledge_base_id;
     els.knowledgeBaseNameInput.value = "";
     await loadKnowledgeBases();
-    await loadDocuments();
+    await Promise.all([loadDocuments(), loadIndexJobs()]);
     showToast(t("kb.created"));
   } catch (error) {
     showToast(error.message, true);
@@ -648,6 +673,75 @@ async function loadDocuments() {
   renderDocumentControls();
   renderDocuments();
   setStatus("idle");
+}
+
+async function loadIndexJobs() {
+  if (!els.indexJobList) {
+    return;
+  }
+  const data = await requestJson(knowledgeBasePath("/documents/index-jobs"));
+  state.indexJobs = data.jobs || [];
+  renderIndexJobs();
+
+  const hasActiveJobs = state.indexJobs.some((job) => ["queued", "running"].includes(job.status));
+  if (state.hadActiveIndexJobs && !hasActiveJobs) {
+    await loadDocuments();
+  }
+  state.hadActiveIndexJobs = hasActiveJobs;
+  if (hasActiveJobs) {
+    startIndexJobPolling();
+  } else {
+    stopIndexJobPolling();
+  }
+}
+
+function renderIndexJobs() {
+  if (!els.indexJobList) {
+    return;
+  }
+  if (!state.indexJobs.length) {
+    els.indexJobList.innerHTML = `<p class="empty-state">${t("jobs.empty")}</p>`;
+    return;
+  }
+
+  els.indexJobList.innerHTML = state.indexJobs
+    .map(
+      (job) => `
+        <article class="doc-card">
+          <div class="doc-title">
+            <span>${escapeHtml(job.filename)}</span>
+            <span class="job-status ${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
+          </div>
+          <div class="meta">
+            ${escapeHtml(job.job_id)} · attempts ${job.attempts} · ${escapeHtml(job.progress_message || job.status)}<br />
+            chunks ${job.result?.chunk_count ?? "-"} · indexed ${job.result?.indexed_count ?? "-"} · ${escapeHtml(job.updated_at || job.created_at)}
+          </div>
+          ${job.error_message ? `<p class="preview danger-action">${escapeHtml(job.error_message)}</p>` : ""}
+          ${job.status === "failed" ? `<div class="doc-actions"><button class="mini-button" type="button" data-retry-job="${escapeHtml(job.job_id)}">${t("jobs.retry")}</button></div>` : ""}
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function startIndexJobPolling() {
+  if (state.indexJobPollingHandle) {
+    return;
+  }
+  state.indexJobPollingHandle = window.setInterval(() => {
+    loadIndexJobs().catch((error) => {
+      stopIndexJobPolling();
+      showToast(error.message, true);
+    });
+  }, 2000);
+}
+
+function stopIndexJobPolling() {
+  if (!state.indexJobPollingHandle) {
+    return;
+  }
+  window.clearInterval(state.indexJobPollingHandle);
+  state.indexJobPollingHandle = null;
 }
 
 async function loadSettings() {
@@ -1010,12 +1104,16 @@ async function uploadDocument(event) {
 
   setStatus("indexing");
   try {
-    const data = await requestJson(knowledgeBasePath("/documents/index"), {
+    const data = await requestJson(knowledgeBasePath("/documents/index-jobs"), {
       method: "POST",
       body: form,
     });
-    showToast(data.message || t("toast.indexDone"));
-    await loadDocuments();
+    showToast(t("jobs.created"));
+    state.indexJobs = [data, ...state.indexJobs.filter((job) => job.job_id !== data.job_id)];
+    state.hadActiveIndexJobs = true;
+    renderIndexJobs();
+    startIndexJobPolling();
+    await loadIndexJobs();
   } catch (error) {
     showToast(error.message, true);
     setStatus("error");
@@ -1100,6 +1198,28 @@ function handleDocumentListChange(event) {
   if (reindexInput?.files?.[0]) {
     reindexDocument(reindexInput.dataset.reindexFile, reindexInput.files[0]);
     reindexInput.value = "";
+  }
+}
+
+async function retryIndexJob(jobId) {
+  try {
+    const job = await requestJson(knowledgeBasePath(`/documents/index-jobs/${encodeURIComponent(jobId)}/retry`), {
+      method: "POST",
+    });
+    state.indexJobs = state.indexJobs.map((item) => (item.job_id === job.job_id ? job : item));
+    state.hadActiveIndexJobs = true;
+    renderIndexJobs();
+    startIndexJobPolling();
+    showToast(t("jobs.created"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+function handleIndexJobListClick(event) {
+  const retryButton = event.target.closest("[data-retry-job]");
+  if (retryButton) {
+    retryIndexJob(retryButton.dataset.retryJob);
   }
 }
 
@@ -1676,6 +1796,10 @@ els.knowledgeBaseSelect.addEventListener("change", () => {
   changeKnowledgeBase().catch((error) => showToast(error.message, true));
 });
 els.knowledgeBaseForm.addEventListener("submit", createKnowledgeBase);
+els.refreshIndexJobs.addEventListener("click", () => {
+  loadIndexJobs().catch((error) => showToast(error.message, true));
+});
+els.indexJobList.addEventListener("click", handleIndexJobListClick);
 els.documentList.addEventListener("click", handleDocumentListClick);
 els.documentList.addEventListener("change", handleDocumentListChange);
 els.askForm.addEventListener("submit", askQuestion);
