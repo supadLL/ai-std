@@ -38,9 +38,13 @@ def test_document_store_persists_document_metadata_in_database(tmp_path):
         page_count=2,
         indexed_count=3,
         source_file_size=120,
+        source_storage_backend="local",
+        source_storage_key="org/ws/kb/doc/demo.pdf",
     )
 
     assert record.content_hash_prefix == "a" * 12
+    assert record.source_storage_backend == "local"
+    assert record.source_storage_key == "org/ws/kb/doc/demo.pdf"
     assert store.list_documents()[0].document_id == "doc-1"
     assert store.get_document_by_content_hash("a" * 64).filename == "demo.pdf"
     assert store.remove_document("doc-1").document_id == "doc-1"

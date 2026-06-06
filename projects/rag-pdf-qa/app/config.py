@@ -40,6 +40,9 @@ class Settings:
     rate_limit_enabled: bool = False
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
+    source_storage_enabled: bool = False
+    source_storage_backend: str = "local"
+    source_storage_path: str = "data/source_files"
 
     def __post_init__(self) -> None:
         if not self.llm_api_key and self.deepseek_api_key:
@@ -97,6 +100,9 @@ def get_settings() -> Settings:
     )
     rate_limit_requests = max(1, int(os.getenv("RATE_LIMIT_REQUESTS", "120")))
     rate_limit_window_seconds = max(1, int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")))
+    source_storage_enabled = _parse_bool(os.getenv("SOURCE_STORAGE_ENABLED"), default=app_env == "production")
+    source_storage_backend = os.getenv("SOURCE_STORAGE_BACKEND", "local").strip().lower() or "local"
+    source_storage_path = os.getenv("SOURCE_STORAGE_PATH", "data/source_files").strip()
 
     return Settings(
         app_env=app_env,
@@ -127,6 +133,9 @@ def get_settings() -> Settings:
         rate_limit_enabled=rate_limit_enabled,
         rate_limit_requests=rate_limit_requests,
         rate_limit_window_seconds=rate_limit_window_seconds,
+        source_storage_enabled=source_storage_enabled,
+        source_storage_backend=source_storage_backend,
+        source_storage_path=source_storage_path,
     )
 
 

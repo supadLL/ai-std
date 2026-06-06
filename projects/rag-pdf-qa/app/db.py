@@ -81,6 +81,8 @@ def _ensure_sqlite_enterprise_schema(engine: Engine, database_url: str) -> None:
             "workspace_id": "VARCHAR(80) NOT NULL DEFAULT 'ws_default'",
             "knowledge_base_id": "VARCHAR(80) NOT NULL DEFAULT 'kb_default'",
             "owner_user_id": "VARCHAR(64) NOT NULL DEFAULT 'system'",
+            "source_storage_backend": "VARCHAR(40)",
+            "source_storage_key": "TEXT",
         }
         for column_name, column_spec in column_specs.items():
             if column_name not in existing_columns:

@@ -7,6 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DOCUMENT_METADATA_PATH=/app/data/documents.json \
     USER_STORE_PATH=/app/data/users.json \
     INDEX_JOB_STORAGE_PATH=/app/data/index_jobs \
+    SOURCE_STORAGE_PATH=/app/data/source_files \
     DATABASE_URL=sqlite:///data/app.db
 
 WORKDIR /app
@@ -22,7 +23,7 @@ COPY requirements.txt .
 RUN python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-RUN mkdir -p /app/data/eval /app/data/index_jobs /app/.qdrant
+RUN mkdir -p /app/data/eval /app/data/index_jobs /app/data/source_files /app/.qdrant
 
 COPY app ./app
 COPY web ./web

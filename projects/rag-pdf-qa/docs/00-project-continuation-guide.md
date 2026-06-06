@@ -83,13 +83,14 @@ LLM API 配置档案管理：新增、编辑、删除和一键启用
 企业级第 07 步：evaluation_runs 入库、evaluation_cases 知识库归属、quality_gate、评估历史 API、答案反馈和 Web UI 评估历史
 企业级第 08 步：Docker Compose 部署、/health 启动检查、环境变量分层和数据库内 API Key 加密存储
 企业级第 09 步：MAX_UPLOAD_BYTES 上传大小限制、基础请求限流、429 Retry-After 和 /health 安全配置可见性
+企业级第 10 步：原始上传文件 source storage、本地对象存储引用 metadata 和迁移 006
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06/07/08/09 步
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06/07/08/09/10 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -782,6 +783,7 @@ Docker Compose 部署 api / db / qdrant / redis
 数据库内 LLM API Key 加密存储和接口脱敏
 MAX_UPLOAD_BYTES 上传大小限制
 基础请求限流和 429 Retry-After
+原始上传文件 source storage 和 documents 存储引用
 ```
 
 当前还没有支持：

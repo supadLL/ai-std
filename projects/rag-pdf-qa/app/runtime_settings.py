@@ -133,6 +133,7 @@ def apply_runtime_settings(settings: Settings, runtime_settings: RuntimeSettings
     ).rstrip("/")
     llm_model = active_profile.model if active_profile else runtime_settings.llm_model or runtime_settings.deepseek_model or settings.llm_model
     return Settings(
+        app_env=settings.app_env,
         deepseek_api_key=llm_api_key,
         deepseek_base_url=llm_base_url,
         deepseek_model=llm_model,
@@ -151,8 +152,17 @@ def apply_runtime_settings(settings: Settings, runtime_settings: RuntimeSettings
         document_metadata_path=settings.document_metadata_path,
         user_store_path=settings.user_store_path,
         database_url=settings.database_url,
+        redis_url=settings.redis_url,
         app_secret_key=settings.app_secret_key,
+        secret_encryption_key=settings.secret_encryption_key,
         access_token_expire_minutes=settings.access_token_expire_minutes,
+        max_upload_bytes=settings.max_upload_bytes,
+        rate_limit_enabled=settings.rate_limit_enabled,
+        rate_limit_requests=settings.rate_limit_requests,
+        rate_limit_window_seconds=settings.rate_limit_window_seconds,
+        source_storage_enabled=settings.source_storage_enabled,
+        source_storage_backend=settings.source_storage_backend,
+        source_storage_path=settings.source_storage_path,
     )
 
 

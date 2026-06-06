@@ -17,10 +17,14 @@ def test_document_store_add_list_get_remove(tmp_path):
         page_count=2,
         indexed_count=3,
         source_file_size=120,
+        source_storage_backend="local",
+        source_storage_key="org/ws/kb/doc/demo.pdf",
     )
 
     assert record.document_id == "doc-1"
     assert record.content_hash_prefix == "a" * 12
+    assert record.source_storage_backend == "local"
+    assert record.source_storage_key == "org/ws/kb/doc/demo.pdf"
     assert store.list_documents()[0].filename == "demo.pdf"
     assert store.get_document("doc-1") is not None
     assert store.get_document_by_content_hash("a" * 64) is not None

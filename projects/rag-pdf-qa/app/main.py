@@ -72,6 +72,7 @@ from app.runtime_settings import (
     replace_llm_profiles,
     save_runtime_settings,
 )
+from app.source_storage import SourceStorageError, store_source_file
 from app.text_splitter import TextChunk, TextSplitError, split_parsed_document, split_pdf_text
 from app.security import create_access_token
 from app.user_store import UserRecord, UserStoreError, public_user
@@ -266,6 +267,8 @@ class DocumentIndexResponse(BaseModel):
     deleted_chunks: int = 0
     dimension: int | None = None
     local_path: str
+    source_storage_backend: str | None = None
+    source_storage_key: str | None = None
     extraction_mode: str | None = None
     ocr_page_count: int = 0
     image_ocr_count: int = 0
@@ -496,6 +499,8 @@ class DocumentRecordResponse(BaseModel):
     embedding_model: str
     page_count: int
     indexed_count: int
+    source_storage_backend: str | None = None
+    source_storage_key: str | None = None
 
 
 class DocumentListResponse(BaseModel):
@@ -713,6 +718,8 @@ class HealthResponse(BaseModel):
     rate_limit_enabled: bool
     rate_limit_requests: int
     rate_limit_window_seconds: int
+    source_storage_enabled: bool
+    source_storage_backend: str
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -742,6 +749,8 @@ async def health(response: Response) -> HealthResponse:
         rate_limit_enabled=settings.rate_limit_enabled,
         rate_limit_requests=settings.rate_limit_requests,
         rate_limit_window_seconds=settings.rate_limit_window_seconds,
+        source_storage_enabled=settings.source_storage_enabled,
+        source_storage_backend=settings.source_storage_backend,
         warnings=warnings,
     )
 
@@ -1425,7 +1434,7 @@ async def index_document(
             enable_image_ocr=enable_image_ocr,
             ocr_language=ocr_language,
         )
-    except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
+    except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError, SourceStorageError) as exc:
         _record_audit_event(
             settings=settings,
             action="document.index",
@@ -1795,6 +1804,23 @@ async def reindex_document(
         if not chunks:
             raise VectorStoreError("No text chunks to index")
 
+        source_storage_backend = existing_record.source_storage_backend
+        source_storage_key = existing_record.source_storage_key
+        if getattr(settings, "source_storage_enabled", True):
+            stored_source = store_source_file(
+                storage_path=settings.source_storage_path,
+                backend=settings.source_storage_backend,
+                organization_id=access.organization_id,
+                workspace_id=access.workspace_id,
+                knowledge_base_id=access.knowledge_base_id,
+                document_id=document_id,
+                filename=filename,
+                content_hash=content_hash,
+                content=content,
+            )
+            source_storage_backend = stored_source.backend
+            source_storage_key = stored_source.object_key
+
         vectors = await run_in_threadpool(
             lambda: [embed_text(chunk.text, settings.embedding_model) for chunk in chunks]
         )
@@ -1839,8 +1865,10 @@ async def reindex_document(
             page_count=page_count,
             indexed_count=indexed_count,
             source_file_size=len(content),
+            source_storage_backend=source_storage_backend,
+            source_storage_key=source_storage_key,
         )
-    except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError) as exc:
+    except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError, SourceStorageError) as exc:
         _record_audit_event(
             settings=settings,
             action="document.reindex",
@@ -1872,6 +1900,8 @@ async def reindex_document(
         deleted_chunks=deleted_chunks,
         dimension=dimension,
         local_path=settings.qdrant_local_path,
+        source_storage_backend=source_storage_backend,
+        source_storage_key=source_storage_key,
         extraction_mode=extraction_mode,
         ocr_page_count=ocr_page_count,
         image_ocr_count=image_ocr_count,
@@ -2623,6 +2653,8 @@ def _deployment_warnings(settings: Any) -> list[str]:
             warnings.append("qdrant_local_mode_in_production")
         if settings.llm_api_key in {"", "your_llm_api_key_here", "your_deepseek_api_key_here"}:
             warnings.append("llm_api_key_not_configured")
+        if not getattr(settings, "source_storage_enabled", True):
+            warnings.append("source_storage_disabled")
     return warnings
 
 
@@ -3027,6 +3059,8 @@ def _index_document_content(
             deleted_chunks=0,
             dimension=None,
             local_path=settings.qdrant_local_path,
+            source_storage_backend=existing_record.source_storage_backend,
+            source_storage_key=existing_record.source_storage_key,
             extraction_mode=None,
             ocr_page_count=0,
             image_ocr_count=0,
@@ -3034,6 +3068,8 @@ def _index_document_content(
         )
 
     document_id = existing_record.document_id if existing_record is not None else str(uuid4())
+    source_storage_backend = existing_record.source_storage_backend if existing_record is not None else None
+    source_storage_key = existing_record.source_storage_key if existing_record is not None else None
     deleted_chunks = 0
     file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = _parse_and_split_index_file(
         filename=filename,
@@ -3046,6 +3082,21 @@ def _index_document_content(
     )
     if not chunks:
         raise VectorStoreError("No text chunks to index")
+
+    if getattr(settings, "source_storage_enabled", True):
+        stored_source = store_source_file(
+            storage_path=settings.source_storage_path,
+            backend=settings.source_storage_backend,
+            organization_id=access.organization_id,
+            workspace_id=access.workspace_id,
+            knowledge_base_id=access.knowledge_base_id,
+            document_id=document_id,
+            filename=filename,
+            content_hash=content_hash,
+            content=content,
+        )
+        source_storage_backend = stored_source.backend
+        source_storage_key = stored_source.object_key
 
     vectors = [embed_text(chunk.text, settings.embedding_model) for chunk in chunks]
     dimension = len(vectors[0])
@@ -3094,6 +3145,8 @@ def _index_document_content(
         page_count=page_count,
         indexed_count=indexed_count,
         source_file_size=len(content),
+        source_storage_backend=source_storage_backend,
+        source_storage_key=source_storage_key,
     )
 
     return DocumentIndexResponse(
@@ -3113,6 +3166,8 @@ def _index_document_content(
         deleted_chunks=deleted_chunks,
         dimension=dimension,
         local_path=settings.qdrant_local_path,
+        source_storage_backend=source_storage_backend,
+        source_storage_key=source_storage_key,
         extraction_mode=extraction_mode,
         ocr_page_count=ocr_page_count,
         image_ocr_count=image_ocr_count,

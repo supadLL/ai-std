@@ -31,6 +31,8 @@ class DocumentRecord:
     workspace_id: str = DEFAULT_WORKSPACE_ID
     knowledge_base_id: str = DEFAULT_KNOWLEDGE_BASE_ID
     owner_user_id: str = "system"
+    source_storage_backend: str | None = None
+    source_storage_key: str | None = None
 
 
 class DocumentStoreError(RuntimeError):
@@ -99,6 +101,8 @@ class DocumentStore:
         workspace_id: str = DEFAULT_WORKSPACE_ID,
         knowledge_base_id: str = DEFAULT_KNOWLEDGE_BASE_ID,
         owner_user_id: str = "system",
+        source_storage_backend: str | None = None,
+        source_storage_key: str | None = None,
     ) -> DocumentRecord:
         now = datetime.now(UTC).isoformat()
         document = DocumentModel(
@@ -121,6 +125,8 @@ class DocumentStore:
             embedding_model=embedding_model,
             page_count=page_count,
             indexed_count=indexed_count,
+            source_storage_backend=source_storage_backend,
+            source_storage_key=source_storage_key,
         )
 
         try:
@@ -168,4 +174,6 @@ def _record_from_model(document: DocumentModel) -> DocumentRecord:
         workspace_id=document.workspace_id,
         knowledge_base_id=document.knowledge_base_id,
         owner_user_id=document.owner_user_id,
+        source_storage_backend=document.source_storage_backend,
+        source_storage_key=document.source_storage_key,
     )

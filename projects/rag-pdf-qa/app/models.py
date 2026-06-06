@@ -88,6 +88,8 @@ class DocumentModel(Base):
     embedding_model: Mapped[str] = mapped_column(String(240), nullable=False)
     page_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     indexed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source_storage_backend: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    source_storage_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class IndexJobModel(Base):

@@ -150,6 +150,8 @@ def test_health_endpoint_reports_startup_checks_without_secret_values(monkeypatc
             rate_limit_enabled=True,
             rate_limit_requests=10,
             rate_limit_window_seconds=60,
+            source_storage_enabled=True,
+            source_storage_backend="local",
         ),
     )
 
@@ -168,6 +170,8 @@ def test_health_endpoint_reports_startup_checks_without_secret_values(monkeypatc
     assert data["rate_limit_enabled"] is True
     assert data["rate_limit_requests"] == 10
     assert data["rate_limit_window_seconds"] == 60
+    assert data["source_storage_enabled"] is True
+    assert data["source_storage_backend"] == "local"
     assert "secret_encryption_key_not_configured" in data["warnings"]
     assert "change-this-local-development-secret" not in response.text
     assert "your_llm_api_key_here" not in response.text
@@ -1061,7 +1065,7 @@ def test_parse_non_pdf_index_file_counts_image_ocr_chunks(monkeypatch):
     assert extraction_methods == ["image_ocr"]
 
 
-def test_index_document_accepts_txt_file(monkeypatch):
+def test_index_document_accepts_txt_file(tmp_path, monkeypatch):
     class FakeDocumentStore:
         def __init__(self):
             self.added_kwargs = None
@@ -1093,7 +1097,13 @@ def test_index_document_accepts_txt_file(monkeypatch):
     monkeypatch.setattr(
         main,
         "get_settings",
-        lambda: Settings(deepseek_api_key="", document_metadata_path="unused.json"),
+        lambda: Settings(
+            deepseek_api_key="",
+            document_metadata_path="unused.json",
+            source_storage_enabled=True,
+            source_storage_backend="local",
+            source_storage_path=str(tmp_path / "source_files"),
+        ),
     )
     monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
@@ -1112,7 +1122,11 @@ def test_index_document_accepts_txt_file(monkeypatch):
     data = response.json()
     assert data["file_type"] == "text"
     assert data["indexed"] is True
+    assert data["source_storage_backend"] == "local"
+    assert data["source_storage_key"].endswith("-notes.txt")
     assert fake_store.added_kwargs["file_type"] == "text"
+    assert fake_store.added_kwargs["source_storage_backend"] == "local"
+    assert (tmp_path / "source_files" / data["source_storage_key"]).exists()
 
 
 def test_index_document_accepts_csv_file(monkeypatch):
