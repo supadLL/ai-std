@@ -8,10 +8,11 @@ import time
 from typing import Any
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
 
 from app.agent import explain_agent_route
@@ -24,6 +25,7 @@ from app.audit import (
 )
 from app.auth import AuthenticatedUser, get_current_user, get_user_store
 from app.config import get_settings
+from app.db import get_engine
 from app.deepseek_client import DeepSeekClient, DeepSeekClientError
 from app.document_store import DocumentRecord, DocumentStore, DocumentStoreError
 from app.document_loaders import DocumentLoadError, is_supported_document, load_document_from_bytes
@@ -678,9 +680,41 @@ class AuthLogoutResponse(BaseModel):
     message: str
 
 
-@app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+class HealthResponse(BaseModel):
+    status: str
+    app_env: str
+    database_reachable: bool
+    qdrant_mode: str
+    qdrant_url: str | None = None
+    redis_configured: bool
+    secret_encryption_configured: bool
+    warnings: list[str] = Field(default_factory=list)
+
+
+@app.get("/health", response_model=HealthResponse)
+async def health(response: Response) -> HealthResponse:
+    settings = get_settings()
+    database_reachable = True
+    try:
+        await run_in_threadpool(_check_database_connection, settings.database_url)
+    except Exception:
+        database_reachable = False
+
+    warnings = _deployment_warnings(settings)
+    if not database_reachable:
+        response.status_code = 503
+        warnings = [*warnings, "database_unreachable"]
+
+    return HealthResponse(
+        status="ok" if database_reachable else "degraded",
+        app_env=settings.app_env,
+        database_reachable=database_reachable,
+        qdrant_mode=settings.qdrant_mode,
+        qdrant_url=settings.qdrant_url if settings.qdrant_mode == "server" else None,
+        redis_configured=bool(settings.redis_url),
+        secret_encryption_configured=bool(settings.secret_encryption_key),
+        warnings=warnings,
+    )
 
 
 @app.get("/", include_in_schema=False)
@@ -2501,6 +2535,25 @@ def _read_metrics(settings: Any) -> MetricsResponse:
         audit_failure_count=audit_metrics.failure_count,
         audit_action_counts=audit_metrics.action_counts,
     )
+
+
+def _check_database_connection(database_url: str) -> None:
+    with get_engine(database_url).connect() as connection:
+        connection.execute(text("SELECT 1"))
+
+
+def _deployment_warnings(settings: Any) -> list[str]:
+    warnings: list[str] = []
+    if settings.app_env == "production":
+        if settings.app_secret_key == "change-this-local-development-secret":
+            warnings.append("app_secret_key_uses_development_default")
+        if not settings.secret_encryption_key:
+            warnings.append("secret_encryption_key_not_configured")
+        if settings.qdrant_mode == "local":
+            warnings.append("qdrant_local_mode_in_production")
+        if settings.llm_api_key in {"", "your_llm_api_key_here", "your_deepseek_api_key_here"}:
+            warnings.append("llm_api_key_not_configured")
+    return warnings
 
 
 def _read_qdrant_collection_status(settings: Any) -> Any:

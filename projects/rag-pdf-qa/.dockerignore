@@ -2,11 +2,15 @@
 .venv/
 .qdrant/
 .qdrant_eval/
-data/documents.json
-data/runtime_settings.json
+data/
+!data/eval/
+data/eval/*
+!data/eval/rag_eval_cases.json
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest_tmp/
+.pytest_full_tmp/
 .git/
 docs/
 tests/

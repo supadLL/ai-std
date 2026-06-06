@@ -12,6 +12,7 @@ load_dotenv(encoding="utf-8-sig")
 
 @dataclass(frozen=True)
 class Settings:
+    app_env: str = "development"
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-v4-flash"
@@ -31,7 +32,9 @@ class Settings:
     user_store_path: str = "data/users.json"
     index_job_storage_path: str = "data/index_jobs"
     database_url: str = "sqlite:///data/app.db"
+    redis_url: str = "redis://127.0.0.1:6379/0"
     app_secret_key: str = "change-this-local-development-secret"
+    secret_encryption_key: str = ""
     access_token_expire_minutes: int = 480
 
     def __post_init__(self) -> None:
@@ -46,6 +49,7 @@ class Settings:
 def get_settings() -> Settings:
     load_dotenv(override=True, encoding="utf-8-sig")
 
+    app_env = os.getenv("APP_ENV", "development").strip().lower() or "development"
     provider = normalize_provider(os.getenv("LLM_PROVIDER", "deepseek"))
     provider_option = get_provider_option(provider)
     api_key = (os.getenv("LLM_API_KEY") or os.getenv("DEEPSEEK_API_KEY", "")).strip()
@@ -78,10 +82,13 @@ def get_settings() -> Settings:
     user_store_path = os.getenv("USER_STORE_PATH", "data/users.json").strip()
     index_job_storage_path = os.getenv("INDEX_JOB_STORAGE_PATH", "data/index_jobs").strip()
     database_url = os.getenv("DATABASE_URL", "sqlite:///data/app.db").strip()
+    redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0").strip()
     app_secret_key = os.getenv("APP_SECRET_KEY", "change-this-local-development-secret").strip()
+    secret_encryption_key = os.getenv("SECRET_ENCRYPTION_KEY", "").strip()
     access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
     return Settings(
+        app_env=app_env,
         deepseek_api_key=api_key,
         deepseek_base_url=base_url,
         deepseek_model=model,
@@ -101,7 +108,9 @@ def get_settings() -> Settings:
         user_store_path=user_store_path,
         index_job_storage_path=index_job_storage_path,
         database_url=database_url,
+        redis_url=redis_url,
         app_secret_key=app_secret_key,
+        secret_encryption_key=secret_encryption_key,
         access_token_expire_minutes=access_token_expire_minutes,
     )
 

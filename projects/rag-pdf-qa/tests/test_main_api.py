@@ -133,6 +133,38 @@ def test_web_ui_routes_are_available():
     assert "/evaluation/run" in openapi_response.json()["paths"]
 
 
+def test_health_endpoint_reports_startup_checks_without_secret_values(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(
+            app_env="production",
+            database_url="sqlite:///:memory:",
+            redis_url="redis://redis:6379/0",
+            qdrant_mode="server",
+            qdrant_url="http://qdrant:6333",
+            llm_api_key="your_llm_api_key_here",
+            app_secret_key="change-this-local-development-secret",
+            secret_encryption_key="",
+        ),
+    )
+
+    client = TestClient(main.app)
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["app_env"] == "production"
+    assert data["database_reachable"] is True
+    assert data["qdrant_url"] == "http://qdrant:6333"
+    assert data["redis_configured"] is True
+    assert data["secret_encryption_configured"] is False
+    assert "secret_encryption_key_not_configured" in data["warnings"]
+    assert "change-this-local-development-secret" not in response.text
+    assert "your_llm_api_key_here" not in response.text
+
+
 def test_evaluation_api_endpoints_return_dataset_and_run_result(monkeypatch):
     monkeypatch.setattr(
         main,

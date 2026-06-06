@@ -215,6 +215,7 @@ flowchart TD
 - [企业级第 05 步完成总结：服务化 Qdrant 和索引状态检查](docs/enterprise-summary/05-enterprise-vector-store-summary.md)
 - [企业级第 06 步完成总结：审计日志与基础观测](docs/enterprise-summary/06-audit-and-observability-summary.md)
 - [企业级第 07 步完成总结：评估历史和质量治理](docs/enterprise-summary/07-evaluation-and-quality-governance-summary.md)
+- [企业级第 08 步完成总结：部署、环境和密钥治理](docs/enterprise-summary/08-deployment-and-secret-governance-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -318,11 +319,15 @@ Copy-Item .env.example .env
 然后编辑 `.env`。新版本优先使用通用 `LLM_*` 配置：
 
 ```text
+APP_ENV=development
+APP_SECRET_KEY=change-this-local-development-secret
+SECRET_ENCRYPTION_KEY=replace-with-random-secret-before-deploy
 LLM_PROVIDER=deepseek
 LLM_API_KEY=你的真实模型 API Key
 LLM_BASE_URL=https://api.deepseek.com
 LLM_MODEL=deepseek-v4-flash
 DATABASE_URL=sqlite:///data/app.db
+REDIS_URL=redis://127.0.0.1:6379/0
 INDEX_JOB_STORAGE_PATH=data/index_jobs
 ```
 
@@ -335,6 +340,7 @@ DATABASE_URL=postgresql+psycopg://user:password@host:5432/rag
 ```
 
 不要把真实 API Key 写进 README、docs、测试文件或提交到 GitHub。
+如果要给局域网其他人访问，请把 `APP_ENV` 改为 `production`，并替换 `APP_SECRET_KEY`、`SECRET_ENCRYPTION_KEY` 和数据库密码。
 
 ### 3. 启动本地 RAG 服务
 
@@ -370,15 +376,19 @@ QDRANT_COLLECTION=rag_chunks
 
 ### Docker 启动
 
-如果本机已经安装 Docker，也可以在项目根目录执行：
+如果本机已经安装 Docker，也可以在项目根目录用 Compose 启动 API、PostgreSQL、Qdrant 和 Redis：
 
 ```powershell
-docker compose up -d qdrant
-docker build -t local-rag-agent .
-docker run --rm -p 8000:8000 --env-file .env local-rag-agent
+docker compose up --build
 ```
 
-Docker 构建不会打包 `.env`、`.qdrant/`、`data/app.db`、`data/index_jobs/` 或其他本地运行数据。
+后台运行：
+
+```powershell
+docker compose up --build -d
+```
+
+完整部署说明见 [docs/deployment.md](docs/deployment.md)。Docker 构建不会打包 `.env`、`.qdrant/`、本地数据库、`data/index_jobs/` 或其他运行数据。
 
 ### 4. 打开使用入口
 
@@ -563,6 +573,7 @@ Invoke-RestMethod `
 - 企业级分支已支持 Qdrant local/server 模式切换、collection prefix 配置、Qdrant Compose 服务和 `/settings/vector-store/status` 状态检查
 - 企业级分支已新增审计与基础观测：`audit_logs`、`X-Request-ID`、结构化请求日志、`/audit-logs`、`/metrics`，并记录 RAG/Agent 检索耗时、LLM 耗时、provider/model 和 token usage
 - 企业级分支已新增评估质量治理：`evaluation_runs`、`evaluation_cases` 知识库归属、评估历史 API、quality_gate、答案反馈 `/feedback/answers` 和 Web UI 评估历史
+- 企业级分支已新增部署和密钥治理：Compose 编排 `api/db/qdrant/redis`、`/health` 启动检查、生产环境告警、数据库内 LLM API Key 加密存储和部署文档
 - 已建立最小 pytest 回归测试骨架
 - `.env` 配置读取
 - 请求超时控制
@@ -671,5 +682,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-后续如果继续企业级改造，建议进入第 08 步：部署、环境和密钥治理。不要直接跳到复杂 Agent 或商业化 SaaS 功能。
+企业级第 01-08 步已完成当前规划闭环。后续如果继续新增企业级目标，建议先补 `docs/enterprise-goal/09-*.md`，再按 goal -> code -> tests -> summary 的节奏推进。
 

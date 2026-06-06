@@ -3,10 +3,15 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest_tmp/
+.pytest_full_tmp/
 .qdrant/
 .qdrant_eval/
 data/documents.json
 data/runtime_settings.json
 data/users.json
+data/index_jobs/
+data/uploads/
 data/*.db
 data/*.sqlite
+data/*.sqlite3

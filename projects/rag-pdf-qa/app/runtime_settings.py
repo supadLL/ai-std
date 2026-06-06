@@ -6,10 +6,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.config import Settings, get_settings
 from app.db import database_url_from_legacy_path, session_scope
 from app.models import LlmProfileModel, RuntimeSettingModel
+from app.security import SecurityError, decrypt_secret, encrypt_secret
 
 
 DEFAULT_RUNTIME_SETTINGS_PATH = "data/runtime_settings.json"
 DEFAULT_LLM_PROFILE_ID = "default"
+SECRET_RUNTIME_SETTING_KEYS = {"deepseek_api_key", "llm_api_key"}
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ def load_runtime_settings(
     database_url: str | None = None,
 ) -> RuntimeSettings:
     resolved_database_url = _resolve_database_url(path=path, database_url=database_url)
+    secret_key = _runtime_secret_key()
     try:
         with session_scope(resolved_database_url) as session:
             data = {
@@ -56,19 +59,21 @@ def load_runtime_settings(
                     provider=profile.provider,
                     base_url=profile.base_url,
                     model=profile.model,
-                    api_key=_optional_str(profile.api_key),
+                    api_key=_optional_secret(profile.api_key, secret_key),
                 )
                 for profile in session.scalars(select(LlmProfileModel).order_by(LlmProfileModel.name)).all()
             )
     except SQLAlchemyError as exc:
         raise RuntimeError(f"Failed to load runtime settings from database: {exc}") from exc
+    except SecurityError as exc:
+        raise RuntimeError(f"Failed to decrypt runtime settings secret: {exc}") from exc
 
     return RuntimeSettings(
-        deepseek_api_key=_optional_str(data.get("deepseek_api_key")),
+        deepseek_api_key=_optional_secret(data.get("deepseek_api_key"), secret_key),
         deepseek_base_url=_optional_str(data.get("deepseek_base_url")),
         deepseek_model=_optional_str(data.get("deepseek_model")),
         llm_provider=_optional_str(data.get("llm_provider")),
-        llm_api_key=_optional_str(data.get("llm_api_key")),
+        llm_api_key=_optional_secret(data.get("llm_api_key"), secret_key),
         llm_base_url=_optional_str(data.get("llm_base_url")),
         llm_model=_optional_str(data.get("llm_model")),
         active_llm_profile_id=_optional_str(data.get("active_llm_profile_id")),
@@ -85,7 +90,8 @@ def save_runtime_settings(
     database_url: str | None = None,
 ) -> RuntimeSettings:
     resolved_database_url = _resolve_database_url(path=path, database_url=database_url)
-    scalar_values = _runtime_scalar_values(runtime_settings)
+    secret_key = _runtime_secret_key()
+    scalar_values = _runtime_scalar_values(runtime_settings, secret_key=secret_key)
     try:
         with session_scope(resolved_database_url) as session:
             session.execute(delete(RuntimeSettingModel))
@@ -100,11 +106,13 @@ def save_runtime_settings(
                         provider=profile.provider,
                         base_url=profile.base_url,
                         model=profile.model,
-                        api_key=profile.api_key,
+                        api_key=encrypt_secret(profile.api_key, secret_key),
                     )
                 )
     except SQLAlchemyError as exc:
         raise RuntimeError(f"Failed to save runtime settings to database: {exc}") from exc
+    except SecurityError as exc:
+        raise RuntimeError(f"Failed to encrypt runtime settings secret: {exc}") from exc
     return runtime_settings
 
 
@@ -221,6 +229,17 @@ def _optional_str(value: object) -> str | None:
     return text or None
 
 
+def _optional_secret(value: object, secret_key: str) -> str | None:
+    text = _optional_str(value)
+    if text is None:
+        return None
+    try:
+        decrypted = decrypt_secret(text, secret_key)
+    except SecurityError as exc:
+        raise RuntimeError(f"Failed to decrypt runtime settings secret: {exc}") from exc
+    return _optional_str(decrypted)
+
+
 def _optional_float(value: object) -> float | None:
     if value is None or value == "":
         return None
@@ -234,7 +253,7 @@ def _coalesce_optional(new_value: str | None, current_value: str | None) -> str 
     return stripped or None
 
 
-def _runtime_scalar_values(runtime_settings: RuntimeSettings) -> dict[str, str]:
+def _runtime_scalar_values(runtime_settings: RuntimeSettings, *, secret_key: str) -> dict[str, str]:
     values: dict[str, object | None] = {
         "deepseek_api_key": runtime_settings.deepseek_api_key,
         "deepseek_base_url": runtime_settings.deepseek_base_url,
@@ -248,11 +267,19 @@ def _runtime_scalar_values(runtime_settings: RuntimeSettings) -> dict[str, str]:
         "rag_system_prompt": runtime_settings.rag_system_prompt,
         "rag_answer_instructions": runtime_settings.rag_answer_instructions,
     }
-    return {
-        key: str(value)
-        for key, value in values.items()
-        if value is not None
-    }
+    serialized: dict[str, str] = {}
+    for key, value in values.items():
+        if value is None:
+            continue
+        text = str(value)
+        if key in SECRET_RUNTIME_SETTING_KEYS:
+            encrypted = encrypt_secret(text, secret_key)
+            if encrypted is None:
+                continue
+            serialized[key] = encrypted
+        else:
+            serialized[key] = text
+    return serialized
 
 
 def _resolve_database_url(path: str, database_url: str | None) -> str:
@@ -261,3 +288,8 @@ def _resolve_database_url(path: str, database_url: str | None) -> str:
     if path != DEFAULT_RUNTIME_SETTINGS_PATH:
         return database_url_from_legacy_path(path)
     return get_settings().database_url
+
+
+def _runtime_secret_key() -> str:
+    settings = get_settings()
+    return settings.secret_encryption_key or settings.app_secret_key

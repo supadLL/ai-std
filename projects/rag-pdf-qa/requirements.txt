@@ -4,6 +4,7 @@ httpx==0.28.1
 python-dotenv==1.1.1
 SQLAlchemy>=2.0,<3
 alembic>=1.13,<2
+psycopg[binary]>=3.1,<4
 pdfplumber>=0.11,<0.12
 python-multipart>=0.0.20,<0.1
 fastembed>=0.7,<0.8
