@@ -1,8 +1,16 @@
 const PREFERENCES_KEY = "ragPdfQaUiPreferences";
+const AUTH_TOKEN_KEY = "ragPdfQaAccessToken";
 const DEFAULT_BACKGROUND_COLOR = "#0f1213";
 
 const state = {
+  accessToken: localStorage.getItem(AUTH_TOKEN_KEY) || "",
+  currentUser: null,
+  knowledgeBases: [],
+  activeKnowledgeBaseId: "",
   documents: [],
+  indexJobs: [],
+  indexJobPollingHandle: null,
+  hadActiveIndexJobs: false,
   lastAnswer: null,
   messages: [],
   evaluation: null,
@@ -32,6 +40,8 @@ const els = {
   clearDocumentFilters: document.querySelector("#clearDocumentFilters"),
   batchDeleteDocuments: document.querySelector("#batchDeleteDocuments"),
   documentDetail: document.querySelector("#documentDetail"),
+  indexJobList: document.querySelector("#indexJobList"),
+  refreshIndexJobs: document.querySelector("#refreshIndexJobs"),
   askForm: document.querySelector("#askForm"),
   askModeButtons: Array.from(document.querySelectorAll("[data-ask-mode]")),
   questionInput: document.querySelector("#questionInput"),
@@ -79,6 +89,17 @@ const els = {
   customColorInput: document.querySelector("#customColorInput"),
   backgroundColorInput: document.querySelector("#backgroundColorInput"),
   resetBackgroundColor: document.querySelector("#resetBackgroundColor"),
+  authPanel: document.querySelector("#authPanel"),
+  appShell: document.querySelector("#appShell"),
+  authForm: document.querySelector("#authForm"),
+  authUsername: document.querySelector("#authUsername"),
+  authPassword: document.querySelector("#authPassword"),
+  bootstrapAdmin: document.querySelector("#bootstrapAdmin"),
+  logoutButton: document.querySelector("#logoutButton"),
+  currentUserLabel: document.querySelector("#currentUserLabel"),
+  knowledgeBaseSelect: document.querySelector("#knowledgeBaseSelect"),
+  knowledgeBaseForm: document.querySelector("#knowledgeBaseForm"),
+  knowledgeBaseNameInput: document.querySelector("#knowledgeBaseNameInput"),
 };
 
 const THEME_COLORS = {
@@ -103,6 +124,16 @@ const translations = {
     "nav.settings": "设置",
     "nav.settingsSub": "Settings",
     "nav.docs": "Swagger Docs",
+    "kb.current": "Knowledge base",
+    "kb.newPlaceholder": "New knowledge base",
+    "kb.create": "Create knowledge base",
+    "kb.created": "Knowledge base created",
+    "jobs.eyebrow": "Jobs",
+    "jobs.title": "Index jobs",
+    "jobs.refresh": "Refresh index jobs",
+    "jobs.empty": "No index jobs",
+    "jobs.retry": "Retry",
+    "jobs.created": "Index job queued",
     "import.eyebrow": "Import",
     "import.title": "文件导入",
     "import.refresh": "刷新文档列表",
@@ -259,6 +290,16 @@ const translations = {
     "nav.settings": "Settings",
     "nav.settingsSub": "Settings",
     "nav.docs": "Swagger Docs",
+    "kb.current": "Knowledge base",
+    "kb.newPlaceholder": "New knowledge base",
+    "kb.create": "Create knowledge base",
+    "kb.created": "Knowledge base created",
+    "jobs.eyebrow": "Jobs",
+    "jobs.title": "Index jobs",
+    "jobs.refresh": "Refresh index jobs",
+    "jobs.empty": "No index jobs",
+    "jobs.retry": "Retry",
+    "jobs.created": "Index job queued",
     "import.eyebrow": "Import",
     "import.title": "Import Files",
     "import.refresh": "Refresh documents",
@@ -434,19 +475,201 @@ function showToast(message, isError = false) {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const headers = new Headers(options.headers || {});
+  if (state.accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${state.accessToken}`);
+  }
+  const response = await fetch(url, { ...options, headers });
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) {
+    if (response.status === 401 && !url.startsWith("/auth/login")) {
+      clearAuthState();
+      showAuthPanel();
+    }
     const detail = data?.detail || response.statusText;
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
   return data;
 }
 
+function setAuthState(authData) {
+  state.accessToken = authData.access_token || "";
+  state.currentUser = authData.user || null;
+  localStorage.setItem(AUTH_TOKEN_KEY, state.accessToken);
+  renderAuthState();
+}
+
+function clearAuthState() {
+  state.accessToken = "";
+  state.currentUser = null;
+  state.knowledgeBases = [];
+  state.activeKnowledgeBaseId = "";
+  state.documents = [];
+  state.indexJobs = [];
+  state.hadActiveIndexJobs = false;
+  stopIndexJobPolling();
+  state.selectedDocumentIds.clear();
+  state.activeDocumentId = null;
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  renderAuthState();
+  renderKnowledgeBases();
+  renderIndexJobs();
+  renderDocumentControls();
+  renderDocuments();
+}
+
+function showAuthPanel() {
+  els.authPanel.hidden = false;
+  els.appShell.classList.add("auth-locked");
+}
+
+function hideAuthPanel() {
+  els.authPanel.hidden = true;
+  els.appShell.classList.remove("auth-locked");
+}
+
+function renderAuthState() {
+  if (els.currentUserLabel) {
+    els.currentUserLabel.textContent = state.currentUser
+      ? `${state.currentUser.username} / ${state.currentUser.role}`
+      : "guest";
+  }
+}
+
+async function initializeAuthenticatedApp() {
+  applyPreferences();
+  switchTab("import");
+
+  if (!state.accessToken) {
+    showAuthPanel();
+    return;
+  }
+
+  try {
+    const data = await requestJson("/auth/me");
+    state.currentUser = data.user;
+    hideAuthPanel();
+    renderAuthState();
+    await loadKnowledgeBases();
+    await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings()]);
+  } catch (error) {
+    clearAuthState();
+    showAuthPanel();
+  }
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  await authenticateWith("/auth/login");
+}
+
+async function bootstrapAdmin() {
+  await authenticateWith("/auth/bootstrap-admin");
+}
+
+async function authenticateWith(endpoint) {
+  const payload = {
+    username: els.authUsername.value.trim(),
+    password: els.authPassword.value,
+  };
+  try {
+    const data = await requestJson(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setAuthState(data);
+    hideAuthPanel();
+    showToast("Signed in");
+    await loadKnowledgeBases();
+    await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings()]);
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+async function logout() {
+  try {
+    if (state.accessToken) {
+      await requestJson("/auth/logout", { method: "POST" });
+    }
+  } catch {
+    // Local logout still clears the client token.
+  }
+  clearAuthState();
+  showAuthPanel();
+  showToast("Signed out");
+}
+
+async function loadKnowledgeBases() {
+  const data = await requestJson("/knowledge-bases");
+  state.knowledgeBases = data.knowledge_bases || [];
+  const fallbackId = data.default_knowledge_base_id || state.knowledgeBases[0]?.knowledge_base_id || "";
+  if (!state.knowledgeBases.some((item) => item.knowledge_base_id === state.activeKnowledgeBaseId)) {
+    state.activeKnowledgeBaseId = fallbackId;
+  }
+  renderKnowledgeBases();
+}
+
+function renderKnowledgeBases() {
+  if (!els.knowledgeBaseSelect) {
+    return;
+  }
+  els.knowledgeBaseSelect.innerHTML = state.knowledgeBases
+    .map(
+      (knowledgeBase) =>
+        `<option value="${escapeHtml(knowledgeBase.knowledge_base_id)}">${escapeHtml(knowledgeBase.name)}</option>`,
+    )
+    .join("");
+  els.knowledgeBaseSelect.value = state.activeKnowledgeBaseId;
+}
+
+function knowledgeBasePath(path) {
+  if (!state.activeKnowledgeBaseId) {
+    return path;
+  }
+  return `/knowledge-bases/${encodeURIComponent(state.activeKnowledgeBaseId)}${path}`;
+}
+
+async function changeKnowledgeBase() {
+  state.activeKnowledgeBaseId = els.knowledgeBaseSelect.value || "";
+  state.selectedDocumentIds.clear();
+  state.activeDocumentId = null;
+  state.evaluation = null;
+  state.indexJobs = [];
+  state.hadActiveIndexJobs = false;
+  stopIndexJobPolling();
+  renderDocumentDetail();
+  renderIndexJobs();
+  await Promise.all([loadDocuments(), loadIndexJobs()]);
+}
+
+async function createKnowledgeBase(event) {
+  event.preventDefault();
+  const name = els.knowledgeBaseNameInput.value.trim();
+  if (!name) {
+    return;
+  }
+  try {
+    const knowledgeBase = await requestJson("/knowledge-bases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    state.activeKnowledgeBaseId = knowledgeBase.knowledge_base_id;
+    els.knowledgeBaseNameInput.value = "";
+    await loadKnowledgeBases();
+    await Promise.all([loadDocuments(), loadIndexJobs()]);
+    showToast(t("kb.created"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
 async function loadDocuments() {
   setStatus("loading");
-  const data = await requestJson("/documents");
+  const data = await requestJson(knowledgeBasePath("/documents"));
   state.documents = data.documents || [];
   state.selectedDocumentIds = new Set(
     [...state.selectedDocumentIds].filter((documentId) => state.documents.some((doc) => doc.document_id === documentId)),
@@ -457,6 +680,75 @@ async function loadDocuments() {
   renderDocumentControls();
   renderDocuments();
   setStatus("idle");
+}
+
+async function loadIndexJobs() {
+  if (!els.indexJobList) {
+    return;
+  }
+  const data = await requestJson(knowledgeBasePath("/documents/index-jobs"));
+  state.indexJobs = data.jobs || [];
+  renderIndexJobs();
+
+  const hasActiveJobs = state.indexJobs.some((job) => ["queued", "running"].includes(job.status));
+  if (state.hadActiveIndexJobs && !hasActiveJobs) {
+    await loadDocuments();
+  }
+  state.hadActiveIndexJobs = hasActiveJobs;
+  if (hasActiveJobs) {
+    startIndexJobPolling();
+  } else {
+    stopIndexJobPolling();
+  }
+}
+
+function renderIndexJobs() {
+  if (!els.indexJobList) {
+    return;
+  }
+  if (!state.indexJobs.length) {
+    els.indexJobList.innerHTML = `<p class="empty-state">${t("jobs.empty")}</p>`;
+    return;
+  }
+
+  els.indexJobList.innerHTML = state.indexJobs
+    .map(
+      (job) => `
+        <article class="doc-card">
+          <div class="doc-title">
+            <span>${escapeHtml(job.filename)}</span>
+            <span class="job-status ${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
+          </div>
+          <div class="meta">
+            ${escapeHtml(job.job_id)} · attempts ${job.attempts} · ${escapeHtml(job.progress_message || job.status)}<br />
+            chunks ${job.result?.chunk_count ?? "-"} · indexed ${job.result?.indexed_count ?? "-"} · ${escapeHtml(job.updated_at || job.created_at)}
+          </div>
+          ${job.error_message ? `<p class="preview danger-action">${escapeHtml(job.error_message)}</p>` : ""}
+          ${job.status === "failed" ? `<div class="doc-actions"><button class="mini-button" type="button" data-retry-job="${escapeHtml(job.job_id)}">${t("jobs.retry")}</button></div>` : ""}
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function startIndexJobPolling() {
+  if (state.indexJobPollingHandle) {
+    return;
+  }
+  state.indexJobPollingHandle = window.setInterval(() => {
+    loadIndexJobs().catch((error) => {
+      stopIndexJobPolling();
+      showToast(error.message, true);
+    });
+  }, 2000);
+}
+
+function stopIndexJobPolling() {
+  if (!state.indexJobPollingHandle) {
+    return;
+  }
+  window.clearInterval(state.indexJobPollingHandle);
+  state.indexJobPollingHandle = null;
 }
 
 async function loadSettings() {
@@ -796,6 +1088,7 @@ function renderDocumentDetail() {
   els.documentDetail.innerHTML = `
     <b>${escapeHtml(doc.filename)}</b><br />
     document_id ${escapeHtml(doc.document_id)}<br />
+    knowledge_base_id ${escapeHtml(doc.knowledge_base_id || "-")}<br />
     type ${escapeHtml(doc.file_type)} · chunks ${doc.chunk_count} · pages ${doc.page_count}<br />
     hash ${escapeHtml(doc.content_hash)}<br />
     created ${escapeHtml(doc.created_at)} · indexed ${escapeHtml(doc.indexed_at)}
@@ -818,14 +1111,23 @@ async function uploadDocument(event) {
 
   setStatus("indexing");
   try {
-    const data = await requestJson("/documents/index", {
+    const data = await requestJson(knowledgeBasePath("/documents/index-jobs"), {
       method: "POST",
       body: form,
     });
+<<<<<<< HEAD
     showToast(data.message || t("toast.indexDone"));
     els.fileInput.value = "";
     updateSelectedFileName();
     await loadDocuments();
+=======
+    showToast(t("jobs.created"));
+    state.indexJobs = [data, ...state.indexJobs.filter((job) => job.job_id !== data.job_id)];
+    state.hadActiveIndexJobs = true;
+    renderIndexJobs();
+    startIndexJobPolling();
+    await loadIndexJobs();
+>>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
   } catch (error) {
     showToast(error.message, true);
     setStatus("error");
@@ -853,7 +1155,7 @@ async function batchDeleteDocuments() {
 
   setStatus("loading");
   try {
-    await requestJson("/documents/batch", {
+    await requestJson(knowledgeBasePath("/documents/batch"), {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ document_ids: documentIds }),
@@ -876,7 +1178,7 @@ async function reindexDocument(documentId, file) {
 
   setStatus("indexing");
   try {
-    await requestJson(`/documents/${encodeURIComponent(documentId)}/reindex`, {
+    await requestJson(knowledgeBasePath(`/documents/${encodeURIComponent(documentId)}/reindex`), {
       method: "POST",
       body: form,
     });
@@ -922,6 +1224,28 @@ function handleDocumentListChange(event) {
   }
 }
 
+async function retryIndexJob(jobId) {
+  try {
+    const job = await requestJson(knowledgeBasePath(`/documents/index-jobs/${encodeURIComponent(jobId)}/retry`), {
+      method: "POST",
+    });
+    state.indexJobs = state.indexJobs.map((item) => (item.job_id === job.job_id ? job : item));
+    state.hadActiveIndexJobs = true;
+    renderIndexJobs();
+    startIndexJobPolling();
+    showToast(t("jobs.created"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+function handleIndexJobListClick(event) {
+  const retryButton = event.target.closest("[data-retry-job]");
+  if (retryButton) {
+    retryIndexJob(retryButton.dataset.retryJob);
+  }
+}
+
 async function saveSettings(event) {
   event.preventDefault();
   const payload = {
@@ -963,6 +1287,9 @@ async function askQuestion(event) {
   if (els.askDocumentFilter.value) {
     payload.document_id = els.askDocumentFilter.value;
   }
+  if (state.activeKnowledgeBaseId) {
+    payload.knowledge_base_id = state.activeKnowledgeBaseId;
+  }
 
   setStatus("asking");
   const pendingId = `pending-${Date.now()}`;
@@ -972,7 +1299,7 @@ async function askQuestion(event) {
   els.questionInput.value = "";
   els.sourceList.innerHTML = "";
   try {
-    const endpoint = state.askMode === "agent" ? "/agent/ask" : "/rag/ask";
+    const endpoint = knowledgeBasePath(state.askMode === "agent" ? "/agent/ask" : "/rag/ask");
     const data = await requestJson(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1156,6 +1483,9 @@ async function runEvaluation(event) {
   };
   if (els.evaluationThreshold.value !== "") {
     payload.score_threshold = Number(els.evaluationThreshold.value);
+  }
+  if (state.activeKnowledgeBaseId) {
+    payload.knowledge_base_id = state.activeKnowledgeBaseId;
   }
 
   setEvaluationStatus("evaluating");
@@ -1502,6 +1832,14 @@ els.clearDocumentFilters.addEventListener("click", () => {
   renderDocuments();
 });
 els.batchDeleteDocuments.addEventListener("click", batchDeleteDocuments);
+els.knowledgeBaseSelect.addEventListener("change", () => {
+  changeKnowledgeBase().catch((error) => showToast(error.message, true));
+});
+els.knowledgeBaseForm.addEventListener("submit", createKnowledgeBase);
+els.refreshIndexJobs.addEventListener("click", () => {
+  loadIndexJobs().catch((error) => showToast(error.message, true));
+});
+els.indexJobList.addEventListener("click", handleIndexJobListClick);
 els.documentList.addEventListener("click", handleDocumentListClick);
 els.documentList.addEventListener("change", handleDocumentListChange);
 els.askForm.addEventListener("submit", askQuestion);
@@ -1560,20 +1898,15 @@ els.questionInput.addEventListener("keydown", (event) => {
 els.refreshDocuments.addEventListener("click", () => {
   loadDocuments().catch((error) => showToast(error.message, true));
 });
-
-loadDocuments().catch((error) => {
-  showToast(error.message, true);
-  setStatus("error");
+els.authForm.addEventListener("submit", submitAuth);
+els.bootstrapAdmin.addEventListener("click", () => {
+  bootstrapAdmin().catch((error) => showToast(error.message, true));
 });
-loadSettings().catch((error) => {
-  showToast(error.message, true);
-  if (els.settingsStatus) {
-    setSettingsStatus("error");
-  }
+els.logoutButton.addEventListener("click", () => {
+  logout().catch((error) => showToast(error.message, true));
 });
 
-applyPreferences();
-switchTab("import");
+initializeAuthenticatedApp();
 
 function insertTextareaNewline(textarea) {
   const start = textarea.selectionStart;

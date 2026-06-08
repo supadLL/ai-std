@@ -81,10 +81,20 @@ def test_agent_ask_routes_document_question_to_rag(monkeypatch):
                 "usage": {"total_tokens": 42},
             }
 
-    def fake_search_chunks(client, collection_name, query_vector, limit, document_id=None, file_type=None):
+    def fake_search_chunks(
+        client,
+        collection_name,
+        query_vector,
+        limit,
+        document_id=None,
+        file_type=None,
+        knowledge_base_id=None,
+        tenant_id=None,
+    ):
         assert limit == 3
         assert document_id is None
         assert file_type is None
+        assert knowledge_base_id == "kb_default"
         return [
             SearchResult(
                 point_id="point-1",
@@ -141,7 +151,11 @@ def test_agent_ask_returns_insufficient_context_without_calling_deepseek(monkeyp
     monkeypatch.setattr(main, "DeepSeekClient", FakeDeepSeekClient)
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
     monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
-    monkeypatch.setattr(main, "search_chunks", lambda client, collection_name, query_vector, limit, document_id=None, file_type=None: [])
+    monkeypatch.setattr(
+        main,
+        "search_chunks",
+        lambda client, collection_name, query_vector, limit, document_id=None, file_type=None, knowledge_base_id=None, tenant_id=None: [],
+    )
 
     client = TestClient(main.app)
     response = client.post(
@@ -179,7 +193,7 @@ def test_agent_ask_returns_threshold_fallback_reason(monkeypatch):
     monkeypatch.setattr(
         main,
         "search_chunks",
-        lambda client, collection_name, query_vector, limit, document_id=None, file_type=None: [
+        lambda client, collection_name, query_vector, limit, document_id=None, file_type=None, knowledge_base_id=None, tenant_id=None: [
             SearchResult(
                 point_id="point-low",
                 score=0.2,

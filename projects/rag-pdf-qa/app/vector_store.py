@@ -18,6 +18,9 @@ class SearchResult:
     chunk_id: int
     text: str
     extraction_method: str = "text"
+    knowledge_base_id: str | None = None
+    tenant_id: str | None = None
+    workspace_id: str | None = None
 
 
 class VectorStoreError(RuntimeError):
@@ -60,6 +63,9 @@ def upsert_chunks(
     document_id: str | None = None,
     content_hash: str | None = None,
     file_type: str = "pdf",
+    tenant_id: str | None = None,
+    workspace_id: str | None = None,
+    knowledge_base_id: str | None = None,
 ) -> int:
     if len(chunks) != len(vectors):
         raise VectorStoreError("chunks and vectors length mismatch")
@@ -73,6 +79,10 @@ def upsert_chunks(
                 id=point_id,
                 vector=vector,
                 payload={
+                    "tenant_id": tenant_id,
+                    "organization_id": tenant_id,
+                    "workspace_id": workspace_id,
+                    "knowledge_base_id": knowledge_base_id,
                     "document_id": document_id,
                     "content_hash": content_hash,
                     "file_type": file_type,
@@ -97,6 +107,7 @@ def delete_document_chunks(
     client: QdrantClient,
     collection_name: str,
     document_id: str,
+    knowledge_base_id: str | None = None,
 ) -> int:
     if not client.collection_exists(collection_name):
         return 0
@@ -106,7 +117,7 @@ def delete_document_chunks(
     while True:
         points, next_offset = client.scroll(
             collection_name=collection_name,
-            scroll_filter=_document_id_filter(document_id),
+            scroll_filter=_document_id_filter(document_id, knowledge_base_id=knowledge_base_id),
             limit=1000,
             offset=next_offset,
             with_payload=False,
@@ -133,6 +144,8 @@ def search_chunks(
     limit: int = 5,
     document_id: str | None = None,
     file_type: str | None = None,
+    knowledge_base_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> list[SearchResult]:
     if not client.collection_exists(collection_name):
         raise VectorStoreError(f"Collection {collection_name!r} does not exist. Index a document first.")
@@ -141,7 +154,12 @@ def search_chunks(
         collection_name=collection_name,
         query=query_vector,
         limit=limit,
-        query_filter=_search_filter(document_id=document_id, file_type=file_type),
+        query_filter=_search_filter(
+            document_id=document_id,
+            file_type=file_type,
+            knowledge_base_id=knowledge_base_id,
+            tenant_id=tenant_id,
+        ),
         with_payload=True,
         with_vectors=False,
     )
@@ -154,6 +172,9 @@ def search_chunks(
                 point_id=str(point.id),
                 score=float(point.score),
                 document_id=_optional_str(payload.get("document_id")),
+                knowledge_base_id=_optional_str(payload.get("knowledge_base_id")),
+                tenant_id=_optional_str(payload.get("tenant_id") or payload.get("organization_id")),
+                workspace_id=_optional_str(payload.get("workspace_id")),
                 file_type=str(payload.get("file_type", "pdf")),
                 filename=str(payload.get("filename", "")),
                 page_number=int(payload.get("page_number", 0)),
@@ -165,19 +186,46 @@ def search_chunks(
     return results
 
 
-def _document_id_filter(document_id: str) -> models.Filter:
-    return models.Filter(
-        must=[
+def _document_id_filter(document_id: str, knowledge_base_id: str | None = None) -> models.Filter:
+    conditions = [
+        models.FieldCondition(
+            key="document_id",
+            match=models.MatchValue(value=document_id),
+        )
+    ]
+    if knowledge_base_id:
+        conditions.append(
             models.FieldCondition(
-                key="document_id",
-                match=models.MatchValue(value=document_id),
+                key="knowledge_base_id",
+                match=models.MatchValue(value=knowledge_base_id),
             )
-        ]
+        )
+    return models.Filter(
+        must=conditions
     )
 
 
-def _search_filter(document_id: str | None = None, file_type: str | None = None) -> models.Filter | None:
+def _search_filter(
+    document_id: str | None = None,
+    file_type: str | None = None,
+    knowledge_base_id: str | None = None,
+    tenant_id: str | None = None,
+) -> models.Filter | None:
     conditions = []
+    if tenant_id:
+        conditions.append(
+            models.FieldCondition(
+                key="tenant_id",
+                match=models.MatchValue(value=tenant_id),
+            )
+        )
+    if knowledge_base_id:
+        conditions.append(
+            models.FieldCondition(
+                key="knowledge_base_id",
+                match=models.MatchValue(value=knowledge_base_id),
+            )
+        )
     if document_id:
         conditions.append(
             models.FieldCondition(

@@ -39,6 +39,7 @@ def run_rag_search_evaluation(
     output_md_path: Path = DEFAULT_EVALUATION_REPORT_PATH,
     limit: int = 5,
     score_threshold: float | None = None,
+    knowledge_base_id: str | None = None,
 ) -> dict[str, Any]:
     dataset = load_evaluation_dataset(dataset_path)
     client = get_qdrant_client(settings.qdrant_local_path)
@@ -53,6 +54,7 @@ def run_rag_search_evaluation(
                 embedding_model=settings.embedding_model,
                 limit=limit,
                 score_threshold=score_threshold,
+                knowledge_base_id=knowledge_base_id,
             )
         )
 
@@ -65,6 +67,7 @@ def run_rag_search_evaluation(
         "embedding_model": settings.embedding_model,
         "limit": limit,
         "score_threshold": score_threshold,
+        "knowledge_base_id": knowledge_base_id,
         "low_score_threshold": LOW_SCORE_THRESHOLD,
         **summary,
         "cases": case_results,
@@ -133,6 +136,7 @@ def _evaluate_case(
     embedding_model: str,
     limit: int,
     score_threshold: float | None,
+    knowledge_base_id: str | None,
 ) -> dict[str, Any]:
     query_vector = embed_text(case["question"], embedding_model)
     raw_results = search_chunks(
@@ -140,6 +144,7 @@ def _evaluate_case(
         collection_name=collection_name,
         query_vector=query_vector,
         limit=limit,
+        knowledge_base_id=knowledge_base_id,
     )
     results = [
         result

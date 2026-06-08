@@ -1,8 +1,13 @@
-import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 from uuid import uuid4
+
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.db import database_url_from_legacy_path, session_scope
+from app.models import DocumentModel
+from app.permissions import DEFAULT_KNOWLEDGE_BASE_ID, DEFAULT_ORGANIZATION_ID, DEFAULT_WORKSPACE_ID
 
 
 @dataclass(frozen=True)
@@ -22,6 +27,10 @@ class DocumentRecord:
     embedding_model: str
     page_count: int
     indexed_count: int
+    organization_id: str = DEFAULT_ORGANIZATION_ID
+    workspace_id: str = DEFAULT_WORKSPACE_ID
+    knowledge_base_id: str = DEFAULT_KNOWLEDGE_BASE_ID
+    owner_user_id: str = "system"
 
 
 class DocumentStoreError(RuntimeError):
@@ -29,24 +38,47 @@ class DocumentStoreError(RuntimeError):
 
 
 class DocumentStore:
-    def __init__(self, path: str) -> None:
-        self.path = Path(path)
+    def __init__(self, path: str, database_url: str | None = None) -> None:
+        self.path = path
+        self.database_url = database_url or database_url_from_legacy_path(path)
 
-    def list_documents(self) -> list[DocumentRecord]:
-        data = self._read_data()
-        return [self._record_from_item(item) for item in data.get("documents", [])]
+    def list_documents(self, *, knowledge_base_id: str | None = None) -> list[DocumentRecord]:
+        try:
+            with session_scope(self.database_url) as session:
+                statement = select(DocumentModel)
+                if knowledge_base_id:
+                    statement = statement.where(DocumentModel.knowledge_base_id == knowledge_base_id)
+                documents = session.scalars(statement.order_by(DocumentModel.indexed_at.desc())).all()
+                return [_record_from_model(document) for document in documents]
+        except SQLAlchemyError as exc:
+            raise DocumentStoreError(f"Failed to list document metadata: {exc}") from exc
 
-    def get_document(self, document_id: str) -> DocumentRecord | None:
-        for record in self.list_documents():
-            if record.document_id == document_id:
-                return record
-        return None
+    def get_document(self, document_id: str, *, knowledge_base_id: str | None = None) -> DocumentRecord | None:
+        try:
+            with session_scope(self.database_url) as session:
+                statement = select(DocumentModel).where(DocumentModel.document_id == document_id)
+                if knowledge_base_id:
+                    statement = statement.where(DocumentModel.knowledge_base_id == knowledge_base_id)
+                document = session.scalar(statement)
+                return _record_from_model(document) if document else None
+        except SQLAlchemyError as exc:
+            raise DocumentStoreError(f"Failed to get document metadata: {exc}") from exc
 
-    def get_document_by_content_hash(self, content_hash: str) -> DocumentRecord | None:
-        for record in self.list_documents():
-            if record.content_hash == content_hash:
-                return record
-        return None
+    def get_document_by_content_hash(
+        self,
+        content_hash: str,
+        *,
+        knowledge_base_id: str | None = None,
+    ) -> DocumentRecord | None:
+        try:
+            with session_scope(self.database_url) as session:
+                statement = select(DocumentModel).where(DocumentModel.content_hash == content_hash)
+                if knowledge_base_id:
+                    statement = statement.where(DocumentModel.knowledge_base_id == knowledge_base_id)
+                document = session.scalar(statement)
+                return _record_from_model(document) if document else None
+        except SQLAlchemyError as exc:
+            raise DocumentStoreError(f"Failed to get document metadata by content hash: {exc}") from exc
 
     def add_document(
         self,
@@ -63,10 +95,18 @@ class DocumentStore:
         page_count: int,
         indexed_count: int,
         source_file_size: int,
+        organization_id: str = DEFAULT_ORGANIZATION_ID,
+        workspace_id: str = DEFAULT_WORKSPACE_ID,
+        knowledge_base_id: str = DEFAULT_KNOWLEDGE_BASE_ID,
+        owner_user_id: str = "system",
     ) -> DocumentRecord:
         now = datetime.now(UTC).isoformat()
-        record = DocumentRecord(
+        document = DocumentModel(
             document_id=document_id or str(uuid4()),
+            organization_id=organization_id,
+            workspace_id=workspace_id,
+            knowledge_base_id=knowledge_base_id,
+            owner_user_id=owner_user_id,
             filename=filename,
             file_type=file_type,
             content_hash=content_hash,
@@ -83,59 +123,49 @@ class DocumentStore:
             indexed_count=indexed_count,
         )
 
-        data = self._read_data()
-        documents = data.setdefault("documents", [])
-        documents.append(asdict(record))
-        self._write_data(data)
-        return record
-
-    def remove_document(self, document_id: str) -> DocumentRecord | None:
-        data = self._read_data()
-        documents = data.get("documents", [])
-        kept_documents = [item for item in documents if item.get("document_id") != document_id]
-        if len(kept_documents) == len(documents):
-            return None
-
-        removed = next(item for item in documents if item.get("document_id") == document_id)
-        data["documents"] = kept_documents
-        self._write_data(data)
-        return self._record_from_item(removed)
-
-    def _record_from_item(self, item: dict[str, object]) -> DocumentRecord:
-        content_hash = str(item.get("content_hash", ""))
-        created_at = str(item.get("created_at", ""))
-        return DocumentRecord(
-            document_id=str(item.get("document_id", "")),
-            filename=str(item.get("filename", "")),
-            file_type=str(item.get("file_type", "")),
-            content_hash=content_hash,
-            content_hash_prefix=str(item.get("content_hash_prefix", content_hash[:12])),
-            chunk_count=int(item.get("chunk_count", 0)),
-            created_at=created_at,
-            indexed_at=str(item.get("indexed_at", created_at)),
-            source_file_size=int(item.get("source_file_size", 0)),
-            collection=str(item.get("collection", "")),
-            chunk_size=int(item.get("chunk_size", 0)),
-            overlap=int(item.get("overlap", 0)),
-            embedding_model=str(item.get("embedding_model", "")),
-            page_count=int(item.get("page_count", 0)),
-            indexed_count=int(item.get("indexed_count", 0)),
-        )
-
-    def _read_data(self) -> dict[str, list[dict[str, object]]]:
-        if not self.path.exists():
-            return {"documents": []}
         try:
-            with self.path.open("r", encoding="utf-8") as file:
-                data = json.load(file)
-        except json.JSONDecodeError as exc:
-            raise DocumentStoreError(f"Invalid document metadata JSON: {self.path}") from exc
+            with session_scope(self.database_url) as session:
+                session.add(document)
+                session.flush()
+                return _record_from_model(document)
+        except SQLAlchemyError as exc:
+            raise DocumentStoreError(f"Failed to add document metadata: {exc}") from exc
 
-        if not isinstance(data, dict) or not isinstance(data.get("documents", []), list):
-            raise DocumentStoreError(f"Invalid document metadata structure: {self.path}")
-        return data
+    def remove_document(self, document_id: str, *, knowledge_base_id: str | None = None) -> DocumentRecord | None:
+        try:
+            with session_scope(self.database_url) as session:
+                statement = select(DocumentModel).where(DocumentModel.document_id == document_id)
+                if knowledge_base_id:
+                    statement = statement.where(DocumentModel.knowledge_base_id == knowledge_base_id)
+                document = session.scalar(statement)
+                if document is None:
+                    return None
+                record = _record_from_model(document)
+                session.delete(document)
+                return record
+        except SQLAlchemyError as exc:
+            raise DocumentStoreError(f"Failed to remove document metadata: {exc}") from exc
 
-    def _write_data(self, data: dict[str, list[dict[str, object]]]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as file:
-            json.dump(data, file, ensure_ascii=False, indent=2)
+
+def _record_from_model(document: DocumentModel) -> DocumentRecord:
+    return DocumentRecord(
+        document_id=document.document_id,
+        filename=document.filename,
+        file_type=document.file_type,
+        content_hash=document.content_hash,
+        content_hash_prefix=document.content_hash_prefix,
+        chunk_count=document.chunk_count,
+        created_at=document.created_at,
+        indexed_at=document.indexed_at,
+        source_file_size=document.source_file_size,
+        collection=document.collection,
+        chunk_size=document.chunk_size,
+        overlap=document.overlap,
+        embedding_model=document.embedding_model,
+        page_count=document.page_count,
+        indexed_count=document.indexed_count,
+        organization_id=document.organization_id,
+        workspace_id=document.workspace_id,
+        knowledge_base_id=document.knowledge_base_id,
+        owner_user_id=document.owner_user_id,
+    )

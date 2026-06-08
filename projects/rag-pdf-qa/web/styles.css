@@ -62,6 +62,61 @@ textarea {
   padding: 16px;
 }
 
+.shell.auth-locked {
+  pointer-events: none;
+  filter: blur(12px);
+  opacity: 0.32;
+}
+
+.auth-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(18px);
+}
+
+.auth-panel[hidden] {
+  display: none;
+}
+
+.auth-card {
+  display: grid;
+  gap: 14px;
+  width: min(420px, 100%);
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+}
+
+.auth-actions,
+.auth-user-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.auth-user-box {
+  align-items: center;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.auth-user-box span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .panel {
   min-width: 0;
   min-height: 0;
@@ -209,7 +264,7 @@ h2 {
 .docs-link {
   display: inline-flex;
   justify-content: center;
-  margin-top: auto;
+  margin-top: 12px;
 }
 
 .tab-nav {
@@ -405,12 +460,14 @@ label,
 
 .document-list,
 .source-list,
-.answer-output {
+.answer-output,
+.index-job-list {
   overflow: auto;
 }
 
 .document-list,
-.source-list {
+.source-list,
+.index-job-list {
   display: grid;
   align-content: start;
   gap: 10px;
@@ -664,6 +721,27 @@ h3 {
   gap: 10px;
 }
 
+.knowledge-base-box {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.kb-create-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 8px;
+}
+
+.kb-create-form .mini-button {
+  min-height: 38px;
+  padding: 0;
+  font-size: 18px;
+}
+
 .library-tools {
   display: grid;
   gap: 10px;
@@ -673,6 +751,36 @@ h3 {
   border-radius: 18px;
   background: var(--surface);
   z-index: 1;
+}
+
+.index-job-tools {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.job-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--field);
+  font-size: 12px;
+}
+
+.job-status.succeeded {
+  color: var(--accent);
+}
+
+.job-status.failed {
+  color: var(--danger);
 }
 
 .library-filter-grid {

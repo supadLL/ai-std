@@ -44,10 +44,11 @@ def test_run_rag_search_evaluation_saves_json_and_markdown(tmp_path, monkeypatch
     monkeypatch.setattr(evaluation, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
     monkeypatch.setattr(evaluation, "get_qdrant_client", lambda local_path: object())
 
-    def fake_search_chunks(client, collection_name, query_vector, limit):
+    def fake_search_chunks(client, collection_name, query_vector, limit, **kwargs):
         assert collection_name == "rag_chunks"
         assert query_vector == [0.1, 0.2, 0.3]
         assert limit == 2
+        assert kwargs.get("knowledge_base_id") == "kb-default"
         return [
             SearchResult(
                 point_id="point-1",
@@ -86,6 +87,7 @@ def test_run_rag_search_evaluation_saves_json_and_markdown(tmp_path, monkeypatch
         output_md_path=output_md_path,
         limit=2,
         score_threshold=0.4,
+        knowledge_base_id="kb-default",
     )
 
     assert result["case_count"] == 1
@@ -93,6 +95,7 @@ def test_run_rag_search_evaluation_saves_json_and_markdown(tmp_path, monkeypatch
     assert result["page_hit_rate"] == 1.0
     assert result["keyword_hit_rate"] == 1.0
     assert result["low_score_result_count"] == 1
+    assert result["knowledge_base_id"] == "kb-default"
     assert result["cases"][0]["top_sources"][0]["filename"] == "runbook.md"
     assert result["cases"][0]["top_sources"][0]["extraction_method"] == "text"
     assert output_json_path.exists()

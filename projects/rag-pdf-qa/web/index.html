@@ -6,10 +6,35 @@
     <title>Local RAG Agent | Knowledge QA</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" />
     <link rel="apple-touch-icon" sizes="192x192" href="/web/assets/rag-agent-icon-192.png?v=29" />
+<<<<<<< HEAD
     <link rel="stylesheet" href="/web/styles.css?v=40" />
+=======
+    <link rel="stylesheet" href="/web/styles.css?v=41" />
+>>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
   </head>
   <body>
-    <main class="shell">
+    <section class="auth-panel" id="authPanel">
+      <form class="auth-card" id="authForm">
+        <div>
+          <p class="eyebrow" data-i18n="auth.eyebrow">Enterprise Access</p>
+          <h2 data-i18n="auth.title">Sign in</h2>
+        </div>
+        <label>
+          <span data-i18n="auth.username">Username</span>
+          <input id="authUsername" type="text" autocomplete="username" value="admin" />
+        </label>
+        <label>
+          <span data-i18n="auth.password">Password</span>
+          <input id="authPassword" type="password" autocomplete="current-password" />
+        </label>
+        <div class="auth-actions">
+          <button class="primary-button" type="submit" data-i18n="auth.login">Login</button>
+          <button class="ghost-button" id="bootstrapAdmin" type="button" data-i18n="auth.bootstrap">Initialize Admin</button>
+        </div>
+      </form>
+    </section>
+
+    <main class="shell auth-locked" id="appShell">
       <aside class="panel nav-panel">
         <div class="panel-head">
           <div>
@@ -45,6 +70,21 @@
           </button>
         </nav>
 
+        <section class="knowledge-base-box">
+          <label>
+            <span data-i18n="kb.current">Knowledge base</span>
+            <select id="knowledgeBaseSelect"></select>
+          </label>
+          <form class="kb-create-form" id="knowledgeBaseForm">
+            <input id="knowledgeBaseNameInput" type="text" maxlength="120" placeholder="New knowledge base" data-i18n-placeholder="kb.newPlaceholder" />
+            <button class="mini-button" type="submit" title="Create knowledge base" data-i18n-title="kb.create">+</button>
+          </form>
+        </section>
+
+        <div class="auth-user-box">
+          <span id="currentUserLabel">guest</span>
+          <button class="ghost-button" id="logoutButton" type="button" data-i18n="auth.logout">Logout</button>
+        </div>
         <a class="ghost-link docs-link" href="/docs" target="_blank" rel="noreferrer" data-i18n="nav.docs">Swagger Docs</a>
       </aside>
 
@@ -77,6 +117,17 @@
               </label>
               <button class="primary-button" type="submit" data-i18n="import.submit">上传索引</button>
             </form>
+
+            <section class="index-job-tools">
+              <div class="section-title-row">
+                <div>
+                  <p class="eyebrow" data-i18n="jobs.eyebrow">Jobs</p>
+                  <h3 data-i18n="jobs.title">Index jobs</h3>
+                </div>
+                <button class="icon-button" id="refreshIndexJobs" title="Refresh index jobs" data-i18n-title="jobs.refresh">↻</button>
+              </div>
+              <div class="index-job-list" id="indexJobList"></div>
+            </section>
 
             <section class="library-tools">
               <div class="library-filter-grid">

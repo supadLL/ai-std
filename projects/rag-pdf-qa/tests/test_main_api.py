@@ -13,11 +13,22 @@ from app.vector_store import SearchResult
 def test_search_documents_returns_retrieved_results(monkeypatch):
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
     monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
+    monkeypatch.setattr(main, "_require_document_in_knowledge_base", lambda **kwargs: None)
 
-    def fake_search_chunks(client, collection_name, query_vector, limit, document_id=None, file_type=None):
+    def fake_search_chunks(
+        client,
+        collection_name,
+        query_vector,
+        limit,
+        document_id=None,
+        file_type=None,
+        knowledge_base_id=None,
+        tenant_id=None,
+    ):
         assert limit == 2
         assert document_id == "doc-1"
         assert file_type == "pdf"
+        assert knowledge_base_id == "kb_default"
         return [
             SearchResult(
                 point_id="point-1",
@@ -68,8 +79,17 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
+<<<<<<< HEAD
     assert "/web/styles.css?v=40" in app_response.text
     assert "/web/app.js?v=41" in app_response.text
+=======
+    assert "/web/styles.css?v=41" in app_response.text
+    assert "/web/app.js?v=41" in app_response.text
+    assert 'id="knowledgeBaseSelect"' in app_response.text
+    assert 'id="knowledgeBaseForm"' in app_response.text
+    assert 'id="indexJobList"' in app_response.text
+    assert 'id="refreshIndexJobs"' in app_response.text
+>>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
     assert "分块大小 chunk" in app_response.text
     assert "重叠长度 overlap" in app_response.text
     assert "重新索引 reindex" in app_response.text
@@ -99,6 +119,10 @@ def test_web_ui_routes_are_available():
     assert openapi_response.status_code == 200
     assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
     assert "/documents/index" in openapi_response.json()["paths"]
+    assert "/documents/index-jobs" in openapi_response.json()["paths"]
+    assert "/documents/index-jobs/{job_id}/retry" in openapi_response.json()["paths"]
+    assert "/knowledge-bases" in openapi_response.json()["paths"]
+    assert "/knowledge-bases/{knowledge_base_id}/documents" in openapi_response.json()["paths"]
     assert "/evaluation/questions" in openapi_response.json()["paths"]
     assert "/evaluation/latest" in openapi_response.json()["paths"]
     assert "/evaluation/run" in openapi_response.json()["paths"]
@@ -171,10 +195,11 @@ def test_evaluation_api_endpoints_return_dataset_and_run_result(monkeypatch):
         ],
     }
 
-    def fake_run_rag_search_evaluation(*, settings, limit, score_threshold):
+    def fake_run_rag_search_evaluation(*, settings, limit, score_threshold, knowledge_base_id=None):
         assert settings.qdrant_collection
         assert limit == 3
         assert score_threshold is None
+        assert knowledge_base_id == "kb_default"
         return fake_result
 
     monkeypatch.setattr(main, "run_rag_search_evaluation", fake_run_rag_search_evaluation)
@@ -426,13 +451,13 @@ def test_document_management_endpoints(monkeypatch):
         def __init__(self):
             self.records = {"doc-1": record}
 
-        def list_documents(self):
+        def list_documents(self, **kwargs):
             return list(self.records.values())
 
-        def get_document(self, document_id):
+        def get_document(self, document_id, **kwargs):
             return self.records.get(document_id)
 
-        def remove_document(self, document_id):
+        def remove_document(self, document_id, **kwargs):
             return self.records.pop(document_id, None)
 
     fake_store = FakeDocumentStore()
@@ -443,7 +468,7 @@ def test_document_management_endpoints(monkeypatch):
     )
     monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
     monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
-    monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id: 3)
+    monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id, **kwargs: 3)
 
     client = TestClient(main.app)
 
@@ -502,10 +527,10 @@ def test_batch_delete_documents_removes_chunks_and_metadata(monkeypatch):
     }
 
     class FakeDocumentStore:
-        def get_document(self, document_id):
+        def get_document(self, document_id, **kwargs):
             return records.get(document_id)
 
-        def remove_document(self, document_id):
+        def remove_document(self, document_id, **kwargs):
             return records.pop(document_id, None)
 
     deleted_ids = []
@@ -517,7 +542,7 @@ def test_batch_delete_documents_removes_chunks_and_metadata(monkeypatch):
     monkeypatch.setattr(main, "get_document_store", lambda metadata_path: FakeDocumentStore())
     monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
 
-    def fake_delete_document_chunks(client, collection_name, document_id):
+    def fake_delete_document_chunks(client, collection_name, document_id, **kwargs):
         deleted_ids.append(document_id)
         return 2
 
@@ -563,10 +588,10 @@ def test_reindex_document_replaces_existing_document_with_uploaded_file(monkeypa
             self.removed_document_id = None
             self.added_kwargs = None
 
-        def get_document(self, document_id):
+        def get_document(self, document_id, **kwargs):
             return self.record if document_id == "doc-1" else None
 
-        def remove_document(self, document_id):
+        def remove_document(self, document_id, **kwargs):
             self.removed_document_id = document_id
             self.record = None
             return existing
@@ -598,7 +623,7 @@ def test_reindex_document_replaces_existing_document_with_uploaded_file(monkeypa
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
     monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
     monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
-    monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id: 1)
+    monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id, **kwargs: 1)
     monkeypatch.setattr(main, "upsert_chunks", lambda **kwargs: len(kwargs["chunks"]))
 
     client = TestClient(main.app)
@@ -641,7 +666,7 @@ def test_index_document_duplicate_content_reuses_existing_record(monkeypatch):
     )
 
     class FakeDocumentStore:
-        def get_document_by_content_hash(self, value):
+        def get_document_by_content_hash(self, value, **kwargs):
             assert value == content_hash
             return record
 
@@ -698,11 +723,11 @@ def test_index_document_reindex_replaces_existing_chunks(monkeypatch):
             self.removed_document_id = None
             self.added_kwargs = None
 
-        def get_document_by_content_hash(self, value):
+        def get_document_by_content_hash(self, value, **kwargs):
             assert value == content_hash
             return record
 
-        def remove_document(self, document_id):
+        def remove_document(self, document_id, **kwargs):
             self.removed_document_id = document_id
             return record
 
@@ -739,7 +764,7 @@ def test_index_document_reindex_replaces_existing_chunks(monkeypatch):
     monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
     monkeypatch.setattr(main, "get_qdrant_client", lambda local_path: object())
     monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
-    monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id: 3)
+    monkeypatch.setattr(main, "delete_document_chunks", lambda client, collection_name, document_id, **kwargs: 3)
     monkeypatch.setattr(main, "upsert_chunks", lambda **kwargs: len(kwargs["chunks"]))
 
     client = TestClient(main.app)
@@ -858,7 +883,7 @@ def test_index_document_accepts_txt_file(monkeypatch):
         def __init__(self):
             self.added_kwargs = None
 
-        def get_document_by_content_hash(self, value):
+        def get_document_by_content_hash(self, value, **kwargs):
             return None
 
         def add_document(self, **kwargs):
@@ -912,7 +937,7 @@ def test_index_document_accepts_csv_file(monkeypatch):
         def __init__(self):
             self.added_kwargs = None
 
-        def get_document_by_content_hash(self, value):
+        def get_document_by_content_hash(self, value, **kwargs):
             return None
 
         def add_document(self, **kwargs):
