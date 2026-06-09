@@ -73,30 +73,35 @@ def _ensure_sqlite_enterprise_schema(engine: Engine, database_url: str) -> None:
             row[1]
             for row in connection.execute(text("PRAGMA table_info(documents)")).fetchall()
         }
-        if not existing_columns:
-            return
+        if existing_columns:
+            column_specs = {
+                "organization_id": "VARCHAR(80) NOT NULL DEFAULT 'org_default'",
+                "workspace_id": "VARCHAR(80) NOT NULL DEFAULT 'ws_default'",
+                "knowledge_base_id": "VARCHAR(80) NOT NULL DEFAULT 'kb_default'",
+                "owner_user_id": "VARCHAR(64) NOT NULL DEFAULT 'system'",
+                "source_storage_backend": "VARCHAR(40)",
+                "source_storage_key": "TEXT",
+            }
+            for column_name, column_spec in column_specs.items():
+                if column_name not in existing_columns:
+                    connection.execute(text(f"ALTER TABLE documents ADD COLUMN {column_name} {column_spec}"))
 
-        column_specs = {
-            "organization_id": "VARCHAR(80) NOT NULL DEFAULT 'org_default'",
-            "workspace_id": "VARCHAR(80) NOT NULL DEFAULT 'ws_default'",
-            "knowledge_base_id": "VARCHAR(80) NOT NULL DEFAULT 'kb_default'",
-            "owner_user_id": "VARCHAR(64) NOT NULL DEFAULT 'system'",
-            "source_storage_backend": "VARCHAR(40)",
-            "source_storage_key": "TEXT",
-        }
-        for column_name, column_spec in column_specs.items():
-            if column_name not in existing_columns:
-                connection.execute(text(f"ALTER TABLE documents ADD COLUMN {column_name} {column_spec}"))
-
-        connection.execute(text("DROP INDEX IF EXISTS ix_documents_content_hash"))
-        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_content_hash ON documents (content_hash)"))
-        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_organization_id ON documents (organization_id)"))
-        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_workspace_id ON documents (workspace_id)"))
-        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_knowledge_base_id ON documents (knowledge_base_id)"))
-        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_owner_user_id ON documents (owner_user_id)"))
-        connection.execute(
-            text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_documents_kb_content_hash "
-                "ON documents (knowledge_base_id, content_hash)"
+            connection.execute(text("DROP INDEX IF EXISTS ix_documents_content_hash"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_content_hash ON documents (content_hash)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_organization_id ON documents (organization_id)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_workspace_id ON documents (workspace_id)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_knowledge_base_id ON documents (knowledge_base_id)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_documents_owner_user_id ON documents (owner_user_id)"))
+            connection.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_documents_kb_content_hash "
+                    "ON documents (knowledge_base_id, content_hash)"
+                )
             )
-        )
+
+        index_job_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info(index_jobs)")).fetchall()
+        }
+        if index_job_columns and "extract_tables" not in index_job_columns:
+            connection.execute(text("ALTER TABLE index_jobs ADD COLUMN extract_tables INTEGER NOT NULL DEFAULT 0"))

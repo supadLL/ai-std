@@ -6,7 +6,7 @@
     <title>Local RAG Agent | Knowledge QA</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" />
     <link rel="apple-touch-icon" sizes="192x192" href="/web/assets/rag-agent-icon-192.png?v=29" />
-    <link rel="stylesheet" href="/web/styles.css?v=42" />
+    <link rel="stylesheet" href="/web/styles.css?v=43" />
   </head>
   <body>
     <section class="auth-panel" id="authPanel">
@@ -25,6 +25,7 @@
         </label>
         <div class="auth-actions">
           <button class="primary-button" type="submit" data-i18n="auth.login">Login</button>
+          <button class="ghost-button" id="registerUser" type="button" data-i18n="auth.register">Register</button>
           <button class="ghost-button" id="bootstrapAdmin" type="button" data-i18n="auth.bootstrap">Initialize Admin</button>
         </div>
       </form>
@@ -96,7 +97,7 @@
             </div>
 
             <form class="upload-box" id="uploadForm">
-              <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.docx,.csv,.xlsx" />
+              <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.html,.htm,.docx,.csv,.xlsx" />
               <div class="upload-meta">
                 <label for="chunkSize" data-i18n="import.chunk">分块大小 chunk</label>
                 <input id="chunkSize" name="chunk_size" type="number" min="100" max="3000" value="800" />
@@ -272,6 +273,41 @@
                 </div>
               </section>
 
+              <section class="team-access-section">
+                <div class="section-title-row">
+                  <div>
+                    <p class="eyebrow" data-i18n="team.eyebrow">Team Access</p>
+                    <h3 data-i18n="team.title">Users and members</h3>
+                  </div>
+                  <button class="ghost-button compact" id="reloadTeamAccess" type="button" data-i18n="team.reload">Refresh access</button>
+                </div>
+
+                <div class="team-access-grid">
+                  <section class="team-block" id="adminUsersBlock" hidden>
+                    <div class="section-head compact-head">
+                      <h4 data-i18n="team.users">Users</h4>
+                    </div>
+                    <form class="inline-management-form" id="adminUserForm">
+                      <input id="adminUsernameInput" type="text" maxlength="120" placeholder="username" data-i18n-placeholder="team.usernamePlaceholder" />
+                      <input id="adminPasswordInput" type="password" maxlength="200" placeholder="temporary password" data-i18n-placeholder="team.passwordPlaceholder" />
+                      <button class="mini-button" type="submit" data-i18n="team.createUser">Create</button>
+                    </form>
+                    <div class="management-list" id="adminUserList"></div>
+                  </section>
+
+                  <section class="team-block">
+                    <div class="section-head compact-head">
+                      <h4 data-i18n="team.members">Knowledge base members</h4>
+                    </div>
+                    <form class="inline-management-form" id="memberForm">
+                      <input id="memberUsernameInput" type="text" maxlength="120" placeholder="username" data-i18n-placeholder="team.usernamePlaceholder" />
+                      <button class="mini-button" type="submit" data-i18n="team.addMember">Add</button>
+                    </form>
+                    <div class="management-list" id="memberList"></div>
+                  </section>
+                </div>
+              </section>
+
               <section class="llm-profile-section">
                 <div class="section-title-row">
                   <div>
@@ -370,6 +406,6 @@
       </form>
     </div>
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js?v=42"></script>
+    <script src="/web/app.js?v=43"></script>
   </body>
 </html>

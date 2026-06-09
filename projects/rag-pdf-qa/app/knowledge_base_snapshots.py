@@ -28,8 +28,42 @@ class KnowledgeBaseSnapshotRecord:
     documents: list[dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class KnowledgeBaseSnapshotChangedDocument:
+    document_id: str
+    before: dict[str, Any]
+    after: dict[str, Any]
+    changed_fields: list[str]
+
+
+@dataclass(frozen=True)
+class KnowledgeBaseSnapshotDiff:
+    knowledge_base_id: str
+    base_snapshot_id: str
+    target_snapshot_id: str
+    base_content_hash: str
+    target_content_hash: str
+    added_documents: list[dict[str, Any]]
+    removed_documents: list[dict[str, Any]]
+    changed_documents: list[KnowledgeBaseSnapshotChangedDocument]
+    unchanged_count: int
+
+
 class KnowledgeBaseSnapshotStoreError(RuntimeError):
     pass
+
+
+SNAPSHOT_DOCUMENT_DIFF_FIELDS = (
+    "filename",
+    "file_type",
+    "content_hash",
+    "chunk_count",
+    "indexed_count",
+    "source_file_size",
+    "source_storage_backend",
+    "source_storage_key",
+    "indexed_at",
+)
 
 
 class KnowledgeBaseSnapshotStore:
@@ -144,6 +178,60 @@ def calculate_snapshot_hash(document_summaries: Sequence[dict[str, Any]]) -> str
     return sha256(encoded).hexdigest()
 
 
+def diff_snapshots(
+    base_snapshot: KnowledgeBaseSnapshotRecord,
+    target_snapshot: KnowledgeBaseSnapshotRecord,
+) -> KnowledgeBaseSnapshotDiff:
+    if base_snapshot.knowledge_base_id != target_snapshot.knowledge_base_id:
+        raise ValueError("Snapshots must belong to the same knowledge base")
+
+    base_documents = _documents_by_id(base_snapshot.documents)
+    target_documents = _documents_by_id(target_snapshot.documents)
+    base_ids = set(base_documents)
+    target_ids = set(target_documents)
+
+    added_documents = _sort_document_summaries(
+        [target_documents[document_id] for document_id in target_ids - base_ids]
+    )
+    removed_documents = _sort_document_summaries(
+        [base_documents[document_id] for document_id in base_ids - target_ids]
+    )
+    changed_documents: list[KnowledgeBaseSnapshotChangedDocument] = []
+    unchanged_count = 0
+
+    for document_id in sorted(base_ids & target_ids):
+        before = base_documents[document_id]
+        after = target_documents[document_id]
+        changed_fields = [
+            field
+            for field in SNAPSHOT_DOCUMENT_DIFF_FIELDS
+            if before.get(field) != after.get(field)
+        ]
+        if changed_fields:
+            changed_documents.append(
+                KnowledgeBaseSnapshotChangedDocument(
+                    document_id=document_id,
+                    before=before,
+                    after=after,
+                    changed_fields=changed_fields,
+                )
+            )
+        else:
+            unchanged_count += 1
+
+    return KnowledgeBaseSnapshotDiff(
+        knowledge_base_id=base_snapshot.knowledge_base_id,
+        base_snapshot_id=base_snapshot.snapshot_id,
+        target_snapshot_id=target_snapshot.snapshot_id,
+        base_content_hash=base_snapshot.content_hash,
+        target_content_hash=target_snapshot.content_hash,
+        added_documents=added_documents,
+        removed_documents=removed_documents,
+        changed_documents=changed_documents,
+        unchanged_count=unchanged_count,
+    )
+
+
 def _record_from_model(snapshot: KnowledgeBaseSnapshotModel) -> KnowledgeBaseSnapshotRecord:
     return KnowledgeBaseSnapshotRecord(
         snapshot_id=snapshot.snapshot_id,
@@ -165,6 +253,27 @@ def _load_documents(value: str) -> list[dict[str, Any]]:
     if not isinstance(loaded, list):
         return []
     return [item for item in loaded if isinstance(item, dict)]
+
+
+def _documents_by_id(documents: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for document in documents:
+        document_id = document.get("document_id")
+        if document_id is None:
+            continue
+        result[str(document_id)] = document
+    return result
+
+
+def _sort_document_summaries(documents: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        documents,
+        key=lambda item: (
+            str(item.get("document_id", "")),
+            str(item.get("content_hash", "")),
+            str(item.get("filename", "")),
+        ),
+    )
 
 
 def _safe_int(value: object) -> int:

@@ -8,6 +8,7 @@ from app.document_store import DocumentRecord, DocumentStore
 from app.knowledge_base_snapshots import (
     KnowledgeBaseSnapshotStore,
     calculate_snapshot_hash,
+    diff_snapshots,
     summarize_documents,
 )
 from app.permissions import (
@@ -69,6 +70,48 @@ def test_snapshot_hash_is_stable_when_document_order_changes():
     assert forward_hash == reverse_hash
 
 
+def test_snapshot_diff_reports_added_removed_changed_and_unchanged(tmp_path):
+    database_url = f"sqlite:///{(tmp_path / 'app.db').as_posix()}"
+    store = KnowledgeBaseSnapshotStore(database_url)
+    base_snapshot = store.create_snapshot(
+        created_by_user_id="user-1",
+        organization_id=DEFAULT_ORGANIZATION_ID,
+        workspace_id=DEFAULT_WORKSPACE_ID,
+        knowledge_base_id=DEFAULT_KNOWLEDGE_BASE_ID,
+        documents=[
+            _document_record(document_id="doc-same", filename="same.pdf", content_hash="a" * 64),
+            _document_record(document_id="doc-removed", filename="removed.pdf", content_hash="b" * 64),
+            _document_record(document_id="doc-changed", filename="changed.pdf", content_hash="c" * 64),
+        ],
+        reason="before",
+    )
+    target_snapshot = store.create_snapshot(
+        created_by_user_id="user-1",
+        organization_id=DEFAULT_ORGANIZATION_ID,
+        workspace_id=DEFAULT_WORKSPACE_ID,
+        knowledge_base_id=DEFAULT_KNOWLEDGE_BASE_ID,
+        documents=[
+            _document_record(document_id="doc-same", filename="same.pdf", content_hash="a" * 64),
+            _document_record(
+                document_id="doc-changed",
+                filename="changed.pdf",
+                content_hash="d" * 64,
+                indexed_count=2,
+            ),
+            _document_record(document_id="doc-added", filename="added.pdf", content_hash="e" * 64),
+        ],
+        reason="after",
+    )
+
+    diff = diff_snapshots(base_snapshot, target_snapshot)
+
+    assert [document["document_id"] for document in diff.added_documents] == ["doc-added"]
+    assert [document["document_id"] for document in diff.removed_documents] == ["doc-removed"]
+    assert diff.changed_documents[0].document_id == "doc-changed"
+    assert diff.changed_documents[0].changed_fields == ["content_hash", "chunk_count", "indexed_count"]
+    assert diff.unchanged_count == 1
+
+
 def test_snapshot_api_creates_lists_and_reads_details(tmp_path, monkeypatch):
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}",
@@ -127,6 +170,54 @@ def test_snapshot_api_creates_lists_and_reads_details(tmp_path, monkeypatch):
     assert logs[0].details["document_count"] == 1
 
 
+def test_snapshot_diff_api_compares_two_snapshots(tmp_path, monkeypatch):
+    settings = Settings(
+        database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}",
+        document_metadata_path=str(tmp_path / "documents.json"),
+    )
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    store = KnowledgeBaseSnapshotStore(settings.database_url)
+    base_snapshot = store.create_snapshot(
+        created_by_user_id="test-user",
+        organization_id=DEFAULT_ORGANIZATION_ID,
+        workspace_id=DEFAULT_WORKSPACE_ID,
+        knowledge_base_id=DEFAULT_KNOWLEDGE_BASE_ID,
+        documents=[
+            _document_record(document_id="doc-same", filename="same.pdf", content_hash="a" * 64),
+            _document_record(document_id="doc-removed", filename="removed.pdf", content_hash="b" * 64),
+        ],
+        reason="before",
+    )
+    target_snapshot = store.create_snapshot(
+        created_by_user_id="test-user",
+        organization_id=DEFAULT_ORGANIZATION_ID,
+        workspace_id=DEFAULT_WORKSPACE_ID,
+        knowledge_base_id=DEFAULT_KNOWLEDGE_BASE_ID,
+        documents=[
+            _document_record(document_id="doc-same", filename="same.pdf", content_hash="a" * 64),
+            _document_record(document_id="doc-added", filename="added.pdf", content_hash="c" * 64),
+        ],
+        reason="after",
+    )
+
+    client = TestClient(main.app)
+    response = client.get(
+        f"/knowledge-bases/{DEFAULT_KNOWLEDGE_BASE_ID}/snapshots/"
+        f"{base_snapshot.snapshot_id}/diff/{target_snapshot.snapshot_id}"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["base_snapshot_id"] == base_snapshot.snapshot_id
+    assert data["target_snapshot_id"] == target_snapshot.snapshot_id
+    assert data["added_count"] == 1
+    assert data["removed_count"] == 1
+    assert data["changed_count"] == 0
+    assert data["unchanged_count"] == 1
+    assert data["added_documents"][0]["document_id"] == "doc-added"
+    assert data["removed_documents"][0]["document_id"] == "doc-removed"
+
+
 def test_snapshot_api_rejects_inaccessible_knowledge_base(tmp_path, monkeypatch):
     settings = Settings(
         database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}",
@@ -150,8 +241,12 @@ def test_snapshot_api_rejects_inaccessible_knowledge_base(tmp_path, monkeypatch)
     main.app.dependency_overrides[get_current_user] = lambda: bob
     client = TestClient(main.app)
     response = client.post(f"/knowledge-bases/{alice_access.knowledge_base_id}/snapshots", json={})
+    diff_response = client.get(
+        f"/knowledge-bases/{alice_access.knowledge_base_id}/snapshots/base/diff/target"
+    )
 
     assert response.status_code == 403
+    assert diff_response.status_code == 403
 
 
 def _document_record(

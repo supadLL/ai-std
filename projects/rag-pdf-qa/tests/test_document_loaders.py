@@ -126,3 +126,44 @@ def test_load_xlsx_document_converts_sheets_to_sections():
     assert "name=XlsxComet" in parsed.sections[0].text
     assert "owner=Eve" in parsed.sections[0].text
     assert parsed.sections[0].extraction_method == "table"
+
+
+def test_load_html_document_extracts_body_text_and_tables():
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <title>Product Wiki</title>
+        <style>.hidden { display: none; }</style>
+        <script>window.secret = "do not index";</script>
+      </head>
+      <body>
+        <header>Navigation should not appear</header>
+        <main>
+          <h1>Falcon Gateway</h1>
+          <p>The gateway connects users to Qdrant search.</p>
+          <ul><li>Supports RAG answers</li></ul>
+          <table>
+            <tr><th>Owner</th><th>Status</th></tr>
+            <tr><td>Alice</td><td>Ready</td></tr>
+          </table>
+        </main>
+        <footer>Footer noise</footer>
+      </body>
+    </html>
+    """
+
+    parsed = load_document_from_bytes(filename="wiki.html", content=html.encode("utf-8"))
+
+    assert parsed.file_type == "html"
+    assert parsed.sections[0].title == "Product Wiki"
+    assert parsed.sections[0].extraction_method == "text"
+    assert "Falcon Gateway" in parsed.sections[0].text
+    assert "Qdrant search" in parsed.sections[0].text
+    assert "Supports RAG answers" in parsed.sections[0].text
+    assert "do not index" not in parsed.sections[0].text
+    assert "Navigation should not appear" not in parsed.sections[0].text
+    table_sections = [section for section in parsed.sections if section.extraction_method == "table"]
+    assert table_sections
+    assert "Owner=Alice" in table_sections[0].text
+    assert "Status=Ready" in table_sections[0].text

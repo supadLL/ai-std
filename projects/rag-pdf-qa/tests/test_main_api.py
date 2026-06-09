@@ -1,17 +1,21 @@
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 import app.main as main
 from app.audit import AuditLogStore
 from app.config import Settings
+from app.db import session_scope
 from app.document_loaders import ParsedDocument, ParsedSection
 from app.document_store import DocumentRecord
 from app.evaluation import EvaluationRunSummary
-from app.pdf_extractor import ExtractedPage, ExtractedPdf
+from app.models import AnswerQualityJudgementModel, AuditLogModel
+from app.pdf_extractor import ExtractedImage, ExtractedPage, ExtractedPdf, ExtractedTable
 from app.runtime_settings import RuntimeSettings
 from app.text_splitter import TextChunk
 from app.vector_store import SearchResult
+from app.web_page_fetcher import FetchedWebPage, WebPageFetchError
 
 
 def test_search_documents_returns_retrieved_results(monkeypatch):
@@ -83,8 +87,8 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-    assert "/web/styles.css?v=42" in app_response.text
-    assert "/web/app.js?v=42" in app_response.text
+    assert "/web/styles.css?v=43" in app_response.text
+    assert "/web/app.js?v=43" in app_response.text
     assert 'id="knowledgeBaseSelect"' in app_response.text
     assert 'id="knowledgeBaseForm"' in app_response.text
     assert 'id="indexJobList"' in app_response.text
@@ -114,16 +118,34 @@ def test_web_ui_routes_are_available():
     assert 'id="profileTableBody"' in app_response.text
     assert 'id="profileModal"' in app_response.text
     assert 'id="addProfileButton"' in app_response.text
+    assert 'id="registerUser"' in app_response.text
+    assert 'class="team-access-section"' in app_response.text
+    assert 'id="reloadTeamAccess"' in app_response.text
+    assert 'id="adminUsersBlock"' in app_response.text
+    assert 'id="adminUserForm"' in app_response.text
+    assert 'id="adminUserList"' in app_response.text
+    assert 'id="memberForm"' in app_response.text
+    assert 'id="memberList"' in app_response.text
     assert docs_response.status_code == 200
     assert openapi_response.status_code == 200
     assert openapi_response.json()["info"]["title"] == "Local Knowledge RAG Agent"
+    assert "/auth/register" in openapi_response.json()["paths"]
+    assert "/admin/users" in openapi_response.json()["paths"]
     assert "/documents/index" in openapi_response.json()["paths"]
+    assert "/web-pages/index" in openapi_response.json()["paths"]
+    assert "/knowledge-bases/{knowledge_base_id}/web-pages/index" in openapi_response.json()["paths"]
     assert "/documents/index-jobs" in openapi_response.json()["paths"]
     assert "/documents/index-jobs/{job_id}/retry" in openapi_response.json()["paths"]
     assert "/knowledge-bases" in openapi_response.json()["paths"]
     assert "/knowledge-bases/{knowledge_base_id}/documents" in openapi_response.json()["paths"]
+    assert "/knowledge-bases/{knowledge_base_id}/members" in openapi_response.json()["paths"]
+    assert "/knowledge-bases/{knowledge_base_id}/members/{user_id}" in openapi_response.json()["paths"]
     assert "/knowledge-bases/{knowledge_base_id}/snapshots" in openapi_response.json()["paths"]
     assert "/knowledge-bases/{knowledge_base_id}/snapshots/{snapshot_id}" in openapi_response.json()["paths"]
+    assert (
+        "/knowledge-bases/{knowledge_base_id}/snapshots/{base_snapshot_id}/diff/{target_snapshot_id}"
+        in openapi_response.json()["paths"]
+    )
     assert "/settings/vector-store/status" in openapi_response.json()["paths"]
     assert "/audit-logs" in openapi_response.json()["paths"]
     assert "/metrics" in openapi_response.json()["paths"]
@@ -133,6 +155,7 @@ def test_web_ui_routes_are_available():
     assert "/evaluation/questions" in openapi_response.json()["paths"]
     assert "/evaluation/latest" in openapi_response.json()["paths"]
     assert "/evaluation/run" in openapi_response.json()["paths"]
+    assert "/evaluation/judge-answer" in openapi_response.json()["paths"]
 
 
 def test_health_endpoint_reports_startup_checks_without_secret_values(monkeypatch):
@@ -154,6 +177,9 @@ def test_health_endpoint_reports_startup_checks_without_secret_values(monkeypatc
             rate_limit_window_seconds=60,
             source_storage_enabled=True,
             source_storage_backend="local",
+            web_fetch_enabled=True,
+            web_fetch_max_bytes=4096,
+            web_fetch_allow_private_hosts=False,
         ),
     )
 
@@ -174,6 +200,9 @@ def test_health_endpoint_reports_startup_checks_without_secret_values(monkeypatc
     assert data["rate_limit_window_seconds"] == 60
     assert data["source_storage_enabled"] is True
     assert data["source_storage_backend"] == "local"
+    assert data["web_fetch_enabled"] is True
+    assert data["web_fetch_max_bytes"] == 4096
+    assert data["web_fetch_allow_private_hosts"] is False
     assert "secret_encryption_key_not_configured" in data["warnings"]
     assert "change-this-local-development-secret" not in response.text
     assert "your_llm_api_key_here" not in response.text
@@ -361,6 +390,100 @@ def test_pdf_extract_and_chunk_endpoints_reject_non_pdf_files():
     assert "Only PDF files" in chunk_response.json()["detail"]
 
 
+def test_pdf_extract_endpoint_returns_image_ocr_preview(monkeypatch):
+    def fake_extract_text_from_pdf_bytes(
+        filename,
+        content,
+        enable_ocr=False,
+        ocr_language="chi_sim+eng",
+        extract_tables=False,
+        enable_image_ocr=False,
+    ):
+        assert enable_image_ocr is True
+        assert ocr_language == "eng"
+        return ExtractedPdf(
+            filename=filename,
+            page_count=1,
+            char_count=48,
+            preview="Architecture overview",
+            pages=[
+                ExtractedPage(
+                    page_number=1,
+                    char_count=21,
+                    preview="Architecture overview",
+                    text="Architecture overview",
+                    images=[
+                        ExtractedImage(
+                            image_number=1,
+                            char_count=27,
+                            preview="Gateway to Qdrant",
+                            text="Gateway to Qdrant diagram",
+                        )
+                    ],
+                )
+            ],
+            scanned_like=False,
+            extraction_mode="text_image_ocr",
+            image_ocr_count=1,
+        )
+
+    monkeypatch.setattr(main, "extract_text_from_pdf_bytes", fake_extract_text_from_pdf_bytes)
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/documents/extract",
+        files={"file": ("diagram.pdf", b"%PDF", "application/pdf")},
+        data={"enable_image_ocr": "true", "ocr_language": "eng"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["image_ocr_count"] == 1
+    assert data["pages"][0]["image_ocr_count"] == 1
+    assert data["pages"][0]["images"][0]["extraction_method"] == "pdf_image_ocr"
+    assert data["pages"][0]["images"][0]["preview"] == "Gateway to Qdrant"
+
+
+def test_pdf_chunk_endpoint_returns_image_ocr_chunks(monkeypatch):
+    extracted = ExtractedPdf(
+        filename="diagram.pdf",
+        page_count=1,
+        char_count=48,
+        preview="Architecture overview",
+        pages=[ExtractedPage(page_number=1, char_count=21, preview="Architecture overview", text="Architecture overview")],
+        scanned_like=False,
+        extraction_mode="text_image_ocr",
+        image_ocr_count=1,
+    )
+
+    monkeypatch.setattr(main, "extract_text_from_pdf_bytes", lambda **kwargs: extracted)
+    monkeypatch.setattr(
+        main,
+        "split_pdf_text",
+        lambda extracted, chunk_size, overlap: [
+            TextChunk(
+                chunk_id=1,
+                page_number=1,
+                char_count=24,
+                text="Gateway to Qdrant diagram",
+                extraction_method="pdf_image_ocr",
+            )
+        ],
+    )
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/documents/chunk",
+        files={"file": ("diagram.pdf", b"%PDF", "application/pdf")},
+        data={"chunk_size": "100", "overlap": "0", "enable_image_ocr": "true"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["image_ocr_count"] == 1
+    assert data["chunks"][0]["extraction_method"] == "pdf_image_ocr"
+
+
 def test_build_rag_messages_requires_stable_output_format():
     messages = main._build_rag_messages(
         question="GUI Agent 的核心流程是什么？",
@@ -519,6 +642,109 @@ def test_answer_feedback_endpoint_records_user_feedback(tmp_path, monkeypatch):
     assert data["rating"] == "up"
     assert logs[0].action == "feedback.answer"
     assert logs[0].details["rating"] == "up"
+
+
+def test_answer_quality_judge_endpoint_records_structured_judgement(tmp_path, monkeypatch):
+    settings = Settings(
+        database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}",
+        llm_provider="deepseek",
+        llm_api_key="judge-key",
+        llm_model="judge-model",
+    )
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    monkeypatch.setattr(main, "load_runtime_settings", lambda: RuntimeSettings())
+
+    class FakeJudgeClient:
+        def __init__(self, effective_settings):
+            assert effective_settings.llm_api_key == "judge-key"
+
+        async def chat_messages(self, messages, max_tokens=1000, temperature=0.2):
+            assert temperature == 0.0
+            assert max_tokens == 800
+            prompt_text = "\n".join(message["content"] for message in messages)
+            assert "Question:" in prompt_text
+            assert "Retrieved sources:" in prompt_text
+            return {
+                "reply": """```json
+{
+  "groundedness": 5,
+  "answer_quality": 4,
+  "completeness": 4,
+  "risk_level": "low",
+  "verdict": "pass",
+  "rationale": "The answer is grounded in the supplied source."
+}
+```""",
+                "model": "judge-model",
+                "usage": {"total_tokens": 123},
+            }
+
+    monkeypatch.setattr(main, "DeepSeekClient", FakeJudgeClient)
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/evaluation/judge-answer",
+        json={
+            "question": "What is RAG?",
+            "answer": "RAG retrieves relevant context before answering.",
+            "route": "rag",
+            "sources": [
+                {
+                    "source_id": 1,
+                    "filename": "demo.md",
+                    "page_number": 1,
+                    "chunk_id": 2,
+                    "preview": "RAG retrieves relevant context before answering.",
+                }
+            ],
+        },
+        headers={"X-Request-ID": "req-judge-1"},
+    )
+    logs = AuditLogStore(settings.database_url).list_logs(action="evaluation.judge_answer", limit=5)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["judgement_id"].startswith("judge_")
+    assert data["request_id"] == "req-judge-1"
+    assert data["knowledge_base_id"] == "kb_default"
+    assert data["groundedness"] == 5
+    assert data["answer_quality"] == 4
+    assert data["completeness"] == 4
+    assert data["risk_level"] == "low"
+    assert data["verdict"] == "pass"
+    assert data["usage"]["total_tokens"] == 123
+    with session_scope(settings.database_url) as session:
+        row = session.get(AnswerQualityJudgementModel, data["judgement_id"])
+        assert row is not None
+        assert row.verdict == "pass"
+        assert row.request_id == "req-judge-1"
+    assert logs[0].resource_id == data["judgement_id"]
+    assert logs[0].llm_model == "judge-model"
+    assert logs[0].details["verdict"] == "pass"
+
+
+def test_answer_quality_judge_requires_configured_llm_key(tmp_path, monkeypatch):
+    settings = Settings(database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}", llm_api_key="")
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    monkeypatch.setattr(main, "load_runtime_settings", lambda: RuntimeSettings())
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/evaluation/judge-answer",
+        json={
+            "question": "What is RAG?",
+            "answer": "RAG retrieves context before answering.",
+            "sources": [],
+        },
+    )
+    logs = AuditLogStore(settings.database_url).list_logs(action="evaluation.judge_answer", limit=5)
+
+    assert response.status_code == 502
+    assert "LLM_API_KEY is not configured" in response.json()["detail"]
+    with session_scope(settings.database_url) as session:
+        assert session.scalars(select(AnswerQualityJudgementModel)).all() == []
+    assert logs[0].status == "failure"
+    assert logs[0].error_message == "LLM_API_KEY is not configured"
 
 
 def test_update_settings_persists_runtime_values_without_returning_api_key(monkeypatch):
@@ -976,10 +1202,19 @@ def test_index_document_reindex_replaces_existing_chunks(monkeypatch):
 def test_parse_pdf_index_file_passes_ocr_options(monkeypatch):
     calls = {}
 
-    def fake_extract_text_from_pdf_bytes(filename, content, enable_ocr=False, ocr_language="chi_sim+eng"):
+    def fake_extract_text_from_pdf_bytes(
+        filename,
+        content,
+        enable_ocr=False,
+        ocr_language="chi_sim+eng",
+        extract_tables=False,
+        enable_image_ocr=False,
+    ):
         calls["filename"] = filename
         calls["enable_ocr"] = enable_ocr
         calls["ocr_language"] = ocr_language
+        calls["extract_tables"] = extract_tables
+        calls["enable_image_ocr"] = enable_image_ocr
         return ExtractedPdf(
             filename=filename,
             page_count=1,
@@ -1026,6 +1261,130 @@ def test_parse_pdf_index_file_passes_ocr_options(monkeypatch):
     assert extraction_methods == ["pdf_ocr"]
     assert calls["enable_ocr"] is True
     assert calls["ocr_language"] == "eng"
+    assert calls["extract_tables"] is False
+    assert calls["enable_image_ocr"] is False
+
+
+def test_parse_pdf_index_file_passes_table_option(monkeypatch):
+    calls = {}
+
+    def fake_extract_text_from_pdf_bytes(
+        filename,
+        content,
+        enable_ocr=False,
+        ocr_language="chi_sim+eng",
+        extract_tables=False,
+        enable_image_ocr=False,
+    ):
+        calls["extract_tables"] = extract_tables
+        calls["enable_image_ocr"] = enable_image_ocr
+        return ExtractedPdf(
+            filename=filename,
+            page_count=1,
+            char_count=78,
+            preview="Project pricing",
+            pages=[
+                ExtractedPage(
+                    page_number=1,
+                    char_count=15,
+                    preview="Project pricing",
+                    text="Project pricing",
+                    tables=[
+                        ExtractedTable(
+                            table_number=1,
+                            row_count=2,
+                            char_count=63,
+                            preview="pdf table 1 page 1 row 2: Project=Falcon",
+                            text="pdf table 1 page 1 row 2: Project=Falcon; Price=999",
+                        )
+                    ],
+                )
+            ],
+            scanned_like=False,
+            extraction_mode="text_table",
+            table_count=1,
+        )
+
+    monkeypatch.setattr(main, "extract_text_from_pdf_bytes", fake_extract_text_from_pdf_bytes)
+
+    file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = main._parse_and_split_index_file(
+        filename="pricing.pdf",
+        content=b"%PDF",
+        chunk_size=100,
+        overlap=0,
+        extract_tables=True,
+    )
+
+    assert file_type == "pdf"
+    assert page_count == 1
+    assert calls["extract_tables"] is True
+    assert calls["enable_image_ocr"] is False
+    assert extraction_mode == "text_table"
+    assert ocr_page_count == 0
+    assert image_ocr_count == 0
+    assert [chunk.extraction_method for chunk in chunks] == ["text", "pdf_table"]
+    assert extraction_methods == ["pdf_table", "text"]
+
+
+def test_parse_pdf_index_file_passes_image_ocr_option(monkeypatch):
+    calls = {}
+
+    def fake_extract_text_from_pdf_bytes(
+        filename,
+        content,
+        enable_ocr=False,
+        ocr_language="chi_sim+eng",
+        extract_tables=False,
+        enable_image_ocr=False,
+    ):
+        calls["enable_image_ocr"] = enable_image_ocr
+        calls["ocr_language"] = ocr_language
+        return ExtractedPdf(
+            filename=filename,
+            page_count=1,
+            char_count=48,
+            preview="Architecture overview",
+            pages=[
+                ExtractedPage(
+                    page_number=1,
+                    char_count=21,
+                    preview="Architecture overview",
+                    text="Architecture overview",
+                    images=[
+                        ExtractedImage(
+                            image_number=1,
+                            char_count=27,
+                            preview="Gateway to Qdrant",
+                            text="Gateway to Qdrant diagram",
+                        )
+                    ],
+                )
+            ],
+            scanned_like=False,
+            extraction_mode="text_image_ocr",
+            image_ocr_count=1,
+        )
+
+    monkeypatch.setattr(main, "extract_text_from_pdf_bytes", fake_extract_text_from_pdf_bytes)
+
+    file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = main._parse_and_split_index_file(
+        filename="diagram.pdf",
+        content=b"%PDF",
+        chunk_size=100,
+        overlap=0,
+        enable_image_ocr=True,
+        ocr_language="eng",
+    )
+
+    assert file_type == "pdf"
+    assert page_count == 1
+    assert calls["enable_image_ocr"] is True
+    assert calls["ocr_language"] == "eng"
+    assert extraction_mode == "text_image_ocr"
+    assert ocr_page_count == 0
+    assert image_ocr_count == 1
+    assert [chunk.extraction_method for chunk in chunks] == ["text", "pdf_image_ocr"]
+    assert extraction_methods == ["pdf_image_ocr", "text"]
 
 
 def test_parse_non_pdf_index_file_counts_image_ocr_chunks(monkeypatch):
@@ -1129,6 +1488,182 @@ def test_index_document_accepts_txt_file(tmp_path, monkeypatch):
     assert fake_store.added_kwargs["file_type"] == "text"
     assert fake_store.added_kwargs["source_storage_backend"] == "local"
     assert (tmp_path / "source_files" / data["source_storage_key"]).exists()
+
+
+def test_index_document_accepts_html_file(monkeypatch):
+    class FakeDocumentStore:
+        def __init__(self):
+            self.added_kwargs = None
+
+        def get_document_by_content_hash(self, value, **kwargs):
+            return None
+
+        def add_document(self, **kwargs):
+            self.added_kwargs = kwargs
+            return DocumentRecord(
+                document_id=kwargs["document_id"],
+                filename=kwargs["filename"],
+                file_type=kwargs["file_type"],
+                content_hash=kwargs["content_hash"],
+                content_hash_prefix=kwargs["content_hash"][:12],
+                chunk_count=kwargs["chunk_count"],
+                created_at="2026-06-03T00:00:00+00:00",
+                indexed_at="2026-06-03T00:00:00+00:00",
+                source_file_size=kwargs["source_file_size"],
+                collection=kwargs["collection"],
+                chunk_size=kwargs["chunk_size"],
+                overlap=kwargs["overlap"],
+                embedding_model=kwargs["embedding_model"],
+                page_count=kwargs["page_count"],
+                indexed_count=kwargs["indexed_count"],
+            )
+
+    fake_store = FakeDocumentStore()
+    captured = {}
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="", document_metadata_path="unused.json"),
+    )
+    monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
+    monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
+    monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
+
+    def fake_upsert_chunks(**kwargs):
+        captured["chunks"] = kwargs["chunks"]
+        captured["file_type"] = kwargs["file_type"]
+        return len(kwargs["chunks"])
+
+    monkeypatch.setattr(main, "upsert_chunks", fake_upsert_chunks)
+
+    html = """
+    <html><head><title>Wiki Page</title><script>ignore()</script></head>
+    <body><main><h1>Falcon HTML</h1><p>HTML pages can enter RAG.</p></main></body></html>
+    """
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/documents/index",
+        files={"file": ("wiki.html", html.encode("utf-8"), "text/html")},
+        data={"chunk_size": "100", "overlap": "0"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["file_type"] == "html"
+    assert data["indexed"] is True
+    assert fake_store.added_kwargs["file_type"] == "html"
+    assert captured["file_type"] == "html"
+    assert captured["chunks"][0].extraction_method == "text"
+    assert "Falcon HTML" in captured["chunks"][0].text
+    assert "ignore" not in captured["chunks"][0].text
+
+
+def test_index_web_page_fetches_and_indexes_html(tmp_path, monkeypatch):
+    class FakeDocumentStore:
+        def __init__(self):
+            self.added_kwargs = None
+
+        def get_document_by_content_hash(self, value, **kwargs):
+            return None
+
+        def add_document(self, **kwargs):
+            self.added_kwargs = kwargs
+            return DocumentRecord(
+                document_id=kwargs["document_id"],
+                filename=kwargs["filename"],
+                file_type=kwargs["file_type"],
+                content_hash=kwargs["content_hash"],
+                content_hash_prefix=kwargs["content_hash"][:12],
+                chunk_count=kwargs["chunk_count"],
+                created_at="2026-06-03T00:00:00+00:00",
+                indexed_at="2026-06-03T00:00:00+00:00",
+                source_file_size=kwargs["source_file_size"],
+                collection=kwargs["collection"],
+                chunk_size=kwargs["chunk_size"],
+                overlap=kwargs["overlap"],
+                embedding_model=kwargs["embedding_model"],
+                page_count=kwargs["page_count"],
+                indexed_count=kwargs["indexed_count"],
+            )
+
+    settings = Settings(
+        deepseek_api_key="",
+        document_metadata_path="unused.json",
+        database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}",
+        web_fetch_enabled=True,
+    )
+    fake_store = FakeDocumentStore()
+    captured = {}
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    monkeypatch.setattr(main, "get_document_store", lambda metadata_path: fake_store)
+    monkeypatch.setattr(
+        main,
+        "fetch_web_page",
+        lambda **kwargs: FetchedWebPage(
+            url=kwargs["url"],
+            final_url="https://example.com/docs/intro",
+            filename="example.com-docs-intro.html",
+            content=b"<html><head><title>Docs</title></head><body><main><h1>Web Falcon</h1></main></body></html>",
+            content_type="text/html",
+            status_code=200,
+        ),
+    )
+    monkeypatch.setattr(main, "embed_text", lambda text, model_name: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(main, "get_qdrant_client", lambda *args, **kwargs: object())
+    monkeypatch.setattr(main, "ensure_collection", lambda client, collection_name, dimension: None)
+
+    def fake_upsert_chunks(**kwargs):
+        captured["chunks"] = kwargs["chunks"]
+        captured["file_type"] = kwargs["file_type"]
+        return len(kwargs["chunks"])
+
+    monkeypatch.setattr(main, "upsert_chunks", fake_upsert_chunks)
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/web-pages/index",
+        json={"url": "https://example.com/docs/intro", "chunk_size": 100, "overlap": 0},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["file_type"] == "html"
+    assert data["filename"] == "example.com-docs-intro.html"
+    assert fake_store.added_kwargs["file_type"] == "html"
+    assert captured["file_type"] == "html"
+    assert "Web Falcon" in captured["chunks"][0].text
+
+    with session_scope(settings.database_url) as session:
+        audit = session.scalar(select(AuditLogModel).where(AuditLogModel.action == "web_page.index"))
+        assert audit is not None
+        assert audit.status == "success"
+
+
+def test_index_web_page_records_fetch_failure_audit(tmp_path, monkeypatch):
+    settings = Settings(
+        deepseek_api_key="",
+        database_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}",
+        web_fetch_enabled=True,
+    )
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        main,
+        "fetch_web_page",
+        lambda **kwargs: (_ for _ in ()).throw(WebPageFetchError("Private or local URLs are not allowed")),
+    )
+
+    client = TestClient(main.app)
+    response = client.post("/web-pages/index", json={"url": "http://127.0.0.1/admin"})
+
+    assert response.status_code == 422
+    assert "Private or local URLs" in response.json()["detail"]
+
+    with session_scope(settings.database_url) as session:
+        audit = session.scalar(select(AuditLogModel).where(AuditLogModel.action == "web_page.index"))
+        assert audit is not None
+        assert audit.status == "failure"
 
 
 def test_index_document_accepts_csv_file(monkeypatch):

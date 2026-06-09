@@ -25,10 +25,12 @@ def test_index_job_store_lifecycle(tmp_path):
         reindex=False,
         enable_ocr=False,
         enable_image_ocr=False,
+        extract_tables=True,
         ocr_language="chi_sim+eng",
     )
 
     assert job.status == "queued"
+    assert job.extract_tables is True
     assert store.list_jobs(knowledge_base_id="kb-1")[0].job_id == job.job_id
 
     running = store.mark_running(job.job_id)
@@ -56,7 +58,7 @@ def test_create_index_job_returns_queued_job_and_persists_upload(tmp_path, monke
     response = client.post(
         "/documents/index-jobs",
         files={"file": ("notes.txt", b"hello async index", "text/plain")},
-        data={"chunk_size": "100", "overlap": "0"},
+        data={"chunk_size": "100", "overlap": "0", "extract_tables": "true"},
     )
 
     assert response.status_code == 200
@@ -64,6 +66,7 @@ def test_create_index_job_returns_queued_job_and_persists_upload(tmp_path, monke
     assert data["status"] == "queued"
     assert data["knowledge_base_id"] == "kb_default"
     assert data["filename"] == "notes.txt"
+    assert data["extract_tables"] is True
     assert Path(settings.index_job_storage_path).exists()
 
     list_response = client.get("/documents/index-jobs")
@@ -96,10 +99,12 @@ def test_run_index_job_task_marks_success(tmp_path, monkeypatch):
         reindex=False,
         enable_ocr=False,
         enable_image_ocr=False,
+        extract_tables=True,
         ocr_language="chi_sim+eng",
     )
 
     def fake_index_document_content(**kwargs):
+        assert kwargs["extract_tables"] is True
         return main.DocumentIndexResponse(
             document_id="doc-async",
             knowledge_base_id=kwargs["access"].knowledge_base_id,
@@ -151,6 +156,7 @@ def test_retry_failed_index_job_requeues_job(tmp_path, monkeypatch):
         reindex=False,
         enable_ocr=False,
         enable_image_ocr=False,
+        extract_tables=False,
         ocr_language="chi_sim+eng",
     )
     store.mark_failed(job.job_id, error_message="file missing")

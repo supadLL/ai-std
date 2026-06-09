@@ -21,6 +21,8 @@ const state = {
   availableProviders: [],
   llmProfiles: [],
   activeProfileId: "",
+  adminUsers: [],
+  knowledgeBaseMembers: [],
   preferences: loadPreferences(),
 };
 
@@ -94,12 +96,22 @@ const els = {
   authForm: document.querySelector("#authForm"),
   authUsername: document.querySelector("#authUsername"),
   authPassword: document.querySelector("#authPassword"),
+  registerUser: document.querySelector("#registerUser"),
   bootstrapAdmin: document.querySelector("#bootstrapAdmin"),
   logoutButton: document.querySelector("#logoutButton"),
   currentUserLabel: document.querySelector("#currentUserLabel"),
   knowledgeBaseSelect: document.querySelector("#knowledgeBaseSelect"),
   knowledgeBaseForm: document.querySelector("#knowledgeBaseForm"),
   knowledgeBaseNameInput: document.querySelector("#knowledgeBaseNameInput"),
+  reloadTeamAccess: document.querySelector("#reloadTeamAccess"),
+  adminUsersBlock: document.querySelector("#adminUsersBlock"),
+  adminUserForm: document.querySelector("#adminUserForm"),
+  adminUsernameInput: document.querySelector("#adminUsernameInput"),
+  adminPasswordInput: document.querySelector("#adminPasswordInput"),
+  adminUserList: document.querySelector("#adminUserList"),
+  memberForm: document.querySelector("#memberForm"),
+  memberUsernameInput: document.querySelector("#memberUsernameInput"),
+  memberList: document.querySelector("#memberList"),
 };
 
 const THEME_COLORS = {
@@ -277,6 +289,24 @@ const translations = {
     "settingsStatus.error": "error",
     "settingsStatus.noKey": "no-key",
     "settingsStatus.key": "key",
+    "auth.register": "Register",
+    "team.eyebrow": "Team Access",
+    "team.title": "Users and members",
+    "team.reload": "Refresh access",
+    "team.users": "Users",
+    "team.members": "Knowledge base members",
+    "team.usernamePlaceholder": "username",
+    "team.passwordPlaceholder": "temporary password",
+    "team.createUser": "Create",
+    "team.addMember": "Add",
+    "team.emptyUsers": "No users",
+    "team.emptyMembers": "No members",
+    "team.noKnowledgeBase": "Select a knowledge base first",
+    "team.noPermission": "Owner or admin access required",
+    "team.remove": "Remove",
+    "team.createdUser": "User created",
+    "team.addedMember": "Member added",
+    "team.removedMember": "Member removed",
   },
   en: {
     "app.eyebrow": "Local RAG",
@@ -445,6 +475,24 @@ const translations = {
     "settingsStatus.error": "error",
     "settingsStatus.noKey": "no-key",
     "settingsStatus.key": "key",
+    "auth.register": "Register",
+    "team.eyebrow": "Team Access",
+    "team.title": "Users and members",
+    "team.reload": "Refresh access",
+    "team.users": "Users",
+    "team.members": "Knowledge base members",
+    "team.usernamePlaceholder": "username",
+    "team.passwordPlaceholder": "temporary password",
+    "team.createUser": "Create",
+    "team.addMember": "Add",
+    "team.emptyUsers": "No users",
+    "team.emptyMembers": "No members",
+    "team.noKnowledgeBase": "Select a knowledge base first",
+    "team.noPermission": "Owner or admin access required",
+    "team.remove": "Remove",
+    "team.createdUser": "User created",
+    "team.addedMember": "Member added",
+    "team.removedMember": "Member removed",
   },
 };
 
@@ -492,7 +540,9 @@ async function requestJson(url, options = {}) {
       showAuthPanel();
     }
     const detail = data?.detail || response.statusText;
-    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    const error = new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -512,6 +562,8 @@ function clearAuthState() {
   state.documents = [];
   state.indexJobs = [];
   state.hadActiveIndexJobs = false;
+  state.adminUsers = [];
+  state.knowledgeBaseMembers = [];
   stopIndexJobPolling();
   state.selectedDocumentIds.clear();
   state.activeDocumentId = null;
@@ -521,6 +573,8 @@ function clearAuthState() {
   renderIndexJobs();
   renderDocumentControls();
   renderDocuments();
+  renderAdminUsers();
+  renderKnowledgeBaseMembers();
 }
 
 function showAuthPanel() {
@@ -556,7 +610,7 @@ async function initializeAuthenticatedApp() {
     hideAuthPanel();
     renderAuthState();
     await loadKnowledgeBases();
-    await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings()]);
+    await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings(), loadTeamAccess()]);
   } catch (error) {
     clearAuthState();
     showAuthPanel();
@@ -570,6 +624,10 @@ async function submitAuth(event) {
 
 async function bootstrapAdmin() {
   await authenticateWith("/auth/bootstrap-admin");
+}
+
+async function registerUser() {
+  await authenticateWith("/auth/register");
 }
 
 async function authenticateWith(endpoint) {
@@ -587,7 +645,7 @@ async function authenticateWith(endpoint) {
     hideAuthPanel();
     showToast("Signed in");
     await loadKnowledgeBases();
-    await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings()]);
+    await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings(), loadTeamAccess()]);
   } catch (error) {
     showToast(error.message, true);
   }
@@ -647,7 +705,7 @@ async function changeKnowledgeBase() {
   stopIndexJobPolling();
   renderDocumentDetail();
   renderIndexJobs();
-  await Promise.all([loadDocuments(), loadIndexJobs()]);
+  await Promise.all([loadDocuments(), loadIndexJobs(), loadTeamAccess()]);
 }
 
 async function createKnowledgeBase(event) {
@@ -665,7 +723,7 @@ async function createKnowledgeBase(event) {
     state.activeKnowledgeBaseId = knowledgeBase.knowledge_base_id;
     els.knowledgeBaseNameInput.value = "";
     await loadKnowledgeBases();
-    await Promise.all([loadDocuments(), loadIndexJobs()]);
+    await Promise.all([loadDocuments(), loadIndexJobs(), loadTeamAccess()]);
     showToast(t("kb.created"));
   } catch (error) {
     showToast(error.message, true);
@@ -764,6 +822,202 @@ async function loadSettings() {
   setSettingsStatus("loading");
   const data = await requestJson("/settings");
   applySettingsData(data);
+}
+
+function activeKnowledgeBase() {
+  return state.knowledgeBases.find((knowledgeBase) => knowledgeBase.knowledge_base_id === state.activeKnowledgeBaseId) || null;
+}
+
+function canManageActiveKnowledgeBase() {
+  return state.currentUser?.role === "admin" || activeKnowledgeBase()?.role === "owner";
+}
+
+async function loadTeamAccess() {
+  if (!els.memberList) {
+    return;
+  }
+
+  const isAdmin = state.currentUser?.role === "admin";
+  if (els.adminUsersBlock) {
+    els.adminUsersBlock.hidden = !isAdmin;
+  }
+
+  if (!state.currentUser || !state.activeKnowledgeBaseId) {
+    state.adminUsers = [];
+    state.knowledgeBaseMembers = [];
+    renderAdminUsers();
+    renderKnowledgeBaseMembers(t("team.noKnowledgeBase"));
+    return;
+  }
+
+  if (isAdmin) {
+    try {
+      const data = await requestJson("/admin/users");
+      state.adminUsers = data.users || [];
+    } catch (error) {
+      state.adminUsers = [];
+      if (error.status !== 403) {
+        showToast(error.message, true);
+      }
+    }
+  } else {
+    state.adminUsers = [];
+  }
+  renderAdminUsers();
+
+  if (!canManageActiveKnowledgeBase()) {
+    state.knowledgeBaseMembers = [];
+    renderKnowledgeBaseMembers(t("team.noPermission"));
+    return;
+  }
+
+  try {
+    const data = await requestJson(knowledgeBasePath("/members"));
+    state.knowledgeBaseMembers = data.members || [];
+    renderKnowledgeBaseMembers();
+  } catch (error) {
+    state.knowledgeBaseMembers = [];
+    if (error.status === 403) {
+      renderKnowledgeBaseMembers(t("team.noPermission"));
+      return;
+    }
+    renderKnowledgeBaseMembers(error.message);
+    showToast(error.message, true);
+  }
+}
+
+function renderAdminUsers() {
+  if (!els.adminUserList) {
+    return;
+  }
+  if (!state.adminUsers.length) {
+    els.adminUserList.innerHTML = `<p class="empty-state compact-empty">${t("team.emptyUsers")}</p>`;
+    return;
+  }
+  els.adminUserList.innerHTML = state.adminUsers
+    .map(
+      (user) => `
+        <div class="management-row">
+          <div class="management-meta">
+            <b>${escapeHtml(user.username)}</b>
+            <span>${escapeHtml(user.user_id)} · ${escapeHtml(user.status)} · ${formatDateTime(user.created_at)}</span>
+          </div>
+          <span class="type-pill">${escapeHtml(user.role)}</span>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function renderKnowledgeBaseMembers(message = "") {
+  if (!els.memberList) {
+    return;
+  }
+  const canManage = Boolean(state.currentUser && state.activeKnowledgeBaseId && canManageActiveKnowledgeBase());
+  if (els.memberForm) {
+    els.memberForm.hidden = !canManage;
+  }
+  if (message) {
+    els.memberList.innerHTML = `<p class="empty-state compact-empty">${escapeHtml(message)}</p>`;
+    return;
+  }
+  if (!state.currentUser || !state.activeKnowledgeBaseId) {
+    els.memberList.innerHTML = `<p class="empty-state compact-empty">${t("team.noKnowledgeBase")}</p>`;
+    return;
+  }
+  if (!canManage && state.currentUser && state.activeKnowledgeBaseId) {
+    els.memberList.innerHTML = `<p class="empty-state compact-empty">${t("team.noPermission")}</p>`;
+    return;
+  }
+  if (!state.knowledgeBaseMembers.length) {
+    els.memberList.innerHTML = `<p class="empty-state compact-empty">${t("team.emptyMembers")}</p>`;
+    return;
+  }
+
+  const ownerCount = state.knowledgeBaseMembers.filter((member) => member.role === "owner").length;
+  els.memberList.innerHTML = state.knowledgeBaseMembers
+    .map((member) => {
+      const isLastOwner = member.role === "owner" && ownerCount <= 1;
+      const canRemove = canManage && !isLastOwner;
+      return `
+        <div class="management-row">
+          <div class="management-meta">
+            <b>${escapeHtml(member.username)}</b>
+            <span>${escapeHtml(member.user_id)} · ${formatDateTime(member.created_at)}</span>
+          </div>
+          <div class="management-actions">
+            <span class="type-pill">${escapeHtml(member.role)}</span>
+            <button
+              class="mini-button danger-button"
+              type="button"
+              data-member-remove="${escapeHtml(member.user_id)}"
+              ${canRemove ? "" : "disabled"}
+            >
+              ${t("team.remove")}
+            </button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+async function createAdminUser(event) {
+  event.preventDefault();
+  const username = els.adminUsernameInput.value.trim();
+  const password = els.adminPasswordInput.value;
+  if (!username || !password) {
+    return;
+  }
+  try {
+    await requestJson("/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    els.adminUsernameInput.value = "";
+    els.adminPasswordInput.value = "";
+    await loadTeamAccess();
+    showToast(t("team.createdUser"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+async function addKnowledgeBaseMember(event) {
+  event.preventDefault();
+  const username = els.memberUsernameInput.value.trim();
+  if (!username) {
+    return;
+  }
+  try {
+    await requestJson(knowledgeBasePath("/members"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    els.memberUsernameInput.value = "";
+    await loadTeamAccess();
+    showToast(t("team.addedMember"));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+function handleMemberListClick(event) {
+  const removeButton = event.target.closest("[data-member-remove]");
+  if (!removeButton || removeButton.disabled) {
+    return;
+  }
+  removeKnowledgeBaseMember(removeButton.dataset.memberRemove).catch((error) => showToast(error.message, true));
+}
+
+async function removeKnowledgeBaseMember(userId) {
+  await requestJson(knowledgeBasePath(`/members/${encodeURIComponent(userId)}`), {
+    method: "DELETE",
+  });
+  await loadTeamAccess();
+  showToast(t("team.removedMember"));
 }
 
 function applySettingsData(data) {
@@ -1724,6 +1978,8 @@ function applyLanguage() {
   renderDocumentControls();
   renderDocuments();
   renderProfileTable();
+  renderAdminUsers();
+  renderKnowledgeBaseMembers();
   renderMessages();
   if (state.lastAnswer) {
     renderSources(state.lastAnswer.sources || []);
@@ -1962,6 +2218,12 @@ els.evaluationHistory.addEventListener("click", handleEvaluationHistoryClick);
 els.reloadSettings.addEventListener("click", () => {
   loadSettings().catch((error) => showToast(error.message, true));
 });
+els.reloadTeamAccess.addEventListener("click", () => {
+  loadTeamAccess().catch((error) => showToast(error.message, true));
+});
+els.adminUserForm.addEventListener("submit", createAdminUser);
+els.memberForm.addEventListener("submit", addKnowledgeBaseMember);
+els.memberList.addEventListener("click", handleMemberListClick);
 els.languageButtons.forEach((button) => {
   button.addEventListener("click", () => setLanguage(button.dataset.language));
 });
@@ -1999,6 +2261,9 @@ els.refreshDocuments.addEventListener("click", () => {
   loadDocuments().catch((error) => showToast(error.message, true));
 });
 els.authForm.addEventListener("submit", submitAuth);
+els.registerUser.addEventListener("click", () => {
+  registerUser().catch((error) => showToast(error.message, true));
+});
 els.bootstrapAdmin.addEventListener("click", () => {
   bootstrapAdmin().catch((error) => showToast(error.message, true));
 });

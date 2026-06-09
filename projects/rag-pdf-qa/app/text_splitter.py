@@ -32,6 +32,28 @@ def split_pdf_text(extracted: ExtractedPdf, chunk_size: int = 800, overlap: int 
                 overlap=overlap,
             )
         )
+        for table in page.tables:
+            chunks.extend(
+                _split_text_unit(
+                    unit_number=page.page_number,
+                    text=table.text,
+                    extraction_method="pdf_table",
+                    current_count=len(chunks),
+                    chunk_size=chunk_size,
+                    overlap=overlap,
+                )
+            )
+        for image in page.images:
+            chunks.extend(
+                _split_text_unit(
+                    unit_number=page.page_number,
+                    text=image.text,
+                    extraction_method=image.extraction_method,
+                    current_count=len(chunks),
+                    chunk_size=chunk_size,
+                    overlap=overlap,
+                )
+            )
 
     return chunks
 

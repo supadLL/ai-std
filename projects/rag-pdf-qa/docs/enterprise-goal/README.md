@@ -125,4 +125,13 @@ Additional enterprise goal:
 09-runtime-safety-and-limits-goal.md
 10-source-file-storage-governance-goal.md
 11-knowledge-base-versioning-goal.md
+12-knowledge-base-snapshot-diff-goal.md
+13-user-registration-and-provisioning-goal.md
+14-knowledge-base-member-management-goal.md
+15-web-ui-account-and-member-management-goal.md
+16-llm-answer-quality-judge-goal.md
+17-pdf-table-extraction-governance-goal.md
+18-pdf-embedded-image-ocr-goal.md
+19-html-web-page-body-loader-goal.md
+20-safe-url-web-page-ingestion-goal.md
 ```

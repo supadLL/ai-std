@@ -35,6 +35,7 @@ class IndexJobRecord:
     reindex: bool
     enable_ocr: bool
     enable_image_ocr: bool
+    extract_tables: bool
     ocr_language: str
     attempts: int
     created_at: str
@@ -71,6 +72,7 @@ class IndexJobStore:
         reindex: bool,
         enable_ocr: bool,
         enable_image_ocr: bool,
+        extract_tables: bool,
         ocr_language: str,
     ) -> IndexJobRecord:
         now = _now()
@@ -90,6 +92,7 @@ class IndexJobStore:
             reindex=1 if reindex else 0,
             enable_ocr=1 if enable_ocr else 0,
             enable_image_ocr=1 if enable_image_ocr else 0,
+            extract_tables=1 if extract_tables else 0,
             ocr_language=ocr_language,
             attempts=0,
             progress_message=JOB_STATUS_QUEUED,
@@ -215,6 +218,7 @@ def _record_from_model(job: IndexJobModel) -> IndexJobRecord:
         reindex=bool(job.reindex),
         enable_ocr=bool(job.enable_ocr),
         enable_image_ocr=bool(job.enable_image_ocr),
+        extract_tables=bool(job.extract_tables),
         ocr_language=job.ocr_language,
         attempts=job.attempts,
         document_id=job.document_id,

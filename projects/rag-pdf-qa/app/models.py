@@ -110,6 +110,7 @@ class IndexJobModel(Base):
     reindex: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     enable_ocr: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     enable_image_ocr: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    extract_tables: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ocr_language: Mapped[str] = mapped_column(String(80), nullable=False, default="chi_sim+eng")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     document_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
@@ -206,6 +207,33 @@ class AnswerFeedbackModel(Base):
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer_preview: Mapped[str] = mapped_column(Text, nullable=False)
     details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class AnswerQualityJudgementModel(Base):
+    __tablename__ = "answer_quality_judgements"
+
+    judgement_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    created_at: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(80), index=True, nullable=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    username: Mapped[str] = mapped_column(String(120), nullable=False)
+    organization_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    workspace_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    knowledge_base_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    route: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    answer_preview: Mapped[str] = mapped_column(Text, nullable=False)
+    sources_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    llm_provider: Mapped[str] = mapped_column(String(80), nullable=False)
+    llm_model: Mapped[str] = mapped_column(String(240), nullable=False)
+    groundedness: Mapped[int] = mapped_column(Integer, nullable=False)
+    answer_quality: Mapped[int] = mapped_column(Integer, nullable=False)
+    completeness: Mapped[int] = mapped_column(Integer, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
+    verdict: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_judge_json: Mapped[str] = mapped_column(Text, nullable=False)
+    usage_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class KnowledgeBaseSnapshotModel(Base):

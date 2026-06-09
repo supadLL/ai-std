@@ -1,4 +1,4 @@
-from app.pdf_extractor import ExtractedPage, ExtractedPdf
+from app.pdf_extractor import ExtractedImage, ExtractedPage, ExtractedPdf, ExtractedTable
 from app.document_loaders import ParsedDocument, ParsedSection
 from app.text_splitter import _find_reasonable_boundary, split_parsed_document, split_pdf_text
 
@@ -51,6 +51,75 @@ def test_split_pdf_text_preserves_extraction_method():
     chunks = split_pdf_text(extracted, chunk_size=100, overlap=0)
 
     assert chunks[0].extraction_method == "pdf_ocr"
+
+
+def test_split_pdf_text_creates_pdf_table_chunks():
+    extracted = ExtractedPdf(
+        filename="table.pdf",
+        page_count=1,
+        char_count=60,
+        preview="Project pricing",
+        pages=[
+            ExtractedPage(
+                page_number=2,
+                char_count=15,
+                preview="Project pricing",
+                text="Project pricing",
+                tables=[
+                    ExtractedTable(
+                        table_number=1,
+                        row_count=2,
+                        char_count=45,
+                        preview="pdf table 1 page 2 row 2: Project=Falcon",
+                        text="pdf table 1 page 2 row 2: Project=Falcon; Price=999",
+                    )
+                ],
+            )
+        ],
+        scanned_like=False,
+        extraction_mode="text_table",
+        table_count=1,
+    )
+
+    chunks = split_pdf_text(extracted, chunk_size=100, overlap=0)
+
+    assert [chunk.extraction_method for chunk in chunks] == ["text", "pdf_table"]
+    assert chunks[1].page_number == 2
+    assert "Project=Falcon" in chunks[1].text
+
+
+def test_split_pdf_text_creates_pdf_image_ocr_chunks():
+    extracted = ExtractedPdf(
+        filename="diagram.pdf",
+        page_count=1,
+        char_count=45,
+        preview="Architecture overview",
+        pages=[
+            ExtractedPage(
+                page_number=3,
+                char_count=21,
+                preview="Architecture overview",
+                text="Architecture overview",
+                images=[
+                    ExtractedImage(
+                        image_number=1,
+                        char_count=24,
+                        preview="Gateway to Qdrant",
+                        text="Gateway to Qdrant diagram",
+                    )
+                ],
+            )
+        ],
+        scanned_like=False,
+        extraction_mode="text_image_ocr",
+        image_ocr_count=1,
+    )
+
+    chunks = split_pdf_text(extracted, chunk_size=100, overlap=0)
+
+    assert [chunk.extraction_method for chunk in chunks] == ["text", "pdf_image_ocr"]
+    assert chunks[1].page_number == 3
+    assert "Gateway to Qdrant" in chunks[1].text
 
 
 def test_split_parsed_document_preserves_section_extraction_method():

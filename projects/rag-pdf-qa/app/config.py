@@ -36,6 +36,7 @@ class Settings:
     app_secret_key: str = "change-this-local-development-secret"
     secret_encryption_key: str = ""
     access_token_expire_minutes: int = 480
+    user_registration_enabled: bool = True
     max_upload_bytes: int = 10 * 1024 * 1024
     rate_limit_enabled: bool = False
     rate_limit_requests: int = 120
@@ -43,6 +44,10 @@ class Settings:
     source_storage_enabled: bool = False
     source_storage_backend: str = "local"
     source_storage_path: str = "data/source_files"
+    web_fetch_enabled: bool = True
+    web_fetch_timeout_seconds: float = 10.0
+    web_fetch_max_bytes: int = 2 * 1024 * 1024
+    web_fetch_allow_private_hosts: bool = False
 
     def __post_init__(self) -> None:
         if not self.llm_api_key and self.deepseek_api_key:
@@ -93,6 +98,10 @@ def get_settings() -> Settings:
     app_secret_key = os.getenv("APP_SECRET_KEY", "change-this-local-development-secret").strip()
     secret_encryption_key = os.getenv("SECRET_ENCRYPTION_KEY", "").strip()
     access_token_expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+    user_registration_enabled = _parse_bool(
+        os.getenv("USER_REGISTRATION_ENABLED"),
+        default=app_env != "production",
+    )
     max_upload_bytes = max(1, int(os.getenv("MAX_UPLOAD_BYTES", str(10 * 1024 * 1024))))
     rate_limit_enabled = _parse_bool(
         os.getenv("RATE_LIMIT_ENABLED"),
@@ -103,6 +112,10 @@ def get_settings() -> Settings:
     source_storage_enabled = _parse_bool(os.getenv("SOURCE_STORAGE_ENABLED"), default=app_env == "production")
     source_storage_backend = os.getenv("SOURCE_STORAGE_BACKEND", "local").strip().lower() or "local"
     source_storage_path = os.getenv("SOURCE_STORAGE_PATH", "data/source_files").strip()
+    web_fetch_enabled = _parse_bool(os.getenv("WEB_FETCH_ENABLED"), default=True)
+    web_fetch_timeout_seconds = float(os.getenv("WEB_FETCH_TIMEOUT_SECONDS", "10"))
+    web_fetch_max_bytes = max(1, int(os.getenv("WEB_FETCH_MAX_BYTES", str(2 * 1024 * 1024))))
+    web_fetch_allow_private_hosts = _parse_bool(os.getenv("WEB_FETCH_ALLOW_PRIVATE_HOSTS"), default=False)
 
     return Settings(
         app_env=app_env,
@@ -129,6 +142,7 @@ def get_settings() -> Settings:
         app_secret_key=app_secret_key,
         secret_encryption_key=secret_encryption_key,
         access_token_expire_minutes=access_token_expire_minutes,
+        user_registration_enabled=user_registration_enabled,
         max_upload_bytes=max_upload_bytes,
         rate_limit_enabled=rate_limit_enabled,
         rate_limit_requests=rate_limit_requests,
@@ -136,6 +150,10 @@ def get_settings() -> Settings:
         source_storage_enabled=source_storage_enabled,
         source_storage_backend=source_storage_backend,
         source_storage_path=source_storage_path,
+        web_fetch_enabled=web_fetch_enabled,
+        web_fetch_timeout_seconds=web_fetch_timeout_seconds,
+        web_fetch_max_bytes=web_fetch_max_bytes,
+        web_fetch_allow_private_hosts=web_fetch_allow_private_hosts,
     )
 
 

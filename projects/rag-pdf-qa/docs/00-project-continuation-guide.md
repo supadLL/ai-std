@@ -41,6 +41,8 @@ Local Knowledge RAG Agent
 FastAPI 服务
 DeepSeek /chat 调用
 PDF 文本提取
+PDF 表格抽取
+PDF 内嵌图片 OCR
 PDF chunk 切分
 fastembed 本地 embedding
 Qdrant local / server 向量索引
@@ -85,13 +87,22 @@ LLM API 配置档案管理：新增、编辑、删除和一键启用
 企业级第 09 步：MAX_UPLOAD_BYTES 上传大小限制、基础请求限流、429 Retry-After 和 /health 安全配置可见性
 企业级第 10 步：原始上传文件 source storage、本地对象存储引用 metadata 和迁移 006
 企业级第 11 步：知识库版本快照，支持手动创建快照、稳定 content_hash、文档摘要清单和权限隔离 API
+企业级第 12 步：知识库快照差异比较，支持 added / removed / changed / unchanged 文档级版本对比
+企业级第 13 步：用户注册与管理员开通，支持可配置自助注册和 admin 用户创建
+企业级第 14 步：知识库成员共享管理，支持 owner/admin 添加和移除已注册用户的知识库访问
+企业级第 15 步：Web UI 账号和成员管理，支持登录页注册、Settings 管理用户和知识库成员
+企业级第 16 步：LLM-as-a-judge 回答质量评估，支持单次回答结构化评分、入库和审计
+企业级第 17 步：PDF 表格抽取治理，支持 extract_tables、pdf_table chunk、异步任务参数持久化
+企业级第 18 步：PDF 内嵌图片 OCR 治理，支持 enable_image_ocr、pdf_image_ocr chunk 和图片 OCR 预览
+企业级第 19 步：HTML 网页正文入库治理，支持 html/htm 上传、正文清理和 HTML 表格抽取
+企业级第 20 步：安全单 URL 网页入库，支持单个 HTML URL 抓取、SSRF 防护、大小限制和审计
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06/07/08/09/10/11 步
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06/07/08/09/10/11/12/13/14/15/16/17/18/19/20 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -246,16 +257,23 @@ Swagger Docs 页面必须能测试接口。
 |---|---|
 | `GET /health` | 健康检查 |
 | `POST /auth/bootstrap-admin` | 首次初始化管理员用户 |
+| `POST /auth/register` | 自助注册普通用户，受 `USER_REGISTRATION_ENABLED` 控制 |
 | `POST /auth/login` | 登录并获取 Bearer token |
 | `GET /auth/me` | 查看当前登录用户 |
 | `POST /auth/logout` | 退出登录，前端清除 token |
+| `GET /admin/users` | 管理员查看用户列表 |
+| `POST /admin/users` | 管理员创建普通用户 |
 | `GET /knowledge-bases` | 查看当前用户可访问的知识库 |
 | `POST /knowledge-bases` | 新建知识库并自动成为 owner |
+| `GET /knowledge-bases/{knowledge_base_id}/members` | 查看知识库成员 |
+| `POST /knowledge-bases/{knowledge_base_id}/members` | 添加已注册用户为知识库成员 |
+| `DELETE /knowledge-bases/{knowledge_base_id}/members/{user_id}` | 移除知识库成员 |
 | `POST /chat` | 直接调用当前配置的 LLM Provider |
-| `POST /documents/extract` | 上传 PDF 并提取文本，支持可选 OCR |
-| `POST /documents/chunk` | 上传 PDF 并切分 chunk，支持 OCR 来源标记 |
+| `POST /documents/extract` | 上传 PDF 并提取文本，支持可选 OCR、PDF 表格预览和 PDF 内嵌图片 OCR 预览 |
+| `POST /documents/chunk` | 上传 PDF 并切分 chunk，支持 OCR、pdf_table 和 pdf_image_ocr 来源标记 |
 | `POST /embeddings/text` | 文本向量化 |
-| `POST /documents/index` | PDF / 扫描型 PDF OCR / Markdown / txt / docx / csv / xlsx 切分、向量化并写入 Qdrant，支持 content_hash 去重和 reindex |
+| `POST /documents/index` | PDF / PDF 表格 / PDF 内嵌图片 OCR / 扫描型 PDF OCR / Markdown / txt / html / docx / csv / xlsx 切分、向量化并写入 Qdrant，支持 content_hash 去重、reindex、extract_tables 和 enable_image_ocr |
+| `POST /web-pages/index` | 抓取单个安全 HTML URL 并索引到默认知识库，默认阻止 localhost、私网、超大响应和非 HTML 内容 |
 | `POST /documents/index-jobs` | 上传文件并创建默认知识库异步索引任务 |
 | `GET /documents/index-jobs` | 查看默认知识库索引任务列表 |
 | `GET /documents/index-jobs/{job_id}` | 查看单个索引任务状态 |
@@ -263,12 +281,14 @@ Swagger Docs 页面必须能测试接口。
 | `GET /documents` | 查看本地知识库文档列表 |
 | `GET /knowledge-bases/{knowledge_base_id}/documents` | 查看指定知识库文档列表 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index` | 上传并索引到指定知识库 |
+| `POST /knowledge-bases/{knowledge_base_id}/web-pages/index` | 抓取单个安全 HTML URL 并索引到指定知识库 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 上传文件并创建指定知识库异步索引任务 |
 | `GET /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 查看指定知识库索引任务列表 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs/{job_id}/retry` | 重试指定知识库失败索引任务 |
 | `POST /knowledge-bases/{knowledge_base_id}/snapshots` | 手动创建指定知识库版本快照 |
 | `GET /knowledge-bases/{knowledge_base_id}/snapshots` | 查看指定知识库快照列表 |
 | `GET /knowledge-bases/{knowledge_base_id}/snapshots/{snapshot_id}` | 查看指定知识库快照详情和文档摘要 |
+| `GET /knowledge-bases/{knowledge_base_id}/snapshots/{base_snapshot_id}/diff/{target_snapshot_id}` | 比较两个知识库快照的文档级差异 |
 | `GET /documents/{document_id}` | 查看单个文档 metadata |
 | `DELETE /documents/{document_id}` | 删除某个文档的 Qdrant chunks 和 metadata |
 | `DELETE /documents/batch` | 批量删除多个文档的 Qdrant chunks 和 metadata |
@@ -287,6 +307,7 @@ Swagger Docs 页面必须能测试接口。
 | `GET /evaluation/latest` | 读取最近一次 RAG 检索评估结果 |
 | `GET /evaluation/runs` | 查看评估历史 run |
 | `GET /evaluation/runs/{run_id}` | 查看单次评估完整结果 |
+| `POST /evaluation/judge-answer` | 使用当前 LLM profile 对单次回答做结构化质量评分 |
 | `POST /feedback/answers` | 提交用户对回答的 up/down 反馈 |
 | `GET /` / `GET /app` | 打开本地 RAG Web UI |
 | `GET /settings` | 读取本地运行时 LLM 设置，不返回真实 API Key |
@@ -323,8 +344,9 @@ app/
   deepseek_client.py   OpenAI-compatible Chat Completions 调用封装，保留旧类名兼容
   llm_providers.py     可选 LLM Provider 列表和默认参数
   embedding_client.py  fastembed 本地 embedding 封装
-  document_loaders.py  Markdown / txt / docx / csv / xlsx 文档解析
-  pdf_extractor.py     PDF 文本提取
+  document_loaders.py  Markdown / txt / html / docx / csv / xlsx 文档解析
+  web_page_fetcher.py  单 URL HTML 网页抓取、安全校验和大小限制
+  pdf_extractor.py     PDF 文本、表格和内嵌图片 OCR 提取
   ocr_extractor.py     扫描型 PDF 页面 OCR
   text_splitter.py     PDF 文本 chunk 切分
   vector_store.py      Qdrant local/server client、collection、upsert、search、status
@@ -665,10 +687,10 @@ app/vector_store.py
 PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> 当前 LLM Provider 基于 sources 回答。
 
 后续规划已经纳入：
-PDF 表格抽取 / 图片处理、网页正文等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
+PDF 图表语义理解、网页爬虫、站点地图批量导入等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
-PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/settings/vector-store/status 向量库状态检查、/audit-logs 审计日志、/metrics 基础指标、/evaluation/* 本地检索评估接口和评估历史、/feedback/answers 用户反馈、知识库筛选/详情/批量删除/重建索引，以及企业级分支上的 index_jobs 异步索引任务、Qdrant local/server 模式切换、Compose 部署和数据库内 API Key 加密存储。
+PDF、PDF 表格抽取、PDF 内嵌图片 OCR、扫描型 PDF OCR、Markdown、txt、html/htm 网页正文、安全单 URL HTML 网页、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/settings/vector-store/status 向量库状态检查、/audit-logs 审计日志、/metrics 基础指标、/evaluation/* 本地检索评估接口和评估历史、/feedback/answers 用户反馈、知识库筛选/详情/批量删除/重建索引、/web-pages/index 安全单 URL 入库，以及企业级分支上的 /auth/register、/admin/users、knowledge base members、Web UI 账号与成员管理、index_jobs 异步索引任务、Qdrant local/server 模式切换、Compose 部署、数据库内 API Key 加密存储、source storage、知识库快照、快照差异比较、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理和安全单 URL 网页入库治理。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。
@@ -755,13 +777,17 @@ RAG 评估历史记录列表
 
 ```text
 PDF 文本型文档
+PDF 表格抽取
+PDF 内嵌图片 OCR
 扫描型 PDF OCR
 Markdown / txt 文本文档
+html / htm 网页正文文件
+安全单 URL HTML 网页入库
 docx 文档
 docx 内嵌图片 OCR
 csv / xlsx 表格文件
 RAG score_threshold 低分过滤
-RAG sources 返回 source_id、score、filename、page_number、chunk_id、preview、extraction_method
+RAG sources 返回 source_id、score、filename、page_number、chunk_id、preview、extraction_method，可区分 text、table、pdf_table、pdf_ocr、pdf_image_ocr、image_ocr
 RAG 检索评估脚本、/evaluation/* API 和 Web UI 评估面板
 知识库筛选、详情、批量删除、指定 document_id 重建索引
 Web UI 初版
@@ -788,16 +814,14 @@ Docker Compose 部署 api / db / qdrant / redis
 MAX_UPLOAD_BYTES 上传大小限制
 基础请求限流和 429 Retry-After
 原始上传文件 source storage 和 documents 存储引用
-知识库版本快照和稳定 content_hash
+知识库版本快照、稳定 content_hash、快照文档级差异比较、用户注册与管理员开通、知识库成员共享管理、Web UI 账号与成员管理、LLM-as-a-judge 回答质量评估、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理、安全单 URL 网页入库治理
 ```
 
 当前还没有支持：
 
 ```text
-PDF 表格抽取
-PDF 图片/图表理解
-网页正文
-LLM-as-a-judge 回答质量评估
+PDF 图表语义理解
+网页爬虫 / 站点地图批量导入 / 登录态网页抓取 / JavaScript 渲染页面解析
 ```
 
 这些都已经纳入后续规划。

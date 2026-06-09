@@ -1,4 +1,5 @@
 import csv
+from html.parser import HTMLParser
 from io import BytesIO, StringIO
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,7 +53,9 @@ def load_document_from_bytes(
         return _load_csv_document_from_bytes(filename=filename, content=content, preview_chars=preview_chars)
     if suffix == ".xlsx":
         return _load_xlsx_document_from_bytes(filename=filename, content=content, preview_chars=preview_chars)
-    raise DocumentLoadError("Only Markdown, txt, docx, csv, and xlsx files are supported by document loaders")
+    if suffix in {".html", ".htm"}:
+        return _load_html_document_from_bytes(filename=filename, content=content, preview_chars=preview_chars)
+    raise DocumentLoadError("Only Markdown, txt, docx, csv, xlsx, html, and htm files are supported by document loaders")
 
 
 def load_text_document_from_bytes(filename: str, content: bytes, preview_chars: int = 500) -> ParsedDocument:
@@ -61,7 +64,7 @@ def load_text_document_from_bytes(filename: str, content: bytes, preview_chars: 
 
 def is_supported_document(filename: str) -> bool:
     suffix = Path(filename).suffix.lower()
-    return suffix in {".md", ".markdown", ".txt", ".docx", ".csv", ".xlsx"}
+    return suffix in {".md", ".markdown", ".txt", ".docx", ".csv", ".xlsx", ".html", ".htm"}
 
 
 def is_supported_text_document(filename: str) -> bool:
@@ -267,6 +270,225 @@ def _load_xlsx_document_from_bytes(filename: str, content: bytes, preview_chars:
         preview=full_text[:preview_chars],
         sections=sections,
     )
+
+
+def _load_html_document_from_bytes(filename: str, content: bytes, preview_chars: int = 500) -> ParsedDocument:
+    html = _decode_text(content)
+    parser = _HtmlBodyTextParser()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception as exc:
+        raise DocumentLoadError(f"Failed to parse html document: {exc}") from exc
+
+    sections: list[ParsedSection] = []
+    body_text = parser.body_text()
+    if body_text:
+        sections.append(
+            ParsedSection(
+                section_number=len(sections) + 1,
+                title=parser.title or "html body",
+                text=body_text,
+                extraction_method="text",
+            )
+        )
+
+    table_text = parser.table_text()
+    if table_text:
+        sections.append(
+            ParsedSection(
+                section_number=len(sections) + 1,
+                title="html tables",
+                text=table_text,
+                extraction_method="table",
+            )
+        )
+
+    if not sections:
+        raise DocumentLoadError("html document has no body text content")
+
+    full_text = "\n\n".join(section.text for section in sections)
+    return ParsedDocument(
+        filename=filename,
+        file_type="html",
+        char_count=len(full_text),
+        preview=full_text[:preview_chars],
+        sections=sections,
+    )
+
+
+class _HtmlBodyTextParser(HTMLParser):
+    _SKIP_TAGS = {"script", "style", "noscript", "svg", "canvas", "template"}
+    _NOISE_TAGS = {"nav", "header", "footer", "form", "button"}
+    _BLOCK_TAGS = {
+        "address",
+        "article",
+        "aside",
+        "blockquote",
+        "br",
+        "dd",
+        "div",
+        "dl",
+        "dt",
+        "figcaption",
+        "figure",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "hr",
+        "li",
+        "main",
+        "ol",
+        "p",
+        "pre",
+        "section",
+        "tr",
+        "ul",
+    }
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.title: str | None = None
+        self._title_parts: list[str] = []
+        self._body_parts: list[str] = []
+        self._tables: list[list[list[str]]] = []
+        self._tag_stack: list[str] = []
+        self._skip_depth = 0
+        self._noise_depth = 0
+        self._in_title = False
+        self._current_table: list[list[str]] | None = None
+        self._current_row: list[str] | None = None
+        self._current_cell_parts: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        self._tag_stack.append(tag)
+        if tag in self._SKIP_TAGS:
+            self._skip_depth += 1
+        if tag in self._NOISE_TAGS:
+            self._noise_depth += 1
+        if tag == "title":
+            self._in_title = True
+        if self._is_skipping:
+            return
+        if tag in self._BLOCK_TAGS:
+            self._append_body_break()
+        if tag == "table":
+            self._current_table = []
+        elif tag == "tr" and self._current_table is not None:
+            self._current_row = []
+        elif tag in {"td", "th"} and self._current_row is not None:
+            self._current_cell_parts = []
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag == "title":
+            self._in_title = False
+            title = _normalize_html_text(" ".join(self._title_parts))
+            self.title = title or self.title
+
+        if not self._is_skipping:
+            if tag in {"td", "th"} and self._current_cell_parts is not None and self._current_row is not None:
+                cell_text = _normalize_html_text(" ".join(self._current_cell_parts))
+                self._current_row.append(cell_text)
+                self._current_cell_parts = None
+            elif tag == "tr" and self._current_table is not None and self._current_row is not None:
+                if any(self._current_row):
+                    self._current_table.append(self._current_row)
+                self._current_row = None
+            elif tag == "table" and self._current_table is not None:
+                if self._current_table:
+                    self._tables.append(self._current_table)
+                self._current_table = None
+            if tag in self._BLOCK_TAGS:
+                self._append_body_break()
+
+        if tag in self._NOISE_TAGS and self._noise_depth > 0:
+            self._noise_depth -= 1
+        if tag in self._SKIP_TAGS and self._skip_depth > 0:
+            self._skip_depth -= 1
+        if self._tag_stack:
+            self._tag_stack.pop()
+
+    def handle_data(self, data: str) -> None:
+        text = _normalize_html_text(data)
+        if not text:
+            return
+        if self._in_title and self._skip_depth == 0:
+            self._title_parts.append(text)
+            return
+        if self._is_skipping:
+            return
+        if self._current_cell_parts is not None:
+            self._current_cell_parts.append(text)
+            return
+        if self._current_table is None:
+            self._body_parts.append(text)
+
+    @property
+    def _is_skipping(self) -> bool:
+        return self._skip_depth > 0 or self._noise_depth > 0
+
+    def _append_body_break(self) -> None:
+        if self._body_parts and self._body_parts[-1] != "\n":
+            self._body_parts.append("\n")
+
+    def body_text(self) -> str:
+        return _collapse_html_lines(self._body_parts)
+
+    def table_text(self) -> str:
+        lines: list[str] = []
+        for table_index, table in enumerate(self._tables, start=1):
+            lines.extend(_html_table_to_text_lines(table=table, table_index=table_index))
+        return "\n".join(lines).strip()
+
+
+def _html_table_to_text_lines(*, table: list[list[str]], table_index: int) -> list[str]:
+    rows = [row for row in table if any(row)]
+    if not rows:
+        return []
+    headers = rows[0]
+    has_headers = any(headers)
+    lines: list[str] = []
+    data_rows = rows[1:] if has_headers else rows
+    start_row_number = 2 if has_headers else 1
+    for row_index, row in enumerate(data_rows, start=start_row_number):
+        values = [str(value).strip() for value in row]
+        if not any(values):
+            continue
+        if has_headers:
+            pairs = [
+                f"{headers[index] if index < len(headers) and headers[index] else f'column_{index + 1}'}={value}"
+                for index, value in enumerate(values)
+                if value
+            ]
+        else:
+            pairs = [value for value in values if value]
+        if pairs:
+            lines.append(f"html table {table_index} row {row_index}: " + "; ".join(pairs))
+    return lines
+
+
+def _collapse_html_lines(parts: list[str]) -> str:
+    lines: list[str] = []
+    current: list[str] = []
+    for part in parts:
+        if part == "\n":
+            if current:
+                lines.append(_normalize_html_text(" ".join(current)))
+                current = []
+            continue
+        current.append(part)
+    if current:
+        lines.append(_normalize_html_text(" ".join(current)))
+    return "\n".join(line for line in lines if line).strip()
+
+
+def _normalize_html_text(text: str) -> str:
+    return " ".join(text.split())
 
 
 def _rows_to_text_lines(rows: list[list[str]], sheet_name: str | None) -> list[str]:

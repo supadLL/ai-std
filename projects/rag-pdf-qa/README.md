@@ -21,7 +21,7 @@
 作为简历中的 AI 工程化个人项目
 ```
 
-当前主线是个人项目级 RAG Agent；在 `enterprise-rag-platform` 分支上已经开始企业级改造，并完成登录鉴权、数据库持久化、多租户知识库隔离、异步索引、审计观测、质量治理、部署密钥治理、运行安全边界、源文件存储治理和知识库版本快照。
+当前主线是个人项目级 RAG Agent；在 `enterprise-rag-platform` 分支上已经开始企业级改造，并完成登录鉴权、用户注册与管理员开通、Web UI 账号与成员管理、数据库持久化、多租户知识库隔离、知识库成员共享、异步索引、审计观测、质量治理、LLM-as-a-judge 回答质量评估、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理、安全单 URL 网页入库治理、部署密钥治理、运行安全边界、源文件存储治理、知识库版本快照和快照差异比较。
 
 ## 技术栈
 
@@ -31,7 +31,7 @@
 | 鉴权 | 本地用户存储 / 密码哈希 / Bearer token |
 | 数据库 | SQLAlchemy / SQLite 默认 / PostgreSQL 可配置 |
 | 前端 | 原生 HTML / CSS / JavaScript |
-| 文档解析 | PDF / OCR / Markdown / txt / docx / csv / xlsx |
+| 文档解析 | PDF / PDF 表格 / PDF 图片 OCR / OCR / Markdown / txt / html / docx / csv / xlsx |
 | Embedding | fastembed，本地向量化 |
 | 向量库 | Qdrant local / Qdrant server |
 | LLM | DeepSeek 默认，支持 Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax、自定义 OpenAI-compatible API |
@@ -61,7 +61,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  A[上传 PDF / Markdown / txt / docx / 表格] --> B[解析文本、表格和 OCR 内容]
+  A[上传 PDF / Markdown / txt / html / URL / docx / 表格] --> B[解析文本、网页正文、表格和 OCR 内容]
   B --> C[按 chunk_size / overlap 切分]
   C --> D[fastembed 生成向量]
   D --> E[写入 Qdrant local / server]
@@ -86,17 +86,21 @@ flowchart TD
 
 | 能力 | 说明 |
 |---|---|
-| 多格式入库 | 支持 PDF、扫描型 PDF OCR、Markdown、txt、docx、docx 图片 OCR、csv、xlsx |
+| 多格式入库 | 支持 PDF、PDF 表格抽取、PDF 内嵌图片 OCR、扫描型 PDF OCR、Markdown、txt、html/htm 网页正文、安全单 URL HTML 网页、docx、docx 图片 OCR、csv、xlsx |
 | 登录鉴权 | 企业级分支支持初始化管理员、登录、当前用户和 Bearer token 保护核心接口 |
+| 用户开通 | 企业级分支支持可配置自助注册普通用户，以及管理员查看和创建用户 |
+| Web UI 账号管理 | 企业级分支已在登录面板和 Settings 中接入注册、管理员创建用户和知识库成员管理 |
 | 数据库持久化 | 企业级分支已将 users、documents、runtime_settings、llm_profiles 迁入数据库 |
 | 多租户隔离 | 企业级分支已支持 Organization / Workspace / KnowledgeBase / Membership，文档和检索按知识库隔离 |
+| 知识库共享 | 企业级分支支持 owner/admin 查看、添加和移除知识库成员 |
 | 异步索引任务 | 企业级分支支持上传后创建 index job、后台入库、状态查询、失败原因和手动重试 |
-| 知识库版本快照 | 企业级分支支持手动创建知识库快照，记录文档清单、索引 chunk 数和稳定 content_hash |
+| 知识库版本快照 | 企业级分支支持手动创建知识库快照，记录文档清单、索引 chunk 数、稳定 content_hash 和文档级快照差异 |
 | 文档管理 | 支持列表、筛选、详情、批量删除、指定文档重建索引 |
 | 去重策略 | 使用 content_hash 避免重复入库，支持 reindex 重建 |
 | RAG 问答 | 返回稳定三段式回答，并提供 sources |
 | Agent 路由 | 支持 chat / rag / insufficient_context，并返回 route_reason、tools_used |
 | 检索评估 | 支持本地评估问题集、命中率、页码命中、关键词命中 |
+| 回答质量 Judge | 企业级分支支持 LLM-as-a-judge 单次回答质量评分、入库和审计 |
 | 模型配置 | 支持多个 LLM API 配置档案和一键启用 |
 | 本地部署 | 默认 8000 端口，可本机或可信局域网访问 |
 
@@ -106,20 +110,29 @@ flowchart TD
 |---|---|
 | `GET /health` | 健康检查 |
 | `POST /auth/bootstrap-admin` | 首次初始化管理员 |
+| `POST /auth/register` | 自助注册普通用户，受 `USER_REGISTRATION_ENABLED` 控制 |
 | `POST /auth/login` | 登录并获取 Bearer token |
 | `GET /auth/me` | 查看当前登录用户 |
 | `POST /auth/logout` | 退出登录，前端清除 token |
+| `GET /admin/users` | 管理员查看用户列表 |
+| `POST /admin/users` | 管理员创建普通用户 |
 | `GET /knowledge-bases` | 查看当前用户可访问的知识库 |
 | `POST /knowledge-bases` | 新建知识库并自动成为 owner |
+| `GET /knowledge-bases/{knowledge_base_id}/members` | 查看知识库成员 |
+| `POST /knowledge-bases/{knowledge_base_id}/members` | 添加已注册用户为知识库成员 |
+| `DELETE /knowledge-bases/{knowledge_base_id}/members/{user_id}` | 移除知识库成员 |
 | `GET /knowledge-bases/{knowledge_base_id}/documents` | 查看指定知识库文档列表 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index` | 上传并索引到指定知识库 |
+| `POST /knowledge-bases/{knowledge_base_id}/web-pages/index` | 抓取单个安全 HTML URL 并索引到指定知识库 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 上传并创建指定知识库的异步索引任务 |
 | `GET /knowledge-bases/{knowledge_base_id}/documents/index-jobs` | 查看指定知识库索引任务列表 |
 | `POST /knowledge-bases/{knowledge_base_id}/documents/index-jobs/{job_id}/retry` | 重试失败索引任务 |
 | `POST /knowledge-bases/{knowledge_base_id}/snapshots` | 手动创建指定知识库版本快照 |
 | `GET /knowledge-bases/{knowledge_base_id}/snapshots` | 查看指定知识库快照列表 |
 | `GET /knowledge-bases/{knowledge_base_id}/snapshots/{snapshot_id}` | 查看指定知识库快照详情和文档摘要 |
+| `GET /knowledge-bases/{knowledge_base_id}/snapshots/{base_snapshot_id}/diff/{target_snapshot_id}` | 比较两个知识库快照的文档级差异 |
 | `POST /documents/index` | 上传并索引文档 |
+| `POST /web-pages/index` | 抓取单个安全 HTML URL 并索引到默认知识库 |
 | `POST /documents/index-jobs` | 上传并创建默认知识库异步索引任务 |
 | `GET /documents` | 查看知识库文档列表 |
 | `POST /documents/search` | 只做语义检索 |
@@ -129,6 +142,10 @@ flowchart TD
 | `POST /agent/ask` | 可解释 Agent 路由问答 |
 | `GET /evaluation/latest` | 查看最近检索评估结果 |
 | `POST /evaluation/run` | 运行本地检索评估 |
+| `GET /evaluation/runs` | 查看评估历史 run |
+| `GET /evaluation/runs/{run_id}` | 查看单次评估完整结果 |
+| `POST /evaluation/judge-answer` | 使用当前 LLM profile 对单次回答做结构化质量评分 |
+| `POST /feedback/answers` | 提交用户对回答的 up/down 反馈 |
 | `GET /settings` | 查看模型、prompt 和运行时设置 |
 | `POST /settings/llm-profiles` | 新增 LLM API 配置档案 |
 
@@ -137,14 +154,14 @@ flowchart TD
 可以这样写：
 
 ```text
-本地知识库 RAG Agent：基于 FastAPI、fastembed、Qdrant local 和 OpenAI-compatible LLM API 实现多格式文档入库、向量检索、RAG 问答、可解释 Agent 路由和 Web UI 管理。支持 PDF/OCR/Markdown/docx/表格等内容解析，提供 sources 可追溯回答、检索评估面板、LLM 多供应商配置和本地 Docker/脚本启动。
+本地知识库 RAG Agent：基于 FastAPI、fastembed、Qdrant local 和 OpenAI-compatible LLM API 实现多格式文档入库、向量检索、RAG 问答、可解释 Agent 路由和 Web UI 管理。支持 PDF/PDF 表格/PDF 图片 OCR/OCR/Markdown/html/docx/表格等内容解析，提供 sources 可追溯回答、检索评估面板、LLM 多供应商配置和本地 Docker/脚本启动。
 ```
 
 简历要点可以拆成：
 
 ```text
 1. 自研 RAG 基础链路：文档解析、chunk、embedding、Qdrant 检索、prompt 组装。
-2. 支持多格式知识库：PDF、扫描型 PDF OCR、Markdown、txt、docx、csv、xlsx。
+2. 支持多格式知识库：PDF、PDF 表格抽取、PDF 内嵌图片 OCR、扫描型 PDF OCR、Markdown、txt、html/htm、docx、csv、xlsx。
 3. 实现可解释 Agent 路由：区分普通聊天、知识库检索、资料不足，并返回调试信息。
 4. 增加检索评估能力：维护评估问题集，统计 hit_rate、page_hit_rate、keyword_hit_rate。
 5. 构建本地 Web UI：支持文件导入、知识问答、评估面板、知识库管理和模型配置。
@@ -223,6 +240,15 @@ flowchart TD
 - [企业级第 09 步完成总结：运行安全边界和限流](docs/enterprise-summary/09-runtime-safety-and-limits-summary.md)
 - [企业级第 10 步完成总结：原始文件存储治理](docs/enterprise-summary/10-source-file-storage-governance-summary.md)
 - [企业级第 11 步完成总结：知识库版本快照](docs/enterprise-summary/11-knowledge-base-versioning-summary.md)
+- [企业级第 12 步完成总结：知识库快照差异比较](docs/enterprise-summary/12-knowledge-base-snapshot-diff-summary.md)
+- [企业级第 13 步完成总结：用户注册与管理员开通](docs/enterprise-summary/13-user-registration-and-provisioning-summary.md)
+- [企业级第 14 步完成总结：知识库成员共享管理](docs/enterprise-summary/14-knowledge-base-member-management-summary.md)
+- [企业级第 15 步完成总结：Web UI 账号和成员管理](docs/enterprise-summary/15-web-ui-account-and-member-management-summary.md)
+- [企业级第 16 步完成总结：LLM-as-a-judge 回答质量评估](docs/enterprise-summary/16-llm-answer-quality-judge-summary.md)
+- [企业级第 17 步完成总结：PDF 表格抽取治理](docs/enterprise-summary/17-pdf-table-extraction-governance-summary.md)
+- [企业级第 18 步完成总结：PDF 内嵌图片 OCR 治理](docs/enterprise-summary/18-pdf-embedded-image-ocr-summary.md)
+- [企业级第 19 步完成总结：HTML 网页正文入库治理](docs/enterprise-summary/19-html-web-page-body-loader-summary.md)
+- [企业级第 20 步完成总结：安全单 URL 网页入库](docs/enterprise-summary/20-safe-url-web-page-ingestion-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -329,6 +355,7 @@ Copy-Item .env.example .env
 APP_ENV=development
 APP_SECRET_KEY=change-this-local-development-secret
 SECRET_ENCRYPTION_KEY=replace-with-random-secret-before-deploy
+USER_REGISTRATION_ENABLED=true
 MAX_UPLOAD_BYTES=10485760
 RATE_LIMIT_ENABLED=false
 RATE_LIMIT_REQUESTS=120
@@ -336,6 +363,10 @@ RATE_LIMIT_WINDOW_SECONDS=60
 SOURCE_STORAGE_ENABLED=true
 SOURCE_STORAGE_BACKEND=local
 SOURCE_STORAGE_PATH=data/source_files
+WEB_FETCH_ENABLED=true
+WEB_FETCH_TIMEOUT_SECONDS=10
+WEB_FETCH_MAX_BYTES=2097152
+WEB_FETCH_ALLOW_PRIVATE_HOSTS=false
 LLM_PROVIDER=deepseek
 LLM_API_KEY=你的真实模型 API Key
 LLM_BASE_URL=https://api.deepseek.com
@@ -434,12 +465,13 @@ data/documents.json         # legacy
 ```text
 POST /documents/index-jobs  # 推荐，异步任务
 POST /documents/index       # 兼容旧同步接口
+POST /web-pages/index       # 单 URL HTML 网页入库
 ```
 
 当前支持入库的文件类型：
 
 ```text
-PDF / 扫描型 PDF OCR / Markdown / txt / docx / docx 图片 OCR / csv / xlsx
+PDF / PDF 表格 / PDF 图片 OCR / 扫描型 PDF OCR / Markdown / txt / html / htm / 单 URL HTML 网页 / docx / docx 图片 OCR / csv / xlsx
 ```
 
 推荐索引参数：
@@ -511,7 +543,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 http://你的电脑IP:8000/docs
 ```
 
-注意：企业级分支已经有最小登录鉴权、数据库持久化和知识库级隔离，但还没有复杂 RBAC、审计观测和生产级密钥治理，仍只建议本机或可信内网学习使用。
+注意：企业级分支已经有登录鉴权、用户注册/管理员开通、数据库持久化、知识库级隔离、审计观测、部署密钥治理和基础安全边界；但还没有复杂 RBAC、企业 SSO、Kubernetes 生产编排和完整运维工作流，仍建议先在本机或可信内网使用。
 
 ## 测试接口
 
@@ -527,10 +559,11 @@ Invoke-RestMethod `
 
 - `GET /health`：健康检查
 - `POST /chat`：调用当前配置的 LLM Provider Chat Completions
-- `POST /documents/extract`：上传 PDF 并提取文本，支持 `enable_ocr=true` 对扫描型 PDF 做 OCR
-- `POST /documents/chunk`：上传 PDF 并切分文本块，支持 OCR 页面来源标记
+- `POST /documents/extract`：上传 PDF 并提取文本，支持 `enable_ocr=true` 对扫描型 PDF 做 OCR，支持 `extract_tables=true` 抽取 PDF 表格预览，支持 `enable_image_ocr=true` 抽取 PDF 内嵌图片文字
+- `POST /documents/chunk`：上传 PDF 并切分文本块，支持 OCR 页面来源、`pdf_table` 表格来源和 `pdf_image_ocr` 图片 OCR 来源标记
 - `POST /embeddings/text`：把文本转换成 embedding 向量
-- `POST /documents/index`：上传 PDF / 扫描型 PDF OCR / Markdown / txt / docx / csv / xlsx，切分并写入 Qdrant，支持 `content_hash` 去重和 `reindex`
+- `POST /documents/index`：上传 PDF / PDF 表格 / PDF 内嵌图片 OCR / 扫描型 PDF OCR / Markdown / txt / html / docx / csv / xlsx，切分并写入 Qdrant，支持 `content_hash` 去重、`reindex`、`extract_tables` 和 `enable_image_ocr`
+- `POST /web-pages/index`：抓取单个安全 HTML URL，默认阻止 localhost、私网和非 HTML 响应，并复用 HTML loader 入库
 - `GET /documents`：查看本地知识库文档列表
 - `GET /documents/{document_id}`：查看单个文档 metadata
 - `DELETE /documents/{document_id}`：删除某个文档在 Qdrant 中的 chunks 和 metadata
@@ -550,6 +583,7 @@ Invoke-RestMethod `
 - `GET /evaluation/latest`：读取最近一次 RAG 检索评估结果
 - `GET /evaluation/runs`：查看评估历史 run，可按知识库筛选
 - `GET /evaluation/runs/{run_id}`：查看单次评估完整结果
+- `POST /evaluation/judge-answer`：使用当前 LLM profile 对单次回答做 LLM-as-a-judge 结构化评分，并写入审计和数据库
 - `POST /feedback/answers`：提交用户对回答的 up/down 反馈
 - `/rag/ask` 支持 `score_threshold` 低分过滤
 - `/rag/ask` 的 `sources` 已优化为 `source_id` + `preview` 结构
@@ -559,6 +593,8 @@ Invoke-RestMethod `
 - 已增强知识库文档管理能力，支持 `document_id`、列表、详情、删除、批量删除和指定文档重建索引
 - 已新增 `content_hash` 去重和 `reindex=true` 重建索引策略
 - 已支持 Markdown 和 txt 文档入库
+- 已支持 html/htm 网页正文文件入库，跳过 script/style/nav/header/footer 等噪声内容
+- 已支持安全单 URL HTML 网页入库，默认限制私网地址、响应大小、超时和 content-type
 - 已支持 docx、csv、xlsx 文档入库
 - 已新增本地 Web UI 入口，用于上传文档、查看知识库、提问和查看 sources
 - 已增强 RAG Agent 工具路由接口 `/agent/ask`，可返回路由理由、工具使用和调试信息
@@ -575,19 +611,21 @@ Invoke-RestMethod `
 - Web UI 已新增科技感项目图标和浏览器 Tab 标题优化
 - 已新增 `scripts/check_environment.ps1` 和 `scripts/start.ps1`，支持本地环境检查和一键启动
 - 已新增 Dockerfile 和 `.dockerignore`，支持最小 Docker 启动且不打包本地密钥和运行数据
+- PDF 入库已支持可选表格抽取：`extract_tables=true`，表格 chunk 标记为 `pdf_table`
+- PDF 入库已支持可选内嵌图片 OCR：`enable_image_ocr=true`，图片 OCR chunk 标记为 `pdf_image_ocr`
 - PDF 入库已支持可选 OCR：`enable_ocr=true`、`ocr_language=chi_sim+eng`
 - docx 入库已支持可选图片 OCR：`enable_image_ocr=true`
-- RAG sources 已返回 `extraction_method`，可区分 `text`、`table`、`pdf_ocr`、`image_ocr`
+- RAG sources 已返回 `extraction_method`，可区分 `text`、`table`、`pdf_table`、`pdf_ocr`、`pdf_image_ocr`、`image_ocr`
 - 已支持在设置页选择 DeepSeek、Qwen、Doubao、OpenAI、Claude compatible、Ollama、MiniMax 或自定义 OpenAI-compatible API
 - 已支持在设置页调整当前 LLM Provider 的 base_url、model、timeout、API Key 和 RAG prompt
 - 已支持多个 LLM API 配置档案，支持新增、编辑、删除和一键启用
-- 企业级分支已新增最小登录鉴权：`/auth/bootstrap-admin`、`/auth/login`、`/auth/me`、`/auth/logout`，并用 Bearer token 保护文档、问答、评估和设置等核心接口
+- 企业级分支已新增登录鉴权和用户开通：`/auth/bootstrap-admin`、`/auth/register`、`/auth/login`、`/auth/me`、`/auth/logout`、`/admin/users`，并用 Bearer token 保护文档、问答、评估和设置等核心接口
 - 企业级分支已新增 SQLAlchemy 数据库持久化，`users`、`documents`、`runtime_settings`、`llm_profiles` 不再以本地 JSON 作为主存储
-- 企业级分支已新增最小多租户隔离：`knowledge_bases`、membership、文档归属字段和 Qdrant `knowledge_base_id` payload 过滤
+- 企业级分支已新增最小多租户隔离和成员共享：`knowledge_bases`、membership、成员管理 API、文档归属字段和 Qdrant `knowledge_base_id` payload 过滤
 - 企业级分支已新增异步索引任务：`index_jobs`、后台入库、状态查询、失败原因和 retry
 - 企业级分支已支持 Qdrant local/server 模式切换、collection prefix 配置、Qdrant Compose 服务和 `/settings/vector-store/status` 状态检查
 - 企业级分支已新增审计与基础观测：`audit_logs`、`X-Request-ID`、结构化请求日志、`/audit-logs`、`/metrics`，并记录 RAG/Agent 检索耗时、LLM 耗时、provider/model 和 token usage
-- 企业级分支已新增评估质量治理：`evaluation_runs`、`evaluation_cases` 知识库归属、评估历史 API、quality_gate、答案反馈 `/feedback/answers` 和 Web UI 评估历史
+- 企业级分支已新增评估质量治理：`evaluation_runs`、`evaluation_cases` 知识库归属、评估历史 API、quality_gate、答案反馈 `/feedback/answers`、LLM-as-a-judge `/evaluation/judge-answer` 和 Web UI 评估历史
 - 企业级分支已新增部署和密钥治理：Compose 编排 `api/db/qdrant/redis`、`/health` 启动检查、生产环境告警、数据库内 LLM API Key 加密存储和部署文档
 - 企业级分支已新增运行安全边界：可配置 `MAX_UPLOAD_BYTES`、基础请求限流、429 `Retry-After` 和 `/health` 安全配置可见性
 - 企业级分支已新增原始文件存储治理：本地 source storage、documents 源文件引用 metadata、Compose volume 持久化和迁移 `006_source_file_storage`
@@ -688,6 +726,7 @@ GET /evaluation/latest
 企业级第 02 步：数据库持久化替代本地 JSON
 企业级第 03 步：多租户和权限隔离
 企业级第 04 步：异步索引任务
+企业级第 05-16 步：向量库治理、审计观测、质量治理、部署密钥治理、运行安全、源文件存储、知识库快照、快照差异比较、用户注册与管理员开通、知识库成员共享管理、Web UI 账号与成员管理、LLM-as-a-judge 回答质量评估
 ```
 
 执行顺序保持：
@@ -699,5 +738,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-企业级第 01-08 步已完成当前规划闭环。后续如果继续新增企业级目标，建议先补 `docs/enterprise-goal/09-*.md`，再按 goal -> code -> tests -> summary 的节奏推进。
+企业级第 01-16 步已完成当前规划闭环的一部分。后续如果继续新增企业级目标，建议先补 `docs/enterprise-goal/NN-*.md`，再按 goal -> code -> tests -> summary 的节奏推进。
 

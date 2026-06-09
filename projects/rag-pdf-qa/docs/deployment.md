@@ -32,6 +32,7 @@ Copy-Item .env.example .env
 
 ```text
 APP_ENV=production
+USER_REGISTRATION_ENABLED=false
 MAX_UPLOAD_BYTES=10485760
 RATE_LIMIT_ENABLED=true
 RATE_LIMIT_REQUESTS=120
@@ -39,11 +40,17 @@ RATE_LIMIT_WINDOW_SECONDS=60
 SOURCE_STORAGE_ENABLED=true
 SOURCE_STORAGE_BACKEND=local
 SOURCE_STORAGE_PATH=/app/data/source_files
+WEB_FETCH_ENABLED=true
+WEB_FETCH_TIMEOUT_SECONDS=10
+WEB_FETCH_MAX_BYTES=2097152
+WEB_FETCH_ALLOW_PRIVATE_HOSTS=false
 APP_SECRET_KEY=替换成足够长的随机字符串
 SECRET_ENCRYPTION_KEY=替换成另一个足够长的随机字符串
 LLM_API_KEY=真实模型 API Key
 POSTGRES_PASSWORD=替换成数据库密码
 ```
+
+`WEB_FETCH_ALLOW_PRIVATE_HOSTS` 生产环境建议保持 `false`。单 URL 网页入库默认会拒绝 localhost、私网、链路本地、多播、保留地址和非 HTML 响应，降低 SSRF 和内网探测风险。
 
 不要把 `.env` 提交到 GitHub。项目已通过 `.gitignore` 和 `.dockerignore` 排除 `.env`、数据库文件、Qdrant 数据和测试缓存。
 
@@ -149,11 +156,14 @@ http://127.0.0.1:8000/health
   "qdrant_url": "http://qdrant:6333",
   "redis_configured": true,
   "secret_encryption_configured": true,
+  "web_fetch_enabled": true,
+  "web_fetch_max_bytes": 2097152,
+  "web_fetch_allow_private_hosts": false,
   "warnings": []
 }
 ```
 
-如果生产环境仍使用默认 `APP_SECRET_KEY`、没有配置 `SECRET_ENCRYPTION_KEY`，或仍使用 Qdrant local 模式，`warnings` 会提示。
+如果生产环境仍使用默认 `APP_SECRET_KEY`、没有配置 `SECRET_ENCRYPTION_KEY`、仍使用 Qdrant local 模式，或允许私网 URL 抓取，`warnings` 会提示。
 
 ---
 
@@ -199,4 +209,14 @@ Redis 预留
 健康检查
 密钥脱敏与数据库加密存储
 局域网访问说明
+```
+---
+
+## Account provisioning note
+
+```text
+First user: initialize admin with POST /auth/bootstrap-admin.
+Trusted LAN demo: set USER_REGISTRATION_ENABLED=true, then users can self-register with POST /auth/register.
+Production or semi-public LAN: keep USER_REGISTRATION_ENABLED=false, then admin creates normal users with POST /admin/users.
+All normal users are created with role=user and receive a personal default knowledge base.
 ```

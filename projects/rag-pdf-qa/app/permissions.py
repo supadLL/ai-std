@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import re
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import DEFAULT_DATABASE_URL, session_scope
@@ -11,6 +11,7 @@ from app.models import (
     KnowledgeBaseMembershipModel,
     KnowledgeBaseModel,
     OrganizationModel,
+    UserModel,
     WorkspaceModel,
 )
 
@@ -27,6 +28,15 @@ class KnowledgeBaseAccess:
     knowledge_base_id: str
     name: str
     role: str
+
+
+@dataclass(frozen=True)
+class KnowledgeBaseMember:
+    membership_id: str
+    user_id: str
+    username: str
+    role: str
+    created_at: str
 
 
 class PermissionStoreError(RuntimeError):
@@ -127,6 +137,16 @@ class PermissionStore:
         except SQLAlchemyError as exc:
             raise PermissionStoreError(f"Failed to get knowledge base access: {exc}") from exc
 
+    def get_knowledge_base(self, *, knowledge_base_id: str, role: str = "admin") -> KnowledgeBaseAccess | None:
+        try:
+            with session_scope(self.database_url) as session:
+                knowledge_base = session.get(KnowledgeBaseModel, knowledge_base_id)
+                if knowledge_base is None or knowledge_base.status != "active":
+                    return None
+                return _access_from_models(knowledge_base, role)
+        except SQLAlchemyError as exc:
+            raise PermissionStoreError(f"Failed to get knowledge base: {exc}") from exc
+
     def create_knowledge_base(self, *, user_id: str, name: str) -> KnowledgeBaseAccess:
         name = name.strip()
         if not name:
@@ -162,6 +182,95 @@ class PermissionStore:
                 return _access_from_models(knowledge_base, membership.role)
         except SQLAlchemyError as exc:
             raise PermissionStoreError(f"Failed to create knowledge base: {exc}") from exc
+
+    def list_members(self, *, knowledge_base_id: str) -> list[KnowledgeBaseMember]:
+        try:
+            with session_scope(self.database_url) as session:
+                rows = session.execute(
+                    select(KnowledgeBaseMembershipModel, UserModel.username)
+                    .join(UserModel, UserModel.user_id == KnowledgeBaseMembershipModel.user_id)
+                    .where(KnowledgeBaseMembershipModel.knowledge_base_id == knowledge_base_id)
+                    .order_by(KnowledgeBaseMembershipModel.created_at)
+                ).all()
+                return [_member_from_models(membership, username) for membership, username in rows]
+        except SQLAlchemyError as exc:
+            raise PermissionStoreError(f"Failed to list knowledge base members: {exc}") from exc
+
+    def add_member(
+        self,
+        *,
+        knowledge_base_id: str,
+        user_id: str,
+        role: str = "member",
+    ) -> KnowledgeBaseMember:
+        role = _normalize_member_role(role)
+        try:
+            with session_scope(self.database_url) as session:
+                knowledge_base = session.get(KnowledgeBaseModel, knowledge_base_id)
+                if knowledge_base is None or knowledge_base.status != "active":
+                    raise PermissionStoreError(f"Knowledge base {knowledge_base_id!r} not found")
+                user = session.get(UserModel, user_id)
+                if user is None:
+                    raise PermissionStoreError(f"User {user_id!r} not found")
+
+                membership = session.scalar(
+                    select(KnowledgeBaseMembershipModel).where(
+                        KnowledgeBaseMembershipModel.user_id == user_id,
+                        KnowledgeBaseMembershipModel.knowledge_base_id == knowledge_base_id,
+                    )
+                )
+                if membership is None:
+                    membership = KnowledgeBaseMembershipModel(
+                        membership_id=f"mb_{uuid4().hex[:16]}",
+                        user_id=user_id,
+                        organization_id=knowledge_base.organization_id,
+                        workspace_id=knowledge_base.workspace_id,
+                        knowledge_base_id=knowledge_base.knowledge_base_id,
+                        role=role,
+                        created_at=_now(),
+                    )
+                    session.add(membership)
+                    session.flush()
+                return _member_from_models(membership, user.username)
+        except PermissionStoreError:
+            raise
+        except SQLAlchemyError as exc:
+            raise PermissionStoreError(f"Failed to add knowledge base member: {exc}") from exc
+
+    def remove_member(self, *, knowledge_base_id: str, user_id: str) -> KnowledgeBaseMember | None:
+        try:
+            with session_scope(self.database_url) as session:
+                membership = session.scalar(
+                    select(KnowledgeBaseMembershipModel).where(
+                        KnowledgeBaseMembershipModel.user_id == user_id,
+                        KnowledgeBaseMembershipModel.knowledge_base_id == knowledge_base_id,
+                    )
+                )
+                if membership is None:
+                    return None
+                if membership.role == "owner":
+                    owner_count = int(
+                        session.scalar(
+                            select(func.count())
+                            .select_from(KnowledgeBaseMembershipModel)
+                            .where(
+                                KnowledgeBaseMembershipModel.knowledge_base_id == knowledge_base_id,
+                                KnowledgeBaseMembershipModel.role == "owner",
+                            )
+                        )
+                        or 0
+                    )
+                    if owner_count <= 1:
+                        raise PermissionStoreError("Cannot remove the last owner from a knowledge base")
+
+                user = session.get(UserModel, user_id)
+                record = _member_from_models(membership, user.username if user else user_id)
+                session.delete(membership)
+                return record
+        except PermissionStoreError:
+            raise
+        except SQLAlchemyError as exc:
+            raise PermissionStoreError(f"Failed to remove knowledge base member: {exc}") from exc
 
 
 def _ensure_default_organization_and_workspace(session) -> None:
@@ -199,6 +308,23 @@ def _access_from_models(knowledge_base: KnowledgeBaseModel, role: str) -> Knowle
         name=knowledge_base.name,
         role=role,
     )
+
+
+def _member_from_models(membership: KnowledgeBaseMembershipModel, username: str) -> KnowledgeBaseMember:
+    return KnowledgeBaseMember(
+        membership_id=membership.membership_id,
+        user_id=membership.user_id,
+        username=username,
+        role=membership.role,
+        created_at=membership.created_at,
+    )
+
+
+def _normalize_member_role(role: str) -> str:
+    normalized = role.strip().lower()
+    if normalized not in {"owner", "member"}:
+        raise PermissionStoreError("Knowledge base member role must be owner or member")
+    return normalized
 
 
 def _personal_knowledge_base_id(user_id: str) -> str:

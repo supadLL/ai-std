@@ -40,6 +40,13 @@ from app.evaluation import (
     read_latest_evaluation,
     run_rag_search_evaluation,
 )
+from app.evaluation_judge import (
+    AnswerQualityJudgeError,
+    AnswerQualityJudgeStore,
+    AnswerQualityJudgementRecord,
+    build_answer_quality_judge_messages,
+    parse_answer_quality_judgement,
+)
 from app.feedback import AnswerFeedbackRecord, AnswerFeedbackStore, FeedbackError
 from app.index_jobs import (
     JOB_STATUS_FAILED,
@@ -49,9 +56,12 @@ from app.index_jobs import (
     RETRYABLE_JOB_STATUSES,
 )
 from app.knowledge_base_snapshots import (
+    KnowledgeBaseSnapshotChangedDocument,
+    KnowledgeBaseSnapshotDiff,
     KnowledgeBaseSnapshotRecord,
     KnowledgeBaseSnapshotStore,
     KnowledgeBaseSnapshotStoreError,
+    diff_snapshots,
 )
 from app.llm_providers import get_provider_options, normalize_provider
 from app.logging_config import (
@@ -64,6 +74,7 @@ from app.logging_config import (
 from app.pdf_extractor import PdfExtractionError, extract_text_from_pdf_bytes
 from app.permissions import (
     KnowledgeBaseAccess,
+    KnowledgeBaseMember,
     PermissionStore,
     PermissionStoreError,
 )
@@ -91,6 +102,7 @@ from app.vector_store import (
     search_chunks,
     upsert_chunks,
 )
+from app.web_page_fetcher import WebPageFetchError, fetch_web_page
 
 
 configure_logging()
@@ -205,11 +217,29 @@ class ChatResponse(BaseModel):
     usage: dict[str, Any] | None = None
 
 
+class ExtractedTableResponse(BaseModel):
+    table_number: int
+    row_count: int
+    char_count: int
+    preview: str
+
+
+class ExtractedImageResponse(BaseModel):
+    image_number: int
+    char_count: int
+    preview: str
+    extraction_method: str = "pdf_image_ocr"
+
+
 class ExtractedPageResponse(BaseModel):
     page_number: int
     char_count: int
     preview: str
     extraction_method: str = "text"
+    table_count: int = 0
+    image_ocr_count: int = 0
+    tables: list[ExtractedTableResponse] = Field(default_factory=list)
+    images: list[ExtractedImageResponse] = Field(default_factory=list)
 
 
 class PdfExtractResponse(BaseModel):
@@ -220,6 +250,8 @@ class PdfExtractResponse(BaseModel):
     scanned_like: bool
     extraction_mode: str = "text"
     ocr_page_count: int = 0
+    table_count: int = 0
+    image_ocr_count: int = 0
     pages: list[ExtractedPageResponse]
 
 
@@ -241,6 +273,8 @@ class PdfChunkResponse(BaseModel):
     scanned_like: bool
     extraction_mode: str = "text"
     ocr_page_count: int = 0
+    table_count: int = 0
+    image_ocr_count: int = 0
     chunks: list[TextChunkResponse]
 
 
@@ -278,6 +312,14 @@ class DocumentIndexResponse(BaseModel):
     ocr_page_count: int = 0
     image_ocr_count: int = 0
     extraction_methods: list[str] = Field(default_factory=list)
+
+
+class WebPageIndexRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=2000)
+    chunk_size: int = Field(default=800, ge=100, le=3000)
+    overlap: int = Field(default=100, ge=0)
+    reindex: bool = False
+    knowledge_base_id: str | None = Field(default=None, max_length=120)
 
 
 class SearchRequest(BaseModel):
@@ -466,6 +508,41 @@ class EvaluationRunListResponse(BaseModel):
     runs: list[EvaluationRunSummaryResponse]
 
 
+class AnswerJudgeSourceRequest(BaseModel):
+    source_id: int | None = Field(default=None, ge=1)
+    score: float | None = Field(default=None, ge=0.0)
+    document_id: str | None = Field(default=None, max_length=120)
+    filename: str | None = Field(default=None, max_length=500)
+    page_number: int | None = None
+    chunk_id: int | None = None
+    preview: str = Field(default="", max_length=2000)
+
+
+class AnswerQualityJudgeRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+    answer: str = Field(min_length=1, max_length=12000)
+    route: str | None = Field(default=None, max_length=80)
+    knowledge_base_id: str | None = Field(default=None, max_length=120)
+    sources: list[AnswerJudgeSourceRequest] = Field(default_factory=list, max_length=20)
+
+
+class AnswerQualityJudgeResponse(BaseModel):
+    judgement_id: str
+    created_at: str
+    request_id: str | None = None
+    knowledge_base_id: str
+    route: str | None = None
+    llm_provider: str
+    llm_model: str
+    groundedness: int
+    answer_quality: int
+    completeness: int
+    risk_level: str
+    verdict: str
+    rationale: str
+    usage: dict[str, Any] | None = None
+
+
 class AnswerFeedbackRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     answer: str = Field(min_length=1, max_length=12000)
@@ -550,6 +627,28 @@ class KnowledgeBaseSnapshotListResponse(BaseModel):
     snapshots: list[KnowledgeBaseSnapshotSummaryResponse]
 
 
+class KnowledgeBaseSnapshotChangedDocumentResponse(BaseModel):
+    document_id: str
+    before: KnowledgeBaseSnapshotDocumentResponse
+    after: KnowledgeBaseSnapshotDocumentResponse
+    changed_fields: list[str]
+
+
+class KnowledgeBaseSnapshotDiffResponse(BaseModel):
+    knowledge_base_id: str
+    base_snapshot_id: str
+    target_snapshot_id: str
+    base_content_hash: str
+    target_content_hash: str
+    added_count: int
+    removed_count: int
+    changed_count: int
+    unchanged_count: int
+    added_documents: list[KnowledgeBaseSnapshotDocumentResponse]
+    removed_documents: list[KnowledgeBaseSnapshotDocumentResponse]
+    changed_documents: list[KnowledgeBaseSnapshotChangedDocumentResponse]
+
+
 class IndexJobResponse(BaseModel):
     job_id: str
     status: str
@@ -562,6 +661,7 @@ class IndexJobResponse(BaseModel):
     reindex: bool
     enable_ocr: bool
     enable_image_ocr: bool
+    extract_tables: bool
     ocr_language: str
     attempts: int
     progress_message: str
@@ -609,6 +709,22 @@ class KnowledgeBaseListResponse(BaseModel):
 
 class KnowledgeBaseCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
+
+class KnowledgeBaseMemberResponse(BaseModel):
+    membership_id: str
+    user_id: str
+    username: str
+    role: str
+    created_at: str
+
+
+class KnowledgeBaseMemberListResponse(BaseModel):
+    members: list[KnowledgeBaseMemberResponse]
+
+
+class KnowledgeBaseMemberAddRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=120)
 
 
 class LlmProfileResponse(BaseModel):
@@ -735,6 +851,15 @@ class AuthUserResponse(BaseModel):
     role: str
 
 
+class AdminUserResponse(AuthUserResponse):
+    status: str
+    created_at: str
+
+
+class AdminUserListResponse(BaseModel):
+    users: list[AdminUserResponse]
+
+
 class AuthTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -763,6 +888,9 @@ class HealthResponse(BaseModel):
     rate_limit_window_seconds: int
     source_storage_enabled: bool
     source_storage_backend: str
+    web_fetch_enabled: bool
+    web_fetch_max_bytes: int
+    web_fetch_allow_private_hosts: bool
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -794,6 +922,9 @@ async def health(response: Response) -> HealthResponse:
         rate_limit_window_seconds=settings.rate_limit_window_seconds,
         source_storage_enabled=settings.source_storage_enabled,
         source_storage_backend=settings.source_storage_backend,
+        web_fetch_enabled=settings.web_fetch_enabled,
+        web_fetch_max_bytes=settings.web_fetch_max_bytes,
+        web_fetch_allow_private_hosts=settings.web_fetch_allow_private_hosts,
         warnings=warnings,
     )
 
@@ -824,6 +955,38 @@ async def bootstrap_admin(request: AuthCredentialsRequest) -> AuthTokenResponse:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except PermissionStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _to_auth_token_response(user)
+
+
+@app.post("/auth/register", response_model=AuthTokenResponse)
+async def register_user(request: AuthCredentialsRequest) -> AuthTokenResponse:
+    settings = get_settings()
+    if not settings.user_registration_enabled:
+        raise HTTPException(status_code=403, detail="User registration is disabled")
+
+    user_store = get_user_store(settings.user_store_path, settings.database_url)
+    try:
+        if not user_store.has_users():
+            raise HTTPException(status_code=409, detail="Bootstrap admin before registering users")
+        user = _create_user_with_default_access(
+            user_store=user_store,
+            username=request.username,
+            password=request.password,
+            role="user",
+        )
+    except UserStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _record_audit_event(
+        settings=settings,
+        action="auth.register",
+        current_user=AuthenticatedUser(user_id=user.user_id, username=user.username, role=user.role),
+        resource_type="user",
+        resource_id=user.user_id,
+        details={"role": user.role},
+    )
     return _to_auth_token_response(user)
 
 
@@ -867,6 +1030,49 @@ async def login(request: AuthCredentialsRequest) -> AuthTokenResponse:
     return _to_auth_token_response(user)
 
 
+@app.get("/admin/users", response_model=AdminUserListResponse)
+async def list_admin_users(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AdminUserListResponse:
+    _require_admin(current_user)
+    settings = get_settings()
+    try:
+        users = get_user_store(settings.user_store_path, settings.database_url).list_users()
+    except UserStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return AdminUserListResponse(users=[_to_admin_user_response(user) for user in users])
+
+
+@app.post("/admin/users", response_model=AdminUserResponse)
+async def create_admin_user(
+    request: AuthCredentialsRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AdminUserResponse:
+    _require_admin(current_user)
+    settings = get_settings()
+    try:
+        user = _create_user_with_default_access(
+            user_store=get_user_store(settings.user_store_path, settings.database_url),
+            username=request.username,
+            password=request.password,
+            role="user",
+        )
+    except UserStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _record_audit_event(
+        settings=settings,
+        action="admin.user.create",
+        current_user=current_user,
+        resource_type="user",
+        resource_id=user.user_id,
+        details={"username": user.username, "role": user.role},
+    )
+    return _to_admin_user_response(user)
+
+
 @app.post("/auth/logout", response_model=AuthLogoutResponse)
 async def logout(_current_user: AuthenticatedUser = Depends(get_current_user)) -> AuthLogoutResponse:
     return AuthLogoutResponse(message="Logged out. Clear the bearer token on the client.")
@@ -907,6 +1113,93 @@ async def create_knowledge_base(
     except PermissionStoreError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _to_knowledge_base_response(knowledge_base)
+
+
+@app.get("/knowledge-bases/{knowledge_base_id}/members", response_model=KnowledgeBaseMemberListResponse)
+async def list_knowledge_base_members(
+    knowledge_base_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseMemberListResponse:
+    _resolve_knowledge_base_management_context(current_user, knowledge_base_id)
+    try:
+        members = get_permission_store().list_members(knowledge_base_id=knowledge_base_id)
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return KnowledgeBaseMemberListResponse(
+        members=[_to_knowledge_base_member_response(member) for member in members],
+    )
+
+
+@app.post("/knowledge-bases/{knowledge_base_id}/members", response_model=KnowledgeBaseMemberResponse)
+async def add_knowledge_base_member(
+    knowledge_base_id: str,
+    request: KnowledgeBaseMemberAddRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseMemberResponse:
+    settings = get_settings()
+    access = _resolve_knowledge_base_management_context(current_user, knowledge_base_id)
+    try:
+        target_user = get_user_store(settings.user_store_path, settings.database_url).get_user_by_username(
+            request.username
+        )
+    except UserStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if target_user is None:
+        raise HTTPException(status_code=404, detail=f"User {request.username!r} not found")
+
+    try:
+        member = get_permission_store().add_member(
+            knowledge_base_id=access.knowledge_base_id,
+            user_id=target_user.user_id,
+            role="member",
+        )
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _record_audit_event(
+        settings=settings,
+        action="knowledge_base.member.add",
+        current_user=current_user,
+        access=access,
+        resource_type="knowledge_base_member",
+        resource_id=member.membership_id,
+        details={"target_user_id": member.user_id, "username": member.username, "role": member.role},
+    )
+    return _to_knowledge_base_member_response(member)
+
+
+@app.delete("/knowledge-bases/{knowledge_base_id}/members/{user_id}", response_model=KnowledgeBaseMemberResponse)
+async def remove_knowledge_base_member(
+    knowledge_base_id: str,
+    user_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseMemberResponse:
+    settings = get_settings()
+    access = _resolve_knowledge_base_management_context(current_user, knowledge_base_id)
+    try:
+        removed_member = get_permission_store().remove_member(
+            knowledge_base_id=access.knowledge_base_id,
+            user_id=user_id,
+        )
+    except PermissionStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if removed_member is None:
+        raise HTTPException(status_code=404, detail=f"Knowledge base member {user_id!r} not found")
+
+    _record_audit_event(
+        settings=settings,
+        action="knowledge_base.member.remove",
+        current_user=current_user,
+        access=access,
+        resource_type="knowledge_base_member",
+        resource_id=removed_member.membership_id,
+        details={
+            "target_user_id": removed_member.user_id,
+            "username": removed_member.username,
+            "role": removed_member.role,
+        },
+    )
+    return _to_knowledge_base_member_response(removed_member)
 
 
 @app.get("/settings", response_model=AppSettingsResponse)
@@ -1301,6 +1594,83 @@ async def run_rag_evaluation(
     return EvaluationRunResponse(**result)
 
 
+@app.post("/evaluation/judge-answer", response_model=AnswerQualityJudgeResponse)
+async def judge_answer_quality(
+    request: AnswerQualityJudgeRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> AnswerQualityJudgeResponse:
+    base_settings = get_settings()
+    effective_settings = _get_effective_settings()
+    access = _resolve_knowledge_base_context(current_user, request.knowledge_base_id)
+    sources = [source.model_dump(exclude_none=True) for source in request.sources]
+    messages = build_answer_quality_judge_messages(
+        question=request.question,
+        answer=request.answer,
+        sources=sources,
+    )
+    started_at = time.perf_counter()
+    client = DeepSeekClient(effective_settings)
+
+    try:
+        result = await client.chat_messages(messages=messages, max_tokens=800, temperature=0.0)
+        judgement = parse_answer_quality_judgement(result["reply"])
+    except (DeepSeekClientError, AnswerQualityJudgeError) as exc:
+        _record_audit_event(
+            settings=base_settings,
+            action="evaluation.judge_answer",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            duration_ms=_elapsed_ms(started_at),
+            llm_provider=effective_settings.llm_provider,
+            llm_model=effective_settings.llm_model,
+            error_message=str(exc),
+        )
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    try:
+        record = AnswerQualityJudgeStore(base_settings.database_url).record(
+            request_id=get_request_id(),
+            user_id=current_user.user_id,
+            username=current_user.username,
+            organization_id=access.organization_id,
+            workspace_id=access.workspace_id,
+            knowledge_base_id=access.knowledge_base_id,
+            route=request.route,
+            question=request.question,
+            answer=request.answer,
+            sources=sources,
+            llm_provider=effective_settings.llm_provider,
+            llm_model=str(result.get("model") or effective_settings.llm_model),
+            judgement=judgement,
+            usage=result.get("usage"),
+        )
+    except AnswerQualityJudgeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _record_audit_event(
+        settings=base_settings,
+        action="evaluation.judge_answer",
+        current_user=current_user,
+        access=access,
+        resource_type="answer_quality_judgement",
+        resource_id=record.judgement_id,
+        duration_ms=_elapsed_ms(started_at),
+        llm_provider=record.llm_provider,
+        llm_model=record.llm_model,
+        usage=record.usage,
+        details={
+            "route": record.route,
+            "verdict": record.verdict,
+            "risk_level": record.risk_level,
+            "groundedness": record.groundedness,
+            "answer_quality": record.answer_quality,
+            "completeness": record.completeness,
+        },
+    )
+    return _to_answer_quality_judge_response(record)
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
@@ -1321,6 +1691,8 @@ async def chat(
 async def extract_document(
     file: UploadFile = File(...),
     enable_ocr: bool = Form(False),
+    enable_image_ocr: bool = Form(False),
+    extract_tables: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
     _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> PdfExtractResponse:
@@ -1337,6 +1709,8 @@ async def extract_document(
             content=content,
             enable_ocr=enable_ocr,
             ocr_language=ocr_language,
+            extract_tables=extract_tables,
+            enable_image_ocr=enable_image_ocr,
         )
     except PdfExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1349,12 +1723,34 @@ async def extract_document(
         scanned_like=extracted.scanned_like,
         extraction_mode=extracted.extraction_mode,
         ocr_page_count=extracted.ocr_page_count,
+        table_count=extracted.table_count,
+        image_ocr_count=extracted.image_ocr_count,
         pages=[
             ExtractedPageResponse(
                 page_number=page.page_number,
                 char_count=page.char_count,
                 preview=page.preview,
                 extraction_method=page.extraction_method,
+                table_count=page.table_count,
+                image_ocr_count=page.image_ocr_count,
+                tables=[
+                    ExtractedTableResponse(
+                        table_number=table.table_number,
+                        row_count=table.row_count,
+                        char_count=table.char_count,
+                        preview=table.preview,
+                    )
+                    for table in page.tables
+                ],
+                images=[
+                    ExtractedImageResponse(
+                        image_number=image.image_number,
+                        char_count=image.char_count,
+                        preview=image.preview,
+                        extraction_method=image.extraction_method,
+                    )
+                    for image in page.images
+                ],
             )
             for page in extracted.pages
         ],
@@ -1367,6 +1763,8 @@ async def chunk_document(
     chunk_size: int = Form(800),
     overlap: int = Form(100),
     enable_ocr: bool = Form(False),
+    enable_image_ocr: bool = Form(False),
+    extract_tables: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
     _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> PdfChunkResponse:
@@ -1383,6 +1781,8 @@ async def chunk_document(
             content=content,
             enable_ocr=enable_ocr,
             ocr_language=ocr_language,
+            extract_tables=extract_tables,
+            enable_image_ocr=enable_image_ocr,
         )
         chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
     except PdfExtractionError as exc:
@@ -1400,6 +1800,8 @@ async def chunk_document(
         scanned_like=extracted.scanned_like,
         extraction_mode=extracted.extraction_mode,
         ocr_page_count=extracted.ocr_page_count,
+        table_count=extracted.table_count,
+        image_ocr_count=extracted.image_ocr_count,
         chunks=[
             TextChunkResponse(
                 chunk_id=chunk.chunk_id,
@@ -1447,13 +1849,14 @@ async def index_document(
     reindex: bool = Form(False),
     enable_ocr: bool = Form(False),
     enable_image_ocr: bool = Form(False),
+    extract_tables: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
     knowledge_base_id_form: str | None = Form(default=None, alias="knowledge_base_id"),
     current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
-        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, xlsx, html, and htm files are supported")
 
     settings = get_settings()
     content = await _read_upload_content(file, settings)
@@ -1475,6 +1878,7 @@ async def index_document(
             reindex=reindex,
             enable_ocr=enable_ocr,
             enable_image_ocr=enable_image_ocr,
+            extract_tables=extract_tables,
             ocr_language=ocr_language,
         )
     except (PdfExtractionError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError, SourceStorageError) as exc:
@@ -1511,6 +1915,82 @@ async def index_document(
     return result
 
 
+@app.post("/knowledge-bases/{knowledge_base_id}/web-pages/index", response_model=DocumentIndexResponse)
+@app.post("/web-pages/index", response_model=DocumentIndexResponse)
+async def index_web_page(
+    request: WebPageIndexRequest,
+    knowledge_base_id: str | None = None,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> DocumentIndexResponse:
+    settings = get_settings()
+    if not settings.web_fetch_enabled:
+        raise HTTPException(status_code=403, detail="Web page URL ingestion is disabled")
+
+    access = _resolve_knowledge_base_context(
+        current_user,
+        _select_knowledge_base_id(knowledge_base_id, request.knowledge_base_id),
+    )
+    started_at = time.perf_counter()
+
+    try:
+        fetched = await run_in_threadpool(
+            fetch_web_page,
+            url=request.url,
+            timeout_seconds=settings.web_fetch_timeout_seconds,
+            max_bytes=settings.web_fetch_max_bytes,
+            allow_private_hosts=settings.web_fetch_allow_private_hosts,
+        )
+        result = await run_in_threadpool(
+            _index_document_content,
+            settings=settings,
+            access=access,
+            owner_user_id=current_user.user_id,
+            filename=fetched.filename,
+            content=fetched.content,
+            chunk_size=request.chunk_size,
+            overlap=request.overlap,
+            reindex=request.reindex,
+            enable_ocr=False,
+            enable_image_ocr=False,
+            extract_tables=False,
+            ocr_language="chi_sim+eng",
+        )
+    except (WebPageFetchError, DocumentLoadError, TextSplitError, EmbeddingError, VectorStoreError, DocumentStoreError, SourceStorageError) as exc:
+        _record_audit_event(
+            settings=settings,
+            action="web_page.index",
+            current_user=current_user,
+            access=access,
+            status=AUDIT_STATUS_FAILURE,
+            resource_type="web_page",
+            duration_ms=_elapsed_ms(started_at),
+            details={"url": request.url, "reindex": request.reindex},
+            error_message=str(exc),
+        )
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _record_audit_event(
+        settings=settings,
+        action="web_page.index",
+        current_user=current_user,
+        access=access,
+        resource_type="document",
+        resource_id=result.document_id,
+        duration_ms=_elapsed_ms(started_at),
+        details={
+            "url": fetched.url,
+            "final_url": fetched.final_url,
+            "filename": result.filename,
+            "file_type": result.file_type,
+            "indexed": result.indexed,
+            "is_duplicate": result.is_duplicate,
+            "chunk_count": result.chunk_count,
+            "indexed_count": result.indexed_count,
+        },
+    )
+    return result
+
+
 @app.post("/knowledge-bases/{knowledge_base_id}/documents/index-jobs", response_model=IndexJobResponse)
 @app.post("/documents/index-jobs", response_model=IndexJobResponse)
 async def create_index_job(
@@ -1522,13 +2002,14 @@ async def create_index_job(
     reindex: bool = Form(False),
     enable_ocr: bool = Form(False),
     enable_image_ocr: bool = Form(False),
+    extract_tables: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
     knowledge_base_id_form: str | None = Form(default=None, alias="knowledge_base_id"),
     current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> IndexJobResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
-        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, xlsx, html, and htm files are supported")
 
     settings = get_settings()
     content = await _read_upload_content(file, settings)
@@ -1558,6 +2039,7 @@ async def create_index_job(
             reindex=reindex,
             enable_ocr=enable_ocr,
             enable_image_ocr=enable_image_ocr,
+            extract_tables=extract_tables,
             ocr_language=ocr_language,
         )
     except IndexJobStoreError as exc:
@@ -1577,6 +2059,7 @@ async def create_index_job(
             "reindex": reindex,
             "enable_ocr": enable_ocr,
             "enable_image_ocr": enable_image_ocr,
+            "extract_tables": extract_tables,
         },
     )
     return _to_index_job_response(job)
@@ -1704,6 +2187,41 @@ async def list_knowledge_base_snapshots(
     return KnowledgeBaseSnapshotListResponse(
         snapshots=[_to_knowledge_base_snapshot_summary_response(snapshot) for snapshot in snapshots],
     )
+
+
+@app.get(
+    "/knowledge-bases/{knowledge_base_id}/snapshots/{base_snapshot_id}/diff/{target_snapshot_id}",
+    response_model=KnowledgeBaseSnapshotDiffResponse,
+)
+async def diff_knowledge_base_snapshots(
+    knowledge_base_id: str,
+    base_snapshot_id: str,
+    target_snapshot_id: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> KnowledgeBaseSnapshotDiffResponse:
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    store = get_knowledge_base_snapshot_store()
+    try:
+        base_snapshot = store.get_snapshot(
+            base_snapshot_id,
+            knowledge_base_id=access.knowledge_base_id,
+        )
+        target_snapshot = store.get_snapshot(
+            target_snapshot_id,
+            knowledge_base_id=access.knowledge_base_id,
+        )
+    except KnowledgeBaseSnapshotStoreError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if base_snapshot is None:
+        raise HTTPException(status_code=404, detail=f"Knowledge base snapshot {base_snapshot_id!r} not found")
+    if target_snapshot is None:
+        raise HTTPException(status_code=404, detail=f"Knowledge base snapshot {target_snapshot_id!r} not found")
+
+    try:
+        diff = diff_snapshots(base_snapshot, target_snapshot)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _to_knowledge_base_snapshot_diff_response(diff)
 
 
 @app.get(
@@ -1889,12 +2407,13 @@ async def reindex_document(
     overlap: int = Form(100),
     enable_ocr: bool = Form(False),
     enable_image_ocr: bool = Form(False),
+    extract_tables: bool = Form(False),
     ocr_language: str = Form("chi_sim+eng"),
     current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> DocumentIndexResponse:
     filename = file.filename or "uploaded.pdf"
     if not _is_supported_index_file(filename):
-        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, and xlsx files are supported")
+        raise HTTPException(status_code=400, detail="Only PDF, Markdown, txt, docx, csv, xlsx, html, and htm files are supported")
 
     settings = get_settings()
     content = await _read_upload_content(file, settings)
@@ -1920,6 +2439,7 @@ async def reindex_document(
             overlap=overlap,
             enable_ocr=enable_ocr,
             enable_image_ocr=enable_image_ocr,
+            extract_tables=extract_tables,
             ocr_language=ocr_language,
         )
         if not chunks:
@@ -2738,6 +3258,25 @@ def _to_answer_feedback_response(feedback: AnswerFeedbackRecord) -> AnswerFeedba
     )
 
 
+def _to_answer_quality_judge_response(record: AnswerQualityJudgementRecord) -> AnswerQualityJudgeResponse:
+    return AnswerQualityJudgeResponse(
+        judgement_id=record.judgement_id,
+        created_at=record.created_at,
+        request_id=record.request_id,
+        knowledge_base_id=record.knowledge_base_id,
+        route=record.route,
+        llm_provider=record.llm_provider,
+        llm_model=record.llm_model,
+        groundedness=record.groundedness,
+        answer_quality=record.answer_quality,
+        completeness=record.completeness,
+        risk_level=record.risk_level,
+        verdict=record.verdict,
+        rationale=record.rationale,
+        usage=record.usage,
+    )
+
+
 def _read_metrics(settings: Any) -> MetricsResponse:
     documents = get_document_store(settings.document_metadata_path).list_documents()
     index_jobs = IndexJobStore(settings.database_url).list_jobs(limit=10000)
@@ -2776,6 +3315,8 @@ def _deployment_warnings(settings: Any) -> list[str]:
             warnings.append("llm_api_key_not_configured")
         if not getattr(settings, "source_storage_enabled", True):
             warnings.append("source_storage_disabled")
+        if getattr(settings, "web_fetch_allow_private_hosts", False):
+            warnings.append("web_fetch_private_hosts_allowed")
     return warnings
 
 
@@ -2836,6 +3377,37 @@ def _to_auth_token_response(user: UserRecord) -> AuthTokenResponse:
         access_token=token,
         user=AuthUserResponse(**public_user(user)),
     )
+
+
+def _to_admin_user_response(user: UserRecord) -> AdminUserResponse:
+    return AdminUserResponse(
+        user_id=user.user_id,
+        username=user.username,
+        role=user.role,
+        status=user.status,
+        created_at=user.created_at,
+    )
+
+
+def _require_admin(current_user: AuthenticatedUser) -> None:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
+
+
+def _create_user_with_default_access(
+    *,
+    user_store: Any,
+    username: str,
+    password: str,
+    role: str,
+) -> UserRecord:
+    user = user_store.create_user(username=username, password=password, role=role)
+    get_permission_store().ensure_default_access(
+        user_id=user.user_id,
+        username=user.username,
+        role=user.role,
+    )
+    return user
 
 
 def _materialize_llm_profiles(
@@ -2978,6 +3550,29 @@ def _resolve_knowledge_base_context(
     return access
 
 
+def _resolve_knowledge_base_management_context(
+    current_user: AuthenticatedUser,
+    knowledge_base_id: str,
+) -> KnowledgeBaseAccess:
+    _ensure_default_knowledge_base(current_user)
+    if current_user.role == "admin":
+        try:
+            access = get_permission_store().get_knowledge_base(
+                knowledge_base_id=knowledge_base_id,
+                role="admin",
+            )
+        except PermissionStoreError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if access is None:
+            raise HTTPException(status_code=404, detail=f"Knowledge base {knowledge_base_id!r} not found")
+        return access
+
+    access = _resolve_knowledge_base_context(current_user, knowledge_base_id)
+    if access.role != "owner":
+        raise HTTPException(status_code=403, detail="Knowledge base owner role required")
+    return access
+
+
 def _require_document_in_knowledge_base(
     *,
     document_id: str,
@@ -3013,6 +3608,10 @@ def _to_knowledge_base_response(knowledge_base: KnowledgeBaseAccess) -> Knowledg
     )
 
 
+def _to_knowledge_base_member_response(member: KnowledgeBaseMember) -> KnowledgeBaseMemberResponse:
+    return KnowledgeBaseMemberResponse(**asdict(member))
+
+
 def _get_index_job_or_404(*, job_id: str, knowledge_base_id: str) -> IndexJobRecord:
     try:
         job = get_index_job_store().get_job(job_id, knowledge_base_id=knowledge_base_id)
@@ -3036,6 +3635,7 @@ def _to_index_job_response(job: IndexJobRecord) -> IndexJobResponse:
         reindex=job.reindex,
         enable_ocr=job.enable_ocr,
         enable_image_ocr=job.enable_image_ocr,
+        extract_tables=job.extract_tables,
         ocr_language=job.ocr_language,
         attempts=job.attempts,
         progress_message=job.progress_message,
@@ -3107,6 +3707,32 @@ def _to_knowledge_base_snapshot_response(snapshot: KnowledgeBaseSnapshotRecord) 
     return KnowledgeBaseSnapshotResponse(**asdict(snapshot))
 
 
+def _to_knowledge_base_snapshot_changed_document_response(
+    changed_document: KnowledgeBaseSnapshotChangedDocument,
+) -> KnowledgeBaseSnapshotChangedDocumentResponse:
+    return KnowledgeBaseSnapshotChangedDocumentResponse(**asdict(changed_document))
+
+
+def _to_knowledge_base_snapshot_diff_response(diff: KnowledgeBaseSnapshotDiff) -> KnowledgeBaseSnapshotDiffResponse:
+    return KnowledgeBaseSnapshotDiffResponse(
+        knowledge_base_id=diff.knowledge_base_id,
+        base_snapshot_id=diff.base_snapshot_id,
+        target_snapshot_id=diff.target_snapshot_id,
+        base_content_hash=diff.base_content_hash,
+        target_content_hash=diff.target_content_hash,
+        added_count=len(diff.added_documents),
+        removed_count=len(diff.removed_documents),
+        changed_count=len(diff.changed_documents),
+        unchanged_count=diff.unchanged_count,
+        added_documents=diff.added_documents,
+        removed_documents=diff.removed_documents,
+        changed_documents=[
+            _to_knowledge_base_snapshot_changed_document_response(changed_document)
+            for changed_document in diff.changed_documents
+        ],
+    )
+
+
 def _write_index_job_file(*, storage_path: str, filename: str, content: bytes) -> str:
     storage_dir = Path(storage_path)
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -3145,6 +3771,7 @@ def _run_index_job_task(job_id: str) -> None:
             reindex=running_job.reindex,
             enable_ocr=running_job.enable_ocr,
             enable_image_ocr=running_job.enable_image_ocr,
+            extract_tables=running_job.extract_tables,
             ocr_language=running_job.ocr_language,
         )
         store.mark_succeeded(
@@ -3171,6 +3798,7 @@ def _index_document_content(
     reindex: bool,
     enable_ocr: bool,
     enable_image_ocr: bool,
+    extract_tables: bool,
     ocr_language: str,
 ) -> DocumentIndexResponse:
     content_hash = _calculate_content_hash(content)
@@ -3216,6 +3844,7 @@ def _index_document_content(
         overlap=overlap,
         enable_ocr=enable_ocr,
         enable_image_ocr=enable_image_ocr,
+        extract_tables=extract_tables,
         ocr_language=ocr_language,
     )
     if not chunks:
@@ -3347,6 +3976,7 @@ def _parse_and_split_index_file(
     overlap: int,
     enable_ocr: bool = False,
     enable_image_ocr: bool = False,
+    extract_tables: bool = False,
     ocr_language: str = "chi_sim+eng",
 ) -> tuple[str, int, list[TextChunk], str | None, int, int, list[str]]:
     if filename.lower().endswith(".pdf"):
@@ -3355,6 +3985,8 @@ def _parse_and_split_index_file(
             content=content,
             enable_ocr=enable_ocr,
             ocr_language=ocr_language,
+            extract_tables=extract_tables,
+            enable_image_ocr=enable_image_ocr,
         )
         chunks = split_pdf_text(extracted, chunk_size=chunk_size, overlap=overlap)
         return (
@@ -3363,7 +3995,7 @@ def _parse_and_split_index_file(
             chunks,
             extracted.extraction_mode,
             extracted.ocr_page_count,
-            0,
+            extracted.image_ocr_count,
             _chunk_extraction_methods(chunks),
         )
 
