@@ -29,6 +29,9 @@ const state = {
 const els = {
   uploadForm: document.querySelector("#uploadForm"),
   fileInput: document.querySelector("#fileInput"),
+  filePicker: document.querySelector("#filePicker"),
+  chooseFileButton: document.querySelector("#chooseFileButton"),
+  fileNameDisplay: document.querySelector("#fileNameDisplay"),
   chunkSize: document.querySelector("#chunkSize"),
   overlap: document.querySelector("#overlap"),
   reindex: document.querySelector("#reindex"),
@@ -149,6 +152,8 @@ const translations = {
     "import.eyebrow": "Import",
     "import.title": "文件导入",
     "import.refresh": "刷新文档列表",
+    "import.chooseFile": "选择文件",
+    "import.noFile": "未选择文件",
     "import.chunk": "分块大小 chunk",
     "import.overlap": "重叠长度 overlap",
     "import.reindex": "重新索引 reindex",
@@ -335,6 +340,8 @@ const translations = {
     "import.eyebrow": "Import",
     "import.title": "Import Files",
     "import.refresh": "Refresh documents",
+    "import.chooseFile": "Choose File",
+    "import.noFile": "No file selected",
     "import.chunk": "chunk",
     "import.overlap": "overlap",
     "import.reindex": "reindex",
@@ -1374,16 +1381,32 @@ async function uploadDocument(event) {
       method: "POST",
       body: form,
     });
+<<<<<<< HEAD
+    showToast(data.message || t("toast.indexDone"));
+    els.fileInput.value = "";
+    updateSelectedFileName();
+    await loadDocuments();
+=======
     showToast(t("jobs.created"));
     state.indexJobs = [data, ...state.indexJobs.filter((job) => job.job_id !== data.job_id)];
     state.hadActiveIndexJobs = true;
     renderIndexJobs();
     startIndexJobPolling();
     await loadIndexJobs();
+>>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
   } catch (error) {
     showToast(error.message, true);
     setStatus("error");
   }
+}
+
+function updateSelectedFileName() {
+  if (!els.fileNameDisplay || !els.fileInput) {
+    return;
+  }
+  const file = els.fileInput.files?.[0] || null;
+  els.fileNameDisplay.textContent = file ? file.name : t("import.noFile");
+  els.fileNameDisplay.classList.toggle("has-file", Boolean(file));
 }
 
 async function batchDeleteDocuments() {
@@ -1538,7 +1561,7 @@ async function askQuestion(event) {
   const pendingId = `pending-${Date.now()}`;
   state.messages.push({ role: "user", content: question });
   state.messages.push({ id: pendingId, role: "assistant", pending: true });
-  renderMessages();
+  renderMessages({ scroll: "bottom" });
   els.questionInput.value = "";
   els.sourceList.innerHTML = "";
   try {
@@ -1554,6 +1577,7 @@ async function askQuestion(event) {
       role: "assistant",
       content: data.reply || "",
       meta: `${routeMeta}${data.model || t("debug.model")} · ${t("debug.sources")} ${data.source_count}`,
+<<<<<<< HEAD
       feedback: {
         question,
         answer: data.reply || "",
@@ -1563,6 +1587,9 @@ async function askQuestion(event) {
         source_count: data.source_count || 0,
       },
     });
+=======
+    }, { scroll: "latestAssistantTop" });
+>>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
     renderSources(data.sources || []);
     renderDebug(data);
     setStatus("done");
@@ -1571,20 +1598,25 @@ async function askQuestion(event) {
       role: "assistant",
       content: `${t("message.requestFailed")}：${error.message}`,
       error: true,
-    });
+    }, { scroll: "latestAssistantTop" });
     els.debugGrid.innerHTML = "";
     setStatus("error");
   }
 }
 
-function renderMessages() {
+function renderMessages(options = {}) {
   if (!state.messages.length) {
     els.answerOutput.innerHTML = `<p class="empty-state">${t("ask.empty")}</p>`;
     return;
   }
 
+<<<<<<< HEAD
   els.answerOutput.innerHTML = state.messages.map((message, index) => renderMessage(message, index)).join("");
   els.answerOutput.scrollTop = els.answerOutput.scrollHeight;
+=======
+  els.answerOutput.innerHTML = state.messages.map(renderMessage).join("");
+  scrollAnswerOutput(options.scroll || "none");
+>>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
 }
 
 function renderMessage(message, index = 0) {
@@ -1631,14 +1663,27 @@ function renderMessage(message, index = 0) {
   `;
 }
 
-function replacePendingMessage(id, nextMessage) {
+function replacePendingMessage(id, nextMessage, options = {}) {
   const index = state.messages.findIndex((message) => message.id === id);
   if (index >= 0) {
     state.messages[index] = nextMessage;
   } else {
     state.messages.push(nextMessage);
   }
-  renderMessages();
+  renderMessages(options);
+}
+
+function scrollAnswerOutput(mode) {
+  if (mode === "bottom") {
+    els.answerOutput.scrollTop = els.answerOutput.scrollHeight;
+    return;
+  }
+  if (mode === "latestAssistantTop") {
+    const latestAssistant = [...els.answerOutput.querySelectorAll(".chat-message.assistant")].at(-1);
+    if (latestAssistant) {
+      els.answerOutput.scrollTop = Math.max(0, latestAssistant.offsetTop - els.answerOutput.offsetTop);
+    }
+  }
 }
 
 async function handleAnswerFeedbackClick(event) {
@@ -1990,7 +2035,11 @@ function applyLanguage() {
   } else if (els.evaluationSummary) {
     renderEvaluation(null);
   }
+<<<<<<< HEAD
   renderEvaluationHistory();
+=======
+  updateSelectedFileName();
+>>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
 }
 
 function applyTheme() {
@@ -2175,6 +2224,9 @@ function escapeHtml(value) {
 }
 
 els.uploadForm.addEventListener("submit", uploadDocument);
+els.chooseFileButton.addEventListener("click", () => els.fileInput.click());
+els.fileNameDisplay.addEventListener("click", () => els.fileInput.click());
+els.fileInput.addEventListener("change", updateSelectedFileName);
 els.documentNameFilter.addEventListener("input", renderDocuments);
 els.documentTypeFilter.addEventListener("change", renderDocuments);
 els.clearDocumentFilters.addEventListener("click", () => {

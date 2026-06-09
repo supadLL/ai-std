@@ -6,7 +6,15 @@
     <title>Local RAG Agent | Knowledge QA</title>
     <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" />
     <link rel="apple-touch-icon" sizes="192x192" href="/web/assets/rag-agent-icon-192.png?v=29" />
+<<<<<<< HEAD
     <link rel="stylesheet" href="/web/styles.css?v=43" />
+=======
+<<<<<<< HEAD
+    <link rel="stylesheet" href="/web/styles.css?v=40" />
+=======
+    <link rel="stylesheet" href="/web/styles.css?v=41" />
+>>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
+>>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
   </head>
   <body>
     <section class="auth-panel" id="authPanel">
@@ -97,7 +105,15 @@
             </div>
 
             <form class="upload-box" id="uploadForm">
+<<<<<<< HEAD
               <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.html,.htm,.docx,.csv,.xlsx" />
+=======
+              <div class="file-picker" id="filePicker">
+                <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.docx,.csv,.xlsx" />
+                <span class="file-name" id="fileNameDisplay" data-i18n="import.noFile">未选择文件</span>
+                <button class="file-button" id="chooseFileButton" type="button" data-i18n="import.chooseFile">选择文件</button>
+              </div>
+>>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
               <div class="upload-meta">
                 <label for="chunkSize" data-i18n="import.chunk">分块大小 chunk</label>
                 <input id="chunkSize" name="chunk_size" type="number" min="100" max="3000" value="800" />

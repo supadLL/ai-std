@@ -87,14 +87,27 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
+<<<<<<< HEAD
     assert "/web/styles.css?v=43" in app_response.text
     assert "/web/app.js?v=43" in app_response.text
+=======
+<<<<<<< HEAD
+    assert "/web/styles.css?v=40" in app_response.text
+    assert "/web/app.js?v=41" in app_response.text
+=======
+    assert "/web/styles.css?v=41" in app_response.text
+    assert "/web/app.js?v=41" in app_response.text
+>>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
     assert 'id="knowledgeBaseSelect"' in app_response.text
     assert 'id="knowledgeBaseForm"' in app_response.text
     assert 'id="indexJobList"' in app_response.text
     assert 'id="refreshIndexJobs"' in app_response.text
+<<<<<<< HEAD
     assert 'id="evaluationHistory"' in app_response.text
     assert 'id="reloadEvaluationRuns"' in app_response.text
+=======
+>>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
+>>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
     assert "分块大小 chunk" in app_response.text
     assert "重叠长度 overlap" in app_response.text
     assert "重新索引 reindex" in app_response.text
@@ -115,6 +128,8 @@ def test_web_ui_routes_are_available():
     assert 'id="backgroundColorInput"' in app_response.text
     assert 'id="providerInput"' in app_response.text
     assert 'id="modelOptions"' in app_response.text
+    assert 'id="fileNameDisplay"' in app_response.text
+    assert 'id="chooseFileButton"' in app_response.text
     assert 'id="profileTableBody"' in app_response.text
     assert 'id="profileModal"' in app_response.text
     assert 'id="addProfileButton"' in app_response.text
