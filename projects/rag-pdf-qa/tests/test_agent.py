@@ -16,6 +16,11 @@ def test_decide_agent_route_prefers_rag_for_document_questions():
     assert decide_agent_route("请根据知识库回答这个 PDF 的结论") == "rag"
 
 
+def test_decide_agent_route_respects_rag_negation():
+    assert decide_agent_route("不要检索知识库，直接回答这个问题") == "chat"
+    assert decide_agent_route("No need to search sources; just rewrite this sentence") == "chat"
+
+
 def test_agent_ask_appears_in_openapi():
     client = TestClient(main.app)
 

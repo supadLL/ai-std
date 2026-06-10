@@ -1860,6 +1860,10 @@ async def index_document(
 
     settings = get_settings()
     content = await _read_upload_content(file, settings)
+    try:
+        _validate_index_file_content(filename, content)
+    except DocumentLoadError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     access = _resolve_knowledge_base_context(
         current_user,
         _select_knowledge_base_id(knowledge_base_id, knowledge_base_id_form),
@@ -2013,6 +2017,10 @@ async def create_index_job(
 
     settings = get_settings()
     content = await _read_upload_content(file, settings)
+    try:
+        _validate_index_file_content(filename, content)
+    except DocumentLoadError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     access = _resolve_knowledge_base_context(
         current_user,
         _select_knowledge_base_id(knowledge_base_id, knowledge_base_id_form),
@@ -3968,6 +3976,21 @@ def _is_supported_index_file(filename: str) -> bool:
     return lower_filename.endswith(".pdf") or is_supported_document(filename)
 
 
+def _validate_index_file_content(filename: str, content: bytes) -> None:
+    suffix = Path(filename).suffix.lower()
+    if not content:
+        raise DocumentLoadError("Document file is empty")
+    if suffix == ".pdf" and not content.lstrip().startswith(b"%PDF"):
+        raise DocumentLoadError("PDF file content does not match the .pdf extension")
+    if suffix in {".docx", ".xlsx"} and not content.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
+        raise DocumentLoadError(f"{suffix.lstrip('.')} file content does not match the {suffix} extension")
+    if suffix in {".md", ".markdown", ".txt", ".csv", ".html", ".htm"}:
+        try:
+            content.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise DocumentLoadError(f"{suffix.lstrip('.')} file content must be UTF-8 text") from exc
+
+
 def _parse_and_split_index_file(
     *,
     filename: str,
@@ -3979,6 +4002,7 @@ def _parse_and_split_index_file(
     extract_tables: bool = False,
     ocr_language: str = "chi_sim+eng",
 ) -> tuple[str, int, list[TextChunk], str | None, int, int, list[str]]:
+    _validate_index_file_content(filename, content)
     if filename.lower().endswith(".pdf"):
         extracted = extract_text_from_pdf_bytes(
             filename=filename,

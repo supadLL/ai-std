@@ -79,7 +79,7 @@ def test_web_ui_routes_are_available():
     assert app_response.status_code == 200
     assert "Local RAG Agent | Knowledge QA" in app_response.text
     assert "/web/assets/rag-agent-icon-64.png?v=29" in app_response.text
-    assert "/web/assets/rag-agent-icon-192.png?v=29" in app_response.text
+    assert "assets/rag-agent-icon-192.png?v=29" in app_response.text
     assert 'data-tab="import"' in app_response.text
     assert 'data-tab="ask"' in app_response.text
     assert 'data-tab="evaluation"' in app_response.text
@@ -87,27 +87,19 @@ def test_web_ui_routes_are_available():
     assert 'id="tab-ask" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-evaluation" role="tabpanel" hidden' in app_response.text
     assert 'id="tab-settings" role="tabpanel" hidden' in app_response.text
-<<<<<<< HEAD
-    assert "/web/styles.css?v=43" in app_response.text
-    assert "/web/app.js?v=43" in app_response.text
-=======
-<<<<<<< HEAD
-    assert "/web/styles.css?v=40" in app_response.text
-    assert "/web/app.js?v=41" in app_response.text
-=======
-    assert "/web/styles.css?v=41" in app_response.text
-    assert "/web/app.js?v=41" in app_response.text
->>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
+    assert "/web/styles.css?v=49" in app_response.text
+    assert "this.href='styles.css?v=49'" in app_response.text
+    assert "/web/app.js?v=49" in app_response.text
+    assert "this.src='app.js?v=49'" in app_response.text
+    assert 'id="authLanguageControl"' in app_response.text
+    assert 'id="authAdminHelp"' in app_response.text
+    assert 'id="authMessage"' in app_response.text
     assert 'id="knowledgeBaseSelect"' in app_response.text
     assert 'id="knowledgeBaseForm"' in app_response.text
     assert 'id="indexJobList"' in app_response.text
     assert 'id="refreshIndexJobs"' in app_response.text
-<<<<<<< HEAD
     assert 'id="evaluationHistory"' in app_response.text
     assert 'id="reloadEvaluationRuns"' in app_response.text
-=======
->>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
->>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
     assert "分块大小 chunk" in app_response.text
     assert "重叠长度 overlap" in app_response.text
     assert "重新索引 reindex" in app_response.text
@@ -130,6 +122,8 @@ def test_web_ui_routes_are_available():
     assert 'id="modelOptions"' in app_response.text
     assert 'id="fileNameDisplay"' in app_response.text
     assert 'id="chooseFileButton"' in app_response.text
+    assert 'id="fileInput"' in app_response.text
+    assert "multiple" in app_response.text
     assert 'id="profileTableBody"' in app_response.text
     assert 'id="profileModal"' in app_response.text
     assert 'id="addProfileButton"' in app_response.text
@@ -403,6 +397,29 @@ def test_pdf_extract_and_chunk_endpoints_reject_non_pdf_files():
     assert "Only PDF files" in extract_response.json()["detail"]
     assert chunk_response.status_code == 400
     assert "Only PDF files" in chunk_response.json()["detail"]
+
+
+def test_index_document_rejects_pdf_extension_with_non_pdf_content(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="", document_metadata_path="unused.json"),
+    )
+    monkeypatch.setattr(
+        main,
+        "extract_text_from_pdf_bytes",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("invalid PDF should not be parsed")),
+    )
+
+    client = TestClient(main.app)
+    response = client.post(
+        "/documents/index",
+        files={"file": ("exploit.exe.pdf", b"MZ fake executable bytes", "application/pdf")},
+        data={"chunk_size": "800", "overlap": "100"},
+    )
+
+    assert response.status_code == 422
+    assert "does not match the .pdf extension" in response.json()["detail"]
 
 
 def test_pdf_extract_endpoint_returns_image_ocr_preview(monkeypatch):
@@ -1075,7 +1092,7 @@ def test_reindex_document_replaces_existing_document_with_uploaded_file(monkeypa
 
 
 def test_index_document_duplicate_content_reuses_existing_record(monkeypatch):
-    content = b"same pdf bytes"
+    content = b"%PDF same pdf bytes"
     content_hash = main._calculate_content_hash(content)
     record = DocumentRecord(
         document_id="doc-duplicate",
@@ -1128,7 +1145,7 @@ def test_index_document_duplicate_content_reuses_existing_record(monkeypatch):
 
 
 def test_index_document_reindex_replaces_existing_chunks(monkeypatch):
-    content = b"same pdf bytes"
+    content = b"%PDF same pdf bytes"
     content_hash = main._calculate_content_hash(content)
     record = DocumentRecord(
         document_id="doc-reindex",
@@ -1425,7 +1442,7 @@ def test_parse_non_pdf_index_file_counts_image_ocr_chunks(monkeypatch):
 
     file_type, page_count, chunks, extraction_mode, ocr_page_count, image_ocr_count, extraction_methods = main._parse_and_split_index_file(
         filename="demo.docx",
-        content=b"docx bytes",
+        content=b"PK\x03\x04 docx bytes",
         chunk_size=100,
         overlap=0,
         enable_image_ocr=True,

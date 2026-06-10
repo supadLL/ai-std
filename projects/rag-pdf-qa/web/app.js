@@ -99,6 +99,7 @@ const els = {
   authForm: document.querySelector("#authForm"),
   authUsername: document.querySelector("#authUsername"),
   authPassword: document.querySelector("#authPassword"),
+  authMessage: document.querySelector("#authMessage"),
   registerUser: document.querySelector("#registerUser"),
   bootstrapAdmin: document.querySelector("#bootstrapAdmin"),
   logoutButton: document.querySelector("#logoutButton"),
@@ -154,6 +155,7 @@ const translations = {
     "import.refresh": "刷新文档列表",
     "import.chooseFile": "选择文件",
     "import.noFile": "未选择文件",
+    "import.filesSelected": "{count} 个文件：{names}",
     "import.chunk": "分块大小 chunk",
     "import.overlap": "重叠长度 overlap",
     "import.reindex": "重新索引 reindex",
@@ -272,6 +274,9 @@ const translations = {
     "message.requestFailed": "请求失败",
     "toast.chooseFile": "请选择文件",
     "toast.indexDone": "索引完成",
+    "toast.uploadingFiles": "正在提交 {current}/{total}：{name}",
+    "toast.uploadQueued": "已提交 {count} 个索引任务",
+    "toast.uploadPartial": "已提交 {success} 个任务，{failed} 个文件失败",
     "toast.enterQuestion": "请输入问题",
     "toast.settingsSaved": "设置已保存",
     "toast.profileSaved": "模型配置已保存",
@@ -282,6 +287,8 @@ const translations = {
     "toast.feedbackSaved": "反馈已记录",
     "toast.colorChanged": "系统色已更新",
     "toast.backgroundChanged": "背景色已更新",
+    "toast.signedIn": "已登录",
+    "toast.signedOut": "已退出",
     "status.idle": "idle",
     "status.loading": "loading",
     "status.indexing": "indexing",
@@ -294,7 +301,22 @@ const translations = {
     "settingsStatus.error": "error",
     "settingsStatus.noKey": "no-key",
     "settingsStatus.key": "key",
-    "auth.register": "Register",
+    "auth.eyebrow": "企业访问",
+    "auth.title": "登录",
+    "auth.language": "语言",
+    "auth.username": "用户名",
+    "auth.password": "密码",
+    "auth.passwordPlaceholder": "至少 8 位字符",
+    "auth.adminHelp": "首次使用：输入用户名和至少 8 位密码，然后点击“初始化管理员”。这个密码就是该管理员账号的登录密码。",
+    "auth.login": "登录",
+    "auth.register": "注册",
+    "auth.bootstrap": "初始化管理员",
+    "auth.logout": "退出",
+    "auth.submitting.login": "正在登录...",
+    "auth.submitting.register": "正在注册...",
+    "auth.submitting.bootstrap": "正在初始化管理员...",
+    "auth.backendHint": "认证请求没有到达 FastAPI 后端。请通过 http://127.0.0.1:8000/app 打开页面，而不是直接打开 HTML 或使用静态服务器。",
+    "auth.required": "请输入用户名和至少 8 位密码。",
     "team.eyebrow": "Team Access",
     "team.title": "Users and members",
     "team.reload": "Refresh access",
@@ -342,6 +364,7 @@ const translations = {
     "import.refresh": "Refresh documents",
     "import.chooseFile": "Choose File",
     "import.noFile": "No file selected",
+    "import.filesSelected": "{count} files: {names}",
     "import.chunk": "chunk",
     "import.overlap": "overlap",
     "import.reindex": "reindex",
@@ -460,6 +483,9 @@ const translations = {
     "message.requestFailed": "Request failed",
     "toast.chooseFile": "Choose a file first",
     "toast.indexDone": "Indexing complete",
+    "toast.uploadingFiles": "Submitting {current}/{total}: {name}",
+    "toast.uploadQueued": "{count} index jobs queued",
+    "toast.uploadPartial": "{success} jobs queued, {failed} files failed",
     "toast.enterQuestion": "Enter a question",
     "toast.settingsSaved": "Settings saved",
     "toast.profileSaved": "Model profile saved",
@@ -470,6 +496,8 @@ const translations = {
     "toast.feedbackSaved": "Feedback recorded",
     "toast.colorChanged": "System color updated",
     "toast.backgroundChanged": "Background color updated",
+    "toast.signedIn": "Signed in",
+    "toast.signedOut": "Signed out",
     "status.idle": "idle",
     "status.loading": "loading",
     "status.indexing": "indexing",
@@ -482,7 +510,22 @@ const translations = {
     "settingsStatus.error": "error",
     "settingsStatus.noKey": "no-key",
     "settingsStatus.key": "key",
+    "auth.eyebrow": "Enterprise Access",
+    "auth.title": "Sign in",
+    "auth.language": "Language",
+    "auth.username": "Username",
+    "auth.password": "Password",
+    "auth.passwordPlaceholder": "At least 8 characters",
+    "auth.adminHelp": "First use: enter a username and an 8+ character password, then click Initialize Admin. That password becomes the admin login password.",
+    "auth.login": "Login",
     "auth.register": "Register",
+    "auth.bootstrap": "Initialize Admin",
+    "auth.logout": "Logout",
+    "auth.submitting.login": "Signing in...",
+    "auth.submitting.register": "Registering...",
+    "auth.submitting.bootstrap": "Initializing admin...",
+    "auth.backendHint": "The auth request did not reach the FastAPI backend. Open the app at http://127.0.0.1:8000/app instead of opening the HTML file or a static server.",
+    "auth.required": "Enter a username and a password with at least 8 characters.",
     "team.eyebrow": "Team Access",
     "team.title": "Users and members",
     "team.reload": "Refresh access",
@@ -626,22 +669,27 @@ async function initializeAuthenticatedApp() {
 
 async function submitAuth(event) {
   event.preventDefault();
-  await authenticateWith("/auth/login");
+  await authenticateWith("/auth/login", "login");
 }
 
 async function bootstrapAdmin() {
-  await authenticateWith("/auth/bootstrap-admin");
+  await authenticateWith("/auth/bootstrap-admin", "bootstrap");
 }
 
 async function registerUser() {
-  await authenticateWith("/auth/register");
+  await authenticateWith("/auth/register", "register");
 }
 
-async function authenticateWith(endpoint) {
+async function authenticateWith(endpoint, action = "login") {
   const payload = {
     username: els.authUsername.value.trim(),
     password: els.authPassword.value,
   };
+  if (!payload.username || payload.password.length < 8) {
+    setAuthMessage(t("auth.required"), true);
+    return;
+  }
+  setAuthMessage(t(`auth.submitting.${action}`));
   try {
     const data = await requestJson(endpoint, {
       method: "POST",
@@ -649,13 +697,26 @@ async function authenticateWith(endpoint) {
       body: JSON.stringify(payload),
     });
     setAuthState(data);
+    setAuthMessage("");
     hideAuthPanel();
-    showToast("Signed in");
+    showToast(t("toast.signedIn"));
     await loadKnowledgeBases();
     await Promise.all([loadDocuments(), loadIndexJobs(), loadSettings(), loadTeamAccess()]);
   } catch (error) {
-    showToast(error.message, true);
+    const backendHint = error.status === 404 || error.name === "TypeError";
+    const message = backendHint ? t("auth.backendHint") : error.message;
+    setAuthMessage(message, true);
+    showToast(message, true);
   }
+}
+
+function setAuthMessage(message, isError = false) {
+  if (!els.authMessage) {
+    return;
+  }
+  els.authMessage.textContent = message || "";
+  els.authMessage.classList.toggle("show", Boolean(message));
+  els.authMessage.classList.toggle("danger", Boolean(isError));
 }
 
 async function logout() {
@@ -668,7 +729,7 @@ async function logout() {
   }
   clearAuthState();
   showAuthPanel();
-  showToast("Signed out");
+  showToast(t("toast.signedOut"));
 }
 
 async function loadKnowledgeBases() {
@@ -1363,37 +1424,60 @@ function renderDocumentDetail() {
 
 async function uploadDocument(event) {
   event.preventDefault();
-  const file = els.fileInput.files[0];
-  if (!file) {
+  const files = Array.from(els.fileInput.files || []);
+  if (!files.length) {
     showToast(t("toast.chooseFile"), true);
     return;
   }
 
-  const form = new FormData();
-  form.append("file", file);
-  form.append("chunk_size", els.chunkSize.value || "800");
-  form.append("overlap", els.overlap.value || "100");
-  form.append("reindex", els.reindex.checked ? "true" : "false");
-
   setStatus("indexing");
+  const queuedJobs = [];
+  const failures = [];
   try {
-    const data = await requestJson(knowledgeBasePath("/documents/index-jobs"), {
-      method: "POST",
-      body: form,
-    });
-<<<<<<< HEAD
-    showToast(data.message || t("toast.indexDone"));
+    for (const [index, file] of files.entries()) {
+      showToast(formatText(t("toast.uploadingFiles"), {
+        current: index + 1,
+        total: files.length,
+        name: file.name,
+      }));
+      const form = new FormData();
+      form.append("file", file);
+      form.append("chunk_size", els.chunkSize.value || "800");
+      form.append("overlap", els.overlap.value || "100");
+      form.append("reindex", els.reindex.checked ? "true" : "false");
+
+      try {
+        const data = await requestJson(knowledgeBasePath("/documents/index-jobs"), {
+          method: "POST",
+          body: form,
+        });
+        queuedJobs.push(data);
+        state.indexJobs = [data, ...state.indexJobs.filter((job) => job.job_id !== data.job_id)];
+        renderIndexJobs();
+      } catch (error) {
+        failures.push({ file, error });
+      }
+    }
+
+    if (queuedJobs.length) {
+      state.hadActiveIndexJobs = true;
+      renderIndexJobs();
+      startIndexJobPolling();
+      await loadIndexJobs();
+    }
     els.fileInput.value = "";
     updateSelectedFileName();
-    await loadDocuments();
-=======
-    showToast(t("jobs.created"));
-    state.indexJobs = [data, ...state.indexJobs.filter((job) => job.job_id !== data.job_id)];
-    state.hadActiveIndexJobs = true;
-    renderIndexJobs();
-    startIndexJobPolling();
-    await loadIndexJobs();
->>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
+    if (failures.length) {
+      const message = formatText(t("toast.uploadPartial"), {
+        success: queuedJobs.length,
+        failed: failures.length,
+      });
+      showToast(`${message}: ${failures.map((item) => `${item.file.name} (${item.error.message})`).join("; ")}`, true);
+      setStatus("error");
+      return;
+    }
+    showToast(formatText(t("toast.uploadQueued"), { count: queuedJobs.length }));
+    setStatus("done");
   } catch (error) {
     showToast(error.message, true);
     setStatus("error");
@@ -1404,9 +1488,20 @@ function updateSelectedFileName() {
   if (!els.fileNameDisplay || !els.fileInput) {
     return;
   }
-  const file = els.fileInput.files?.[0] || null;
-  els.fileNameDisplay.textContent = file ? file.name : t("import.noFile");
-  els.fileNameDisplay.classList.toggle("has-file", Boolean(file));
+  const files = Array.from(els.fileInput.files || []);
+  if (!files.length) {
+    els.fileNameDisplay.textContent = t("import.noFile");
+    els.fileNameDisplay.removeAttribute("title");
+    els.fileNameDisplay.classList.remove("has-file");
+    return;
+  }
+  const names = files.slice(0, 3).map((file) => file.name).join(", ");
+  const suffix = files.length > 3 ? ` +${files.length - 3}` : "";
+  els.fileNameDisplay.textContent = files.length === 1
+    ? files[0].name
+    : formatText(t("import.filesSelected"), { count: files.length, names: `${names}${suffix}` });
+  els.fileNameDisplay.setAttribute("title", files.map((file) => file.name).join("\n"));
+  els.fileNameDisplay.classList.add("has-file");
 }
 
 async function batchDeleteDocuments() {
@@ -1577,7 +1672,6 @@ async function askQuestion(event) {
       role: "assistant",
       content: data.reply || "",
       meta: `${routeMeta}${data.model || t("debug.model")} · ${t("debug.sources")} ${data.source_count}`,
-<<<<<<< HEAD
       feedback: {
         question,
         answer: data.reply || "",
@@ -1586,10 +1680,7 @@ async function askQuestion(event) {
         knowledge_base_id: data.knowledge_base_id || state.activeKnowledgeBaseId || "",
         source_count: data.source_count || 0,
       },
-    });
-=======
     }, { scroll: "latestAssistantTop" });
->>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
     renderSources(data.sources || []);
     renderDebug(data);
     setStatus("done");
@@ -1610,13 +1701,8 @@ function renderMessages(options = {}) {
     return;
   }
 
-<<<<<<< HEAD
-  els.answerOutput.innerHTML = state.messages.map((message, index) => renderMessage(message, index)).join("");
-  els.answerOutput.scrollTop = els.answerOutput.scrollHeight;
-=======
   els.answerOutput.innerHTML = state.messages.map(renderMessage).join("");
   scrollAnswerOutput(options.scroll || "none");
->>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
 }
 
 function renderMessage(message, index = 0) {
@@ -1992,6 +2078,10 @@ function t(key, fallback = "") {
   return translations[state.preferences.language]?.[key] || translations.zh[key] || fallback || key;
 }
 
+function formatText(template, values = {}) {
+  return String(template).replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
+}
+
 function applyPreferences() {
   applyLanguage();
   applyTheme();
@@ -2035,11 +2125,8 @@ function applyLanguage() {
   } else if (els.evaluationSummary) {
     renderEvaluation(null);
   }
-<<<<<<< HEAD
   renderEvaluationHistory();
-=======
   updateSelectedFileName();
->>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
 }
 
 function applyTheme() {
@@ -2223,106 +2310,115 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-els.uploadForm.addEventListener("submit", uploadDocument);
-els.chooseFileButton.addEventListener("click", () => els.fileInput.click());
-els.fileNameDisplay.addEventListener("click", () => els.fileInput.click());
-els.fileInput.addEventListener("change", updateSelectedFileName);
-els.documentNameFilter.addEventListener("input", renderDocuments);
-els.documentTypeFilter.addEventListener("change", renderDocuments);
-els.clearDocumentFilters.addEventListener("click", () => {
-  els.documentNameFilter.value = "";
-  els.documentTypeFilter.value = "";
-  renderDocuments();
-});
-els.batchDeleteDocuments.addEventListener("click", batchDeleteDocuments);
-els.knowledgeBaseSelect.addEventListener("change", () => {
-  changeKnowledgeBase().catch((error) => showToast(error.message, true));
-});
-els.knowledgeBaseForm.addEventListener("submit", createKnowledgeBase);
-els.refreshIndexJobs.addEventListener("click", () => {
-  loadIndexJobs().catch((error) => showToast(error.message, true));
-});
-els.indexJobList.addEventListener("click", handleIndexJobListClick);
-els.documentList.addEventListener("click", handleDocumentListClick);
-els.documentList.addEventListener("change", handleDocumentListChange);
-els.askForm.addEventListener("submit", askQuestion);
-els.answerOutput.addEventListener("click", handleAnswerFeedbackClick);
-els.settingsForm.addEventListener("submit", saveSettings);
-els.profileForm.addEventListener("submit", saveProfile);
-els.profileTableBody.addEventListener("click", handleProfileTableClick);
-els.addProfileButton.addEventListener("click", () => openProfileModal());
-els.closeProfileModal.addEventListener("click", closeProfileModal);
-els.cancelProfileModal.addEventListener("click", closeProfileModal);
-els.profileModal.addEventListener("click", (event) => {
-  if (event.target === els.profileModal) {
-    closeProfileModal();
+function bindElement(element, eventName, handler) {
+  if (element) {
+    element.addEventListener(eventName, handler);
   }
-});
-els.providerInput.addEventListener("change", applyProviderDefaults);
-els.evaluationForm.addEventListener("submit", runEvaluation);
-els.reloadEvaluation.addEventListener("click", () => {
-  loadLatestEvaluation().catch((error) => showToast(error.message, true));
-});
-els.reloadEvaluationRuns.addEventListener("click", () => {
-  loadEvaluationRuns().catch((error) => showToast(error.message, true));
-});
-els.evaluationHistory.addEventListener("click", handleEvaluationHistoryClick);
-els.reloadSettings.addEventListener("click", () => {
-  loadSettings().catch((error) => showToast(error.message, true));
-});
-els.reloadTeamAccess.addEventListener("click", () => {
-  loadTeamAccess().catch((error) => showToast(error.message, true));
-});
-els.adminUserForm.addEventListener("submit", createAdminUser);
-els.memberForm.addEventListener("submit", addKnowledgeBaseMember);
-els.memberList.addEventListener("click", handleMemberListClick);
-els.languageButtons.forEach((button) => {
-  button.addEventListener("click", () => setLanguage(button.dataset.language));
-});
-els.askModeButtons.forEach((button) => {
-  button.addEventListener("click", () => setAskMode(button.dataset.askMode));
-});
-els.colorButtons.forEach((button) => {
-  button.addEventListener("click", () => setThemeColor(button.dataset.themeColor));
-});
-els.customColorInput.addEventListener("input", (event) => {
-  setThemeColor("custom", event.target.value);
-});
-els.backgroundColorInput.addEventListener("input", (event) => {
-  setBackgroundColor(event.target.value);
-});
-els.resetBackgroundColor.addEventListener("click", resetBackgroundColor);
-els.tabButtons.forEach((button) => {
-  button.addEventListener("click", () => switchTab(button.dataset.tab));
-});
-els.questionInput.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter") {
-    return;
-  }
+}
 
-  if (event.ctrlKey) {
+function bindElements(elements, eventName, handler) {
+  elements.forEach((element) => bindElement(element, eventName, (event) => handler(element, event)));
+}
+
+function bindUiEvents() {
+  bindElement(els.uploadForm, "submit", uploadDocument);
+  bindElement(els.chooseFileButton, "click", () => els.fileInput?.click());
+  bindElement(els.fileNameDisplay, "click", () => els.fileInput?.click());
+  bindElement(els.fileInput, "change", updateSelectedFileName);
+  bindElement(els.documentNameFilter, "input", renderDocuments);
+  bindElement(els.documentTypeFilter, "change", renderDocuments);
+  bindElement(els.clearDocumentFilters, "click", () => {
+    if (els.documentNameFilter) {
+      els.documentNameFilter.value = "";
+    }
+    if (els.documentTypeFilter) {
+      els.documentTypeFilter.value = "";
+    }
+    renderDocuments();
+  });
+  bindElement(els.batchDeleteDocuments, "click", batchDeleteDocuments);
+  bindElement(els.knowledgeBaseSelect, "change", () => {
+    changeKnowledgeBase().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.knowledgeBaseForm, "submit", createKnowledgeBase);
+  bindElement(els.refreshIndexJobs, "click", () => {
+    loadIndexJobs().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.indexJobList, "click", handleIndexJobListClick);
+  bindElement(els.documentList, "click", handleDocumentListClick);
+  bindElement(els.documentList, "change", handleDocumentListChange);
+  bindElement(els.askForm, "submit", askQuestion);
+  bindElement(els.answerOutput, "click", handleAnswerFeedbackClick);
+  bindElement(els.settingsForm, "submit", saveSettings);
+  bindElement(els.profileForm, "submit", saveProfile);
+  bindElement(els.profileTableBody, "click", handleProfileTableClick);
+  bindElement(els.addProfileButton, "click", () => openProfileModal());
+  bindElement(els.closeProfileModal, "click", closeProfileModal);
+  bindElement(els.cancelProfileModal, "click", closeProfileModal);
+  bindElement(els.profileModal, "click", (event) => {
+    if (event.target === els.profileModal) {
+      closeProfileModal();
+    }
+  });
+  bindElement(els.providerInput, "change", applyProviderDefaults);
+  bindElement(els.evaluationForm, "submit", runEvaluation);
+  bindElement(els.reloadEvaluation, "click", () => {
+    loadLatestEvaluation().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.reloadEvaluationRuns, "click", () => {
+    loadEvaluationRuns().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.evaluationHistory, "click", handleEvaluationHistoryClick);
+  bindElement(els.reloadSettings, "click", () => {
+    loadSettings().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.reloadTeamAccess, "click", () => {
+    loadTeamAccess().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.adminUserForm, "submit", createAdminUser);
+  bindElement(els.memberForm, "submit", addKnowledgeBaseMember);
+  bindElement(els.memberList, "click", handleMemberListClick);
+  bindElements(els.languageButtons, "click", (button) => setLanguage(button.dataset.language));
+  bindElements(els.askModeButtons, "click", (button) => setAskMode(button.dataset.askMode));
+  bindElements(els.colorButtons, "click", (button) => setThemeColor(button.dataset.themeColor));
+  bindElement(els.customColorInput, "input", (event) => {
+    setThemeColor("custom", event.target.value);
+  });
+  bindElement(els.backgroundColorInput, "input", (event) => {
+    setBackgroundColor(event.target.value);
+  });
+  bindElement(els.resetBackgroundColor, "click", resetBackgroundColor);
+  bindElements(els.tabButtons, "click", (button) => switchTab(button.dataset.tab));
+  bindElement(els.questionInput, "keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    if (event.ctrlKey) {
+      event.preventDefault();
+      insertTextareaNewline(els.questionInput);
+      return;
+    }
+
     event.preventDefault();
-    insertTextareaNewline(els.questionInput);
-    return;
-  }
+    els.askForm?.requestSubmit();
+  });
+  bindElement(els.refreshDocuments, "click", () => {
+    loadDocuments().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.authForm, "submit", submitAuth);
+  bindElement(els.registerUser, "click", () => {
+    registerUser().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.bootstrapAdmin, "click", () => {
+    bootstrapAdmin().catch((error) => showToast(error.message, true));
+  });
+  bindElement(els.logoutButton, "click", () => {
+    logout().catch((error) => showToast(error.message, true));
+  });
+}
 
-  event.preventDefault();
-  els.askForm.requestSubmit();
-});
-els.refreshDocuments.addEventListener("click", () => {
-  loadDocuments().catch((error) => showToast(error.message, true));
-});
-els.authForm.addEventListener("submit", submitAuth);
-els.registerUser.addEventListener("click", () => {
-  registerUser().catch((error) => showToast(error.message, true));
-});
-els.bootstrapAdmin.addEventListener("click", () => {
-  bootstrapAdmin().catch((error) => showToast(error.message, true));
-});
-els.logoutButton.addEventListener("click", () => {
-  logout().catch((error) => showToast(error.message, true));
-});
-
+bindUiEvents();
 initializeAuthenticatedApp();
 
 function insertTextareaNewline(textarea) {

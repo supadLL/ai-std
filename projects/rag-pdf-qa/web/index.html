@@ -4,37 +4,40 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Local RAG Agent | Knowledge QA</title>
-    <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/web/assets/rag-agent-icon-192.png?v=29" />
-<<<<<<< HEAD
-    <link rel="stylesheet" href="/web/styles.css?v=43" />
-=======
-<<<<<<< HEAD
-    <link rel="stylesheet" href="/web/styles.css?v=40" />
-=======
-    <link rel="stylesheet" href="/web/styles.css?v=41" />
->>>>>>> e0d56302c3febb53fc08d3d5219d1bc8e7a1149f
->>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
+    <link rel="icon" type="image/png" sizes="64x64" href="/web/assets/rag-agent-icon-64.png?v=29" onerror="this.onerror=null;this.href='assets/rag-agent-icon-64.png?v=29'" />
+    <link rel="apple-touch-icon" sizes="192x192" href="assets/rag-agent-icon-192.png?v=29" />
+    <link rel="stylesheet" href="/web/styles.css?v=49" onerror="this.onerror=null;this.href='styles.css?v=49'" />
   </head>
   <body>
     <section class="auth-panel" id="authPanel">
       <form class="auth-card" id="authForm">
-        <div>
-          <p class="eyebrow" data-i18n="auth.eyebrow">Enterprise Access</p>
-          <h2 data-i18n="auth.title">Sign in</h2>
+        <div class="auth-card-head">
+          <div>
+            <p class="eyebrow" data-i18n="auth.eyebrow">企业访问</p>
+            <h2 data-i18n="auth.title">登录</h2>
+          </div>
+          <div class="auth-language-control">
+            <span data-i18n="auth.language">语言</span>
+            <div class="segmented-control compact" id="authLanguageControl" role="group" aria-label="Language" data-i18n-aria-label="auth.language">
+              <button class="segment-button active" type="button" data-language="zh">中文</button>
+              <button class="segment-button" type="button" data-language="en">English</button>
+            </div>
+          </div>
         </div>
         <label>
-          <span data-i18n="auth.username">Username</span>
+          <span data-i18n="auth.username">用户名</span>
           <input id="authUsername" type="text" autocomplete="username" value="admin" />
         </label>
         <label>
-          <span data-i18n="auth.password">Password</span>
-          <input id="authPassword" type="password" autocomplete="current-password" />
+          <span data-i18n="auth.password">密码</span>
+          <input id="authPassword" type="password" autocomplete="current-password" placeholder="至少 8 位字符" data-i18n-placeholder="auth.passwordPlaceholder" />
         </label>
+        <p class="auth-help" id="authAdminHelp" data-i18n="auth.adminHelp">首次使用：输入用户名和至少 8 位密码，然后点击“初始化管理员”。这个密码就是该管理员账号的登录密码。</p>
+        <p class="auth-message" id="authMessage" aria-live="polite"></p>
         <div class="auth-actions">
-          <button class="primary-button" type="submit" data-i18n="auth.login">Login</button>
-          <button class="ghost-button" id="registerUser" type="button" data-i18n="auth.register">Register</button>
-          <button class="ghost-button" id="bootstrapAdmin" type="button" data-i18n="auth.bootstrap">Initialize Admin</button>
+          <button class="primary-button" type="submit" data-i18n="auth.login">登录</button>
+          <button class="ghost-button" id="registerUser" type="button" data-i18n="auth.register">注册</button>
+          <button class="ghost-button" id="bootstrapAdmin" type="button" data-i18n="auth.bootstrap">初始化管理员</button>
         </div>
       </form>
     </section>
@@ -105,15 +108,11 @@
             </div>
 
             <form class="upload-box" id="uploadForm">
-<<<<<<< HEAD
-              <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.html,.htm,.docx,.csv,.xlsx" />
-=======
               <div class="file-picker" id="filePicker">
-                <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.docx,.csv,.xlsx" />
+                <input id="fileInput" name="file" type="file" accept=".pdf,.md,.markdown,.txt,.html,.htm,.docx,.csv,.xlsx" multiple />
                 <span class="file-name" id="fileNameDisplay" data-i18n="import.noFile">未选择文件</span>
                 <button class="file-button" id="chooseFileButton" type="button" data-i18n="import.chooseFile">选择文件</button>
               </div>
->>>>>>> 54150954f5ddeeac4a794980a0eaf0e85bed9248
               <div class="upload-meta">
                 <label for="chunkSize" data-i18n="import.chunk">分块大小 chunk</label>
                 <input id="chunkSize" name="chunk_size" type="number" min="100" max="3000" value="800" />
@@ -422,6 +421,6 @@
       </form>
     </div>
     <div class="toast" id="toast"></div>
-    <script src="/web/app.js?v=43"></script>
+    <script src="/web/app.js?v=49" onerror="this.onerror=null;this.src='app.js?v=49'"></script>
   </body>
 </html>

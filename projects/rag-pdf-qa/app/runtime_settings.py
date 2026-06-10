@@ -151,11 +151,13 @@ def apply_runtime_settings(settings: Settings, runtime_settings: RuntimeSettings
         qdrant_collection=settings.qdrant_collection,
         document_metadata_path=settings.document_metadata_path,
         user_store_path=settings.user_store_path,
+        index_job_storage_path=settings.index_job_storage_path,
         database_url=settings.database_url,
         redis_url=settings.redis_url,
         app_secret_key=settings.app_secret_key,
         secret_encryption_key=settings.secret_encryption_key,
         access_token_expire_minutes=settings.access_token_expire_minutes,
+        user_registration_enabled=settings.user_registration_enabled,
         max_upload_bytes=settings.max_upload_bytes,
         rate_limit_enabled=settings.rate_limit_enabled,
         rate_limit_requests=settings.rate_limit_requests,
@@ -163,6 +165,10 @@ def apply_runtime_settings(settings: Settings, runtime_settings: RuntimeSettings
         source_storage_enabled=settings.source_storage_enabled,
         source_storage_backend=settings.source_storage_backend,
         source_storage_path=settings.source_storage_path,
+        web_fetch_enabled=settings.web_fetch_enabled,
+        web_fetch_timeout_seconds=settings.web_fetch_timeout_seconds,
+        web_fetch_max_bytes=settings.web_fetch_max_bytes,
+        web_fetch_allow_private_hosts=settings.web_fetch_allow_private_hosts,
     )
 
 

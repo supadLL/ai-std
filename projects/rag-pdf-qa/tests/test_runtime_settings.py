@@ -38,6 +38,32 @@ def test_apply_runtime_settings_prefers_generic_llm_fields():
     assert effective.deepseek_model == "runtime-model"
 
 
+def test_apply_runtime_settings_preserves_non_runtime_fields():
+    base = Settings(
+        llm_provider="deepseek",
+        llm_api_key="env-key",
+        llm_base_url="https://env.example/v1",
+        llm_model="env-model",
+        index_job_storage_path="custom/index-jobs",
+        user_registration_enabled=False,
+        web_fetch_enabled=False,
+        web_fetch_timeout_seconds=3.5,
+        web_fetch_max_bytes=12345,
+        web_fetch_allow_private_hosts=True,
+    )
+    runtime = RuntimeSettings(llm_model="runtime-model")
+
+    effective = apply_runtime_settings(base, runtime)
+
+    assert effective.llm_model == "runtime-model"
+    assert effective.index_job_storage_path == "custom/index-jobs"
+    assert effective.user_registration_enabled is False
+    assert effective.web_fetch_enabled is False
+    assert effective.web_fetch_timeout_seconds == 3.5
+    assert effective.web_fetch_max_bytes == 12345
+    assert effective.web_fetch_allow_private_hosts is True
+
+
 def test_merge_runtime_settings_can_clear_generic_and_legacy_api_keys():
     current = RuntimeSettings(
         deepseek_api_key="old-runtime-key",

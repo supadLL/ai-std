@@ -9,6 +9,7 @@
 ```text
 README.md
 docs/00-project-continuation-guide.md
+docs/00-llm-start-here.md
 docs/goal/README.md
 docs/enterprise-goal/README.md
 docs/summary/README.md
@@ -96,13 +97,14 @@ LLM API 配置档案管理：新增、编辑、删除和一键启用
 企业级第 18 步：PDF 内嵌图片 OCR 治理，支持 enable_image_ocr、pdf_image_ocr chunk 和图片 OCR 预览
 企业级第 19 步：HTML 网页正文入库治理，支持 html/htm 上传、正文清理和 HTML 表格抽取
 企业级第 20 步：安全单 URL 网页入库，支持单个 HTML URL 抓取、SSRF 防护、大小限制和审计
+企业级第 21 步：Web UI 多文件批量导入，支持一次选择多个文件并顺序创建异步索引任务
 最小 pytest 回归测试骨架
 ```
 
 当前阶段：
 
 ```text
-本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06/07/08/09/10/11/12/13/14/15/16/17/18/19/20 步
+本地 RAG Agent 初版；enterprise-rag-platform 分支已进入企业级改造并完成第 01/02/03/04/05/06/07/08/09/10/11/12/13/14/15/16/17/18/19/20/21 步
 ```
 
 当前主线已经完成一次项目级收口。
@@ -690,7 +692,7 @@ PDF 提取 -> chunk 切分 -> embedding -> Qdrant 索引/检索 -> 当前 LLM Pr
 PDF 图表语义理解、网页爬虫、站点地图批量导入等更多知识库输入，以及 Web UI Agent 模式切换和更完整回答质量评估。
 
 当前已经支持：
-PDF、PDF 表格抽取、PDF 内嵌图片 OCR、扫描型 PDF OCR、Markdown、txt、html/htm 网页正文、安全单 URL HTML 网页、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/settings/vector-store/status 向量库状态检查、/audit-logs 审计日志、/metrics 基础指标、/evaluation/* 本地检索评估接口和评估历史、/feedback/answers 用户反馈、知识库筛选/详情/批量删除/重建索引、/web-pages/index 安全单 URL 入库，以及企业级分支上的 /auth/register、/admin/users、knowledge base members、Web UI 账号与成员管理、index_jobs 异步索引任务、Qdrant local/server 模式切换、Compose 部署、数据库内 API Key 加密存储、source storage、知识库快照、快照差异比较、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理和安全单 URL 网页入库治理。
+PDF、PDF 表格抽取、PDF 内嵌图片 OCR、扫描型 PDF OCR、Markdown、txt、html/htm 网页正文、安全单 URL HTML 网页、docx、docx 内嵌图片 OCR、csv、xlsx 入库，并提供 http://127.0.0.1:8000/app Web UI、/agent/ask 可解释 Agent 路由、/settings 多供应商 LLM profile 和 prompt 设置、/settings/vector-store/status 向量库状态检查、/audit-logs 审计日志、/metrics 基础指标、/evaluation/* 本地检索评估接口和评估历史、/feedback/answers 用户反馈、知识库筛选/详情/批量删除/重建索引、/web-pages/index 安全单 URL 入库，以及企业级分支上的 /auth/register、/admin/users、knowledge base members、Web UI 账号与成员管理、index_jobs 异步索引任务、Web UI 多文件顺序创建索引任务、Qdrant local/server 模式切换、Compose 部署、数据库内 API Key 加密存储、source storage、知识库快照、快照差异比较、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理和安全单 URL 网页入库治理。
 
 请注意：
 1. 服务默认使用 8000，不要随便换端口。
@@ -700,6 +702,7 @@ PDF、PDF 表格抽取、PDF 内嵌图片 OCR、扫描型 PDF OCR、Markdown、t
 5. 每次项目阶段变化，都要同步更新 docs/00-project-continuation-guide.md。
 6. 后续重要步骤必须先写 goal，再写代码，完成后写 summary。
 7. 普通主线按 docs/goal/README.md 执行；企业级分支按 docs/enterprise-goal/README.md 执行。
+8. 新 LLM 接手时先读 docs/00-llm-start-here.md，并先确认 git 分支。
 
 在修改代码前，请先说明你读到了当前哪些模块和当前项目处于什么阶段。
 ```
@@ -804,6 +807,7 @@ Web UI RAG / Agent 模式切换和 Agent 路由解释展示
 Web UI 提问限定 document_id
 Web UI 当前 knowledge base 选择和创建
 Web UI 异步索引任务状态展示和失败任务 retry
+Web UI 多文件选择并顺序创建异步索引任务
 README 项目架构图、RAG 链路图、Web UI 截图、简历描述模板和项目演示脚本
 一键启动脚本和 Dockerfile
 /settings 多供应商 LLM 运行时设置
@@ -814,7 +818,7 @@ Docker Compose 部署 api / db / qdrant / redis
 MAX_UPLOAD_BYTES 上传大小限制
 基础请求限流和 429 Retry-After
 原始上传文件 source storage 和 documents 存储引用
-知识库版本快照、稳定 content_hash、快照文档级差异比较、用户注册与管理员开通、知识库成员共享管理、Web UI 账号与成员管理、LLM-as-a-judge 回答质量评估、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理、安全单 URL 网页入库治理
+知识库版本快照、稳定 content_hash、快照文档级差异比较、用户注册与管理员开通、知识库成员共享管理、Web UI 账号与成员管理、LLM-as-a-judge 回答质量评估、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理、安全单 URL 网页入库治理、Web UI 多文件批量导入
 ```
 
 当前还没有支持：

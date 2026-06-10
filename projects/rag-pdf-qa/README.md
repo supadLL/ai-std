@@ -21,7 +21,7 @@
 作为简历中的 AI 工程化个人项目
 ```
 
-当前主线是个人项目级 RAG Agent；在 `enterprise-rag-platform` 分支上已经开始企业级改造，并完成登录鉴权、用户注册与管理员开通、Web UI 账号与成员管理、数据库持久化、多租户知识库隔离、知识库成员共享、异步索引、审计观测、质量治理、LLM-as-a-judge 回答质量评估、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理、安全单 URL 网页入库治理、部署密钥治理、运行安全边界、源文件存储治理、知识库版本快照和快照差异比较。
+当前主线是个人项目级 RAG Agent；在 `enterprise-rag-platform` 分支上已经开始企业级改造，并完成登录鉴权、用户注册与管理员开通、Web UI 账号与成员管理、数据库持久化、多租户知识库隔离、知识库成员共享、异步索引、Web UI 多文件批量导入、审计观测、质量治理、LLM-as-a-judge 回答质量评估、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理、安全单 URL 网页入库治理、部署密钥治理、运行安全边界、源文件存储治理、知识库版本快照和快照差异比较。
 
 ## 技术栈
 
@@ -94,6 +94,7 @@ flowchart TD
 | 多租户隔离 | 企业级分支已支持 Organization / Workspace / KnowledgeBase / Membership，文档和检索按知识库隔离 |
 | 知识库共享 | 企业级分支支持 owner/admin 查看、添加和移除知识库成员 |
 | 异步索引任务 | 企业级分支支持上传后创建 index job、后台入库、状态查询、失败原因和手动重试 |
+| Web UI 多文件导入 | 企业级分支支持一次选择多个文件，并顺序创建多个异步索引任务 |
 | 知识库版本快照 | 企业级分支支持手动创建知识库快照，记录文档清单、索引 chunk 数、稳定 content_hash 和文档级快照差异 |
 | 文档管理 | 支持列表、筛选、详情、批量删除、指定文档重建索引 |
 | 去重策略 | 使用 content_hash 避免重复入库，支持 reindex 重建 |
@@ -182,6 +183,7 @@ flowchart TD
 如果你还不熟悉 FastAPI 和这一步的基本概念，先读：
 
 - [项目续接规范：新对话 / 新开发者先读](docs/00-project-continuation-guide.md)
+- [新对话 / 新 LLM 接手指南：先确认分支和文档目录](docs/00-llm-start-here.md)
 - [goal 执行文档规范：开工前先读](docs/goal/README.md)
 - [enterprise-goal 企业级改造规划](docs/enterprise-goal/README.md)
 - [summary 总结文档规范：完成后记录](docs/summary/README.md)
@@ -249,6 +251,7 @@ flowchart TD
 - [企业级第 18 步完成总结：PDF 内嵌图片 OCR 治理](docs/enterprise-summary/18-pdf-embedded-image-ocr-summary.md)
 - [企业级第 19 步完成总结：HTML 网页正文入库治理](docs/enterprise-summary/19-html-web-page-body-loader-summary.md)
 - [企业级第 20 步完成总结：安全单 URL 网页入库](docs/enterprise-summary/20-safe-url-web-page-ingestion-summary.md)
+- [企业级第 21 步完成总结：Web UI 多文件批量导入](docs/enterprise-summary/21-web-ui-multi-file-upload-summary.md)
 
 后续实现必须先读对应 goal，再写代码，完成后写 summary。
 
@@ -726,7 +729,7 @@ GET /evaluation/latest
 企业级第 02 步：数据库持久化替代本地 JSON
 企业级第 03 步：多租户和权限隔离
 企业级第 04 步：异步索引任务
-企业级第 05-16 步：向量库治理、审计观测、质量治理、部署密钥治理、运行安全、源文件存储、知识库快照、快照差异比较、用户注册与管理员开通、知识库成员共享管理、Web UI 账号与成员管理、LLM-as-a-judge 回答质量评估
+企业级第 05-21 步：向量库治理、审计观测、质量治理、部署密钥治理、运行安全、源文件存储、知识库快照、快照差异比较、用户注册与管理员开通、知识库成员共享管理、Web UI 账号与成员管理、LLM-as-a-judge 回答质量评估、PDF 表格抽取治理、PDF 内嵌图片 OCR 治理、HTML 网页正文入库治理、安全单 URL 网页入库治理、Web UI 多文件批量导入
 ```
 
 执行顺序保持：
@@ -738,5 +741,5 @@ GET /evaluation/latest
 同步更新 README 和 00 号文档
 ```
 
-企业级第 01-16 步已完成当前规划闭环的一部分。后续如果继续新增企业级目标，建议先补 `docs/enterprise-goal/NN-*.md`，再按 goal -> code -> tests -> summary 的节奏推进。
+企业级第 01-21 步已完成当前规划闭环的一部分。后续如果继续新增企业级目标，必须先确认当前分支，再补 `docs/enterprise-goal/NN-*.md`，并按 goal -> code -> tests -> summary 的节奏推进。
 

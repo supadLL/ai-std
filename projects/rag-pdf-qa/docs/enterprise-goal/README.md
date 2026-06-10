@@ -64,6 +64,19 @@ docs/enterprise-goal/ 企业级 RAG 平台改造主线
 | 06 | [06-audit-and-observability-goal.md](06-audit-and-observability-goal.md) | 审计日志、指标和可观测性 |
 | 07 | [07-evaluation-and-quality-governance-goal.md](07-evaluation-and-quality-governance-goal.md) | 企业级评估和质量治理 |
 | 08 | [08-deployment-and-secret-governance-goal.md](08-deployment-and-secret-governance-goal.md) | 部署、环境和密钥治理 |
+| 09 | [09-runtime-safety-and-limits-goal.md](09-runtime-safety-and-limits-goal.md) | 运行安全边界和限流 |
+| 10 | [10-source-file-storage-governance-goal.md](10-source-file-storage-governance-goal.md) | 原始文件存储治理 |
+| 11 | [11-knowledge-base-versioning-goal.md](11-knowledge-base-versioning-goal.md) | 知识库版本快照 |
+| 12 | [12-knowledge-base-snapshot-diff-goal.md](12-knowledge-base-snapshot-diff-goal.md) | 知识库快照差异比较 |
+| 13 | [13-user-registration-and-provisioning-goal.md](13-user-registration-and-provisioning-goal.md) | 用户注册与管理员开通 |
+| 14 | [14-knowledge-base-member-management-goal.md](14-knowledge-base-member-management-goal.md) | 知识库成员共享管理 |
+| 15 | [15-web-ui-account-and-member-management-goal.md](15-web-ui-account-and-member-management-goal.md) | Web UI 账号和成员管理 |
+| 16 | [16-llm-answer-quality-judge-goal.md](16-llm-answer-quality-judge-goal.md) | LLM-as-a-judge 回答质量评估 |
+| 17 | [17-pdf-table-extraction-governance-goal.md](17-pdf-table-extraction-governance-goal.md) | PDF 表格抽取治理 |
+| 18 | [18-pdf-embedded-image-ocr-goal.md](18-pdf-embedded-image-ocr-goal.md) | PDF 内嵌图片 OCR 治理 |
+| 19 | [19-html-web-page-body-loader-goal.md](19-html-web-page-body-loader-goal.md) | HTML 网页正文入库治理 |
+| 20 | [20-safe-url-web-page-ingestion-goal.md](20-safe-url-web-page-ingestion-goal.md) | 安全单 URL 网页入库 |
+| 21 | [21-web-ui-multi-file-upload-goal.md](21-web-ui-multi-file-upload-goal.md) | Web UI 多文件批量导入 |
 
 ---
 
@@ -119,19 +132,4 @@ docs/enterprise-summary/
 docs/summary/
 ```
 
-Additional enterprise goal:
-
-```text
-09-runtime-safety-and-limits-goal.md
-10-source-file-storage-governance-goal.md
-11-knowledge-base-versioning-goal.md
-12-knowledge-base-snapshot-diff-goal.md
-13-user-registration-and-provisioning-goal.md
-14-knowledge-base-member-management-goal.md
-15-web-ui-account-and-member-management-goal.md
-16-llm-answer-quality-judge-goal.md
-17-pdf-table-extraction-governance-goal.md
-18-pdf-embedded-image-ocr-goal.md
-19-html-web-page-body-loader-goal.md
-20-safe-url-web-page-ingestion-goal.md
-```
+后续新增企业级能力从第 22 步继续编号，并继续放在 `docs/enterprise-goal/`。
